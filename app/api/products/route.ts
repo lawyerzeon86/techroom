@@ -27,9 +27,9 @@ export async function POST(request: Request) {
     await ensureSchema();
     const b = validateProduct(await readJsonBody(request));
     const result = await getPool().query(
-      `INSERT INTO products (category,title,price,old_price,rating,reviews,badge,emoji,image_url,sku,oem,stock,description,specs,is_active,sort_order)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16) RETURNING *`,
-      [b.category,b.title,b.price,b.oldPrice,b.rating,b.reviews,b.badge,b.emoji,b.imageUrl,b.sku,b.oem,b.stock,b.description,b.specs,b.isActive,b.sortOrder]
+      `INSERT INTO products (category,title,price,old_price,rating,reviews,badge,emoji,image_url,image_urls,sku,oem,stock,description,specs,is_active,sort_order)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10::jsonb,$11,$12,$13,$14,$15,$16,$17) RETURNING *`,
+      [b.category,b.title,b.price,b.oldPrice,b.rating,b.reviews,b.badge,b.emoji,b.imageUrl,JSON.stringify(b.imageUrls),b.sku,b.oem,b.stock,b.description,b.specs,b.isActive,b.sortOrder]
     );
     return NextResponse.json(rowToProduct(result.rows[0]), { status: 201, headers: { 'Cache-Control': 'no-store' } });
   } catch (error: any) {
