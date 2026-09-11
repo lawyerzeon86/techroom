@@ -121,14 +121,20 @@ export function validateProduct(body: any) {
   const title = cleanText(body?.title, 200, true)!;
   const category = typeof body?.category === 'string' && CATEGORIES.includes(body.category as any) ? body.category : null;
   if (!category) throw new Error('VALIDATION');
-  const imageUrlRaw = cleanText(body?.imageUrl, 1000);
-  let imageUrl: string | null = null;
-  if (imageUrlRaw) {
+  const validateImageUrl = (value: unknown) => {
+    const raw = cleanText(value, 1000);
+    if (!raw) return null;
     let url: URL;
-    try { url = new URL(imageUrlRaw); } catch { throw new Error('VALIDATION'); }
-    if (!['http:', 'https:'].includes(url.protocol)) throw new Error('VALIDATION');
-    imageUrl = url.toString();
-  }
+    try { url = new URL(raw); } catch { throw new Error('VALIDATION'); }
+    if (url.protocol !== 'https:') throw new Error('VALIDATION');
+    return url.toString();
+  };
+  const rawImages = Array.isArray(body?.imageUrls) ? body.imageUrls : [];
+  if (rawImages.length > 12) throw new Error('VALIDATION');
+  const imageUrls = rawImages.map(validateImageUrl).filter((v): v is string => Boolean(v));
+  const singleImage = validateImageUrl(body?.imageUrl);
+  if (singleImage && !imageUrls.includes(singleImage)) imageUrls.unshift(singleImage);
+  const imageUrl = imageUrls[0] || singleImage || null;
   const oldPrice = body?.oldPrice === null || body?.oldPrice === '' || body?.oldPrice === undefined
     ? null
     : Math.round(finiteNumber(body.oldPrice, 0, 100_000_000, 0));
@@ -142,6 +148,7 @@ export function validateProduct(body: any) {
     badge: cleanText(body?.badge, 40),
     emoji: cleanText(body?.emoji, 16) || '📦',
     imageUrl,
+    imageUrls,
     sku: cleanText(body?.sku, 100),
     oem: cleanText(body?.oem, 100),
     stock: Math.round(finiteNumber(body?.stock, 0, 10_000_000, 0)),
