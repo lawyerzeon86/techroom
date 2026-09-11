@@ -1,49 +1,63 @@
 'use client';
 import { useEffect, useMemo, useState } from 'react';
-import type { Product } from '../../lib/products';
 
-const blank: Omit<Product,'id'> = {category:'Автозапчасти',title:'',price:0,oldPrice:null,rating:5,reviews:0,badge:'',emoji:'📦',imageUrl:'',sku:'',oem:'',stock:0,description:'',specs:'',isActive:true,sortOrder:0};
-const categories = ['Автозапчасти','Электроника','Гаджеты','3D-печать'];
+type Product = { id:number; category:string; title:string; price:number; oldPrice?:number|null; rating:number; reviews:number; badge?:string|null; emoji?:string|null; imageUrl?:string|null; sku?:string|null; oem?:string|null; stock:number; description?:string|null; specs?:string|null; isActive:boolean; sortOrder:number };
+const fallbackProducts: Product[] = [
+  {id:1,category:'Автозапчасти',title:'Тормозные диски и колодки Brembo (комплект)',price:12990,rating:4.8,reviews:124,badge:'Хит',emoji:'◉',stock:8,isActive:true,sortOrder:10},
+  {id:2,category:'Электроника',title:'Беспроводные наушники Apple AirPods Pro 2',price:24990,rating:4.9,reviews:312,emoji:'◌',stock:12,isActive:true,sortOrder:20},
+  {id:3,category:'Гаджеты',title:'Смарт-часы Xiaomi Watch S3',price:16990,rating:4.7,reviews:198,emoji:'⌚',stock:7,isActive:true,sortOrder:30},
+  {id:4,category:'3D-печать',title:'PETG пластик для 3D-принтера (1 кг, чёрный)',price:1990,rating:4.8,reviews:76,emoji:'◍',stock:25,isActive:true,sortOrder:40},
+  {id:5,category:'Автозапчасти',title:'Фара передняя LED для Audi A4 B9',price:45990,rating:4.6,reviews:42,badge:'Новинка',emoji:'▰',stock:3,isActive:true,sortOrder:50},
+];
+const rooms = [
+  {id:'auto', title:'Автозапчасти', sub:'Для твоего автомобиля', icon:'🚗', cls:'auto'},
+  {id:'electronics', title:'Электроника', sub:'Технологии рядом', icon:'⚡', cls:'electronics'},
+  {id:'gadgets', title:'Гаджеты', sub:'Удобство в деталях', icon:'🎧', cls:'gadgets'},
+  {id:'print', title:'3D-печать', sub:'Печатай свои идеи', icon:'🧊', cls:'print'},
+];
 
-export default function AdminPage(){
- const [authenticated,setAuthenticated]=useState<boolean|null>(null); const [password,setPassword]=useState(''); const [products,setProducts]=useState<Product[]>([]); const [selected,setSelected]=useState<Product|null>(null); const [draft,setDraft]=useState<any>(blank); const [q,setQ]=useState(''); const [status,setStatus]=useState(''); const [busy,setBusy]=useState(false);
- const load=async()=>{setStatus('Загрузка…'); const r=await fetch('/api/products?includeInactive=1',{cache:'no-store'}); if(r.status===401){setAuthenticated(false);setStatus('');return;} const j=await r.json(); if(!r.ok){setStatus(j.error||'Ошибка загрузки');return;} setProducts(j); setStatus('');};
- useEffect(()=>{fetch('/api/admin/session',{cache:'no-store'}).then(r=>r.json()).then(j=>{setAuthenticated(Boolean(j.authenticated)); if(j.authenticated) load();}).catch(()=>setAuthenticated(false))},[]);
- const login=async()=>{setBusy(true);setStatus('Проверяю…');const r=await fetch('/api/admin/login',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({password})});const j=await r.json();if(!r.ok){setStatus(j.error||'Ошибка входа');setBusy(false);return;}setPassword('');setAuthenticated(true);setStatus('');await load();setBusy(false)};
- const logout=async()=>{await fetch('/api/admin/logout',{method:'POST'});setAuthenticated(false);setProducts([]);setSelected(null);setDraft({...blank});setStatus('')};
- const filtered=useMemo(()=>products.filter(p=>(p.title+' '+(p.sku||'')+' '+(p.oem||'')).toLowerCase().includes(q.toLowerCase())),[products,q]);
- const choose=(p:Product)=>{setSelected(p);setDraft({...p});window.scrollTo({top:0,behavior:'smooth'})};
- const newProduct=()=>{setSelected(null);setDraft({...blank});window.scrollTo({top:0,behavior:'smooth'})};
- const save=async()=>{setBusy(true);setStatus('Сохраняю…');const url=selected?`/api/products/${selected.id}`:'/api/products';const r=await fetch(url,{method:selected?'PUT':'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(draft)});const j=await r.json();if(r.status===401){setAuthenticated(false);setStatus('Сессия истекла');setBusy(false);return;}if(!r.ok){setStatus(j.error||'Ошибка сохранения');setBusy(false);return;}setStatus('✓ Сохранено');await load();setSelected(j);setDraft(j);setBusy(false)};
- const remove=async()=>{if(!selected||!confirm(`Удалить «${selected.title}»?`))return;setBusy(true);const r=await fetch(`/api/products/${selected.id}`,{method:'DELETE'});const j=await r.json();if(r.status===401){setAuthenticated(false);setStatus('Сессия истекла');setBusy(false);return;}if(!r.ok){setStatus(j.error||'Ошибка удаления');setBusy(false);return;}setSelected(null);setDraft({...blank});setStatus('✓ Товар удалён');await load();setBusy(false)};
- if(authenticated===null) return <main className="admin-shell"><section className="admin-card"><h1>TechRoom Admin</h1><p>Проверяем сессию…</p></section></main>;
- if(!authenticated) return <main className="admin-shell"><section className="admin-card editor" style={{maxWidth:520,margin:'60px auto'}}><a href="/" className="back">← На сайт</a><h1>TechRoom Admin</h1><p>Войдите, чтобы управлять каталогом.</p><div className="form-grid"><label className="wide">Пароль администратора<input type="password" autoComplete="current-password" value={password} onChange={e=>setPassword(e.target.value)} onKeyDown={e=>{if(e.key==='Enter'&&!busy)login()}} placeholder="Пароль"/></label></div><div className="editor-actions"><button className="save-btn" disabled={busy||password.length<1} onClick={login}>{busy?'Подождите…':'Войти'}</button></div>{status&&<p>{status}</p>}</section></main>;
- return <main className="admin-shell">
-  <div className="admin-top"><div><a href="/" className="back">← На сайт</a><h1>TechRoom Admin</h1><p>Управление каталогом товаров</p></div><div style={{display:'flex',gap:10}}><button className="new-btn" onClick={newProduct}>＋ Новый товар</button><button className="edit-btn" onClick={logout}>Выйти</button></div></div>
-  <section className="admin-card editor">
-   <div className="editor-head"><div><h2>{selected?`Редактирование #${selected.id}`:'Новый товар'}</h2><span>{status}</span></div></div>
-   <div className="form-grid">
-    <label className="wide">Название<input maxLength={200} value={draft.title||''} onChange={e=>setDraft({...draft,title:e.target.value})} placeholder="Название товара"/></label>
-    <label>Категория<select value={draft.category} onChange={e=>setDraft({...draft,category:e.target.value})}>{categories.map(c=><option key={c}>{c}</option>)}</select></label>
-    <label>Цена, ₽<input type="number" min="0" max="100000000" value={draft.price} onChange={e=>setDraft({...draft,price:Number(e.target.value)})}/></label>
-    <label>Старая цена, ₽<input type="number" min="0" max="100000000" value={draft.oldPrice||''} onChange={e=>setDraft({...draft,oldPrice:e.target.value?Number(e.target.value):null})}/></label>
-    <label>Остаток<input type="number" min="0" max="10000000" value={draft.stock} onChange={e=>setDraft({...draft,stock:Number(e.target.value)})}/></label>
-    <label>SKU / артикул<input maxLength={100} value={draft.sku||''} onChange={e=>setDraft({...draft,sku:e.target.value})}/></label>
-    <label>OEM<input maxLength={100} value={draft.oem||''} onChange={e=>setDraft({...draft,oem:e.target.value})}/></label>
-    <label>Бейдж<input maxLength={40} value={draft.badge||''} onChange={e=>setDraft({...draft,badge:e.target.value})} placeholder="Хит / Новинка"/></label>
-    <label>Emoji<input maxLength={16} value={draft.emoji||''} onChange={e=>setDraft({...draft,emoji:e.target.value})}/></label>
-    <label>Рейтинг<input type="number" min="0" max="5" step="0.1" value={draft.rating} onChange={e=>setDraft({...draft,rating:Number(e.target.value)})}/></label>
-    <label>Отзывы<input type="number" min="0" max="10000000" value={draft.reviews} onChange={e=>setDraft({...draft,reviews:Number(e.target.value)})}/></label>
-    <label>Порядок<input type="number" min="-1000000" max="1000000" value={draft.sortOrder} onChange={e=>setDraft({...draft,sortOrder:Number(e.target.value)})}/></label>
-    <label className="wide">Ссылка на фото<input maxLength={1000} value={draft.imageUrl||''} onChange={e=>setDraft({...draft,imageUrl:e.target.value})} placeholder="https://..."/></label>
-    <label className="wide">Описание<textarea maxLength={5000} rows={4} value={draft.description||''} onChange={e=>setDraft({...draft,description:e.target.value})}/></label>
-    <label className="wide">Характеристики<textarea maxLength={10000} rows={5} value={draft.specs||''} onChange={e=>setDraft({...draft,specs:e.target.value})} placeholder={'Материал: ASA\nЦвет: чёрный'}/></label>
-    <label className="toggle"><input type="checkbox" checked={draft.isActive} onChange={e=>setDraft({...draft,isActive:e.target.checked})}/> Показывать на сайте</label>
+
+const money=(n:number)=>new Intl.NumberFormat('ru-RU').format(n)+' ₽';
+
+function Icon({name}:{name:string}){
+ const paths:any={search:'M11 19a8 8 0 1 1 5.66-2.34L22 22',heart:'M20.8 4.6a5.5 5.5 0 0 0-7.8 0L12 5.6l-1-1a5.5 5.5 0 0 0-7.8 7.8l1 1L12 21l7.8-7.6 1-1a5.5 5.5 0 0 0 0-7.8',cart:'M3 3h2l2.4 12.2a2 2 0 0 0 2 1.6h8.8a2 2 0 0 0 1.9-1.4L22 8H6',user:'M20 21a8 8 0 0 0-16 0M12 13a4 4 0 1 0 0-8 4 4 0 0 0 0 8',truck:'M3 7h11v10H3zM14 10h4l3 3v4h-7zM7 20a2 2 0 1 0 0-4 2 2 0 0 0 0 4M18 20a2 2 0 1 0 0-4 2 2 0 0 0 0 4',shield:'M12 3l8 4v5c0 5-3.5 8-8 9-4.5-1-8-4-8-9V7z',star:'M12 3l2.8 5.7 6.2.9-4.5 4.4 1.1 6.2-5.6-3-5.6 3 1.1-6.2L3 9.6l6.2-.9z'};
+ return <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d={paths[name]||paths.star}/></svg>
+}
+
+export default function Home(){
+ const [cart,setCart]=useState<number[]>([]); const [active,setActive]=useState('all'); const [q,setQ]=useState(''); const [notice,setNotice]=useState(''); const [products,setProducts]=useState<Product[]>(fallbackProducts);
+ useEffect(()=>{fetch('/api/products',{cache:'no-store'}).then(async r=>{if(!r.ok) throw new Error(); return r.json()}).then(setProducts).catch(()=>{})},[]);
+ const filtered=useMemo(()=>products.filter(p=>(active==='all'||p.category===active)&&p.title.toLowerCase().includes(q.toLowerCase())),[products,active,q]);
+ const add=(id:number)=>{setCart(c=>[...c,id]);setNotice('Товар добавлен в корзину');setTimeout(()=>setNotice(''),1800)};
+ const scroll=(id:string)=>document.getElementById(id)?.scrollIntoView({behavior:'smooth'});
+ return <main>
+  {notice&&<div className="toast">✓ {notice}</div>}
+  <header className="header">
+   <div className="topbar wrap">
+    <div className="brand" onClick={()=>scroll('home')}><div className="logo">⌂</div><div><b>Tech<span>Room</span></b><small>Техника. Запчасти. Идеи.</small></div></div>
+    <div className="search"><input value={q} onChange={e=>setQ(e.target.value)} placeholder="Поиск товаров, брендов, категорий..."/><Icon name="search"/></div>
+    <div className="actions"><button><Icon name="heart"/> Избранное</button><button onClick={()=>scroll('cart')}><Icon name="cart"/> Корзина <i>{cart.length}</i></button><button><Icon name="user"/> Войти / Регистрация</button></div>
    </div>
-   <div className="editor-actions"><button className="save-btn" disabled={busy||!draft.title} onClick={save}>{busy?'Подождите…':'Сохранить товар'}</button>{selected&&<button className="delete-btn" disabled={busy} onClick={remove}>Удалить</button>}</div>
+   <nav className="nav wrap"><a className="active" onClick={()=>scroll('home')}>Главная</a><a onClick={()=>setActive('Автозапчасти')}>Автозапчасти</a><a onClick={()=>setActive('Электроника')}>Электроника</a><a onClick={()=>setActive('Гаджеты')}>Гаджеты</a><a onClick={()=>setActive('3D-печать')}>3D-печать</a><a onClick={()=>scroll('offers')}>Акции</a><a>О магазине</a><a>Доставка и оплата</a><a>Контакты</a></nav>
+  </header>
+
+  <section id="home" className="hero wrap">
+   <div className="hero-title"><h1>Добро пожаловать в <span>TechRoom!</span></h1><p>Выбери свою комнату и найди то, что нужно</p></div>
+   <div className="rooms">{rooms.map(r=><div key={r.id} className={'room '+r.cls} onClick={()=>{setActive(r.title);scroll('products')}}><div className="room-icon">{r.icon}</div><div className="room-title">{r.title}</div><div className="room-sub">{r.sub}</div><button>Перейти →</button></div>)}</div>
   </section>
-  <section className="admin-card list-card"><div className="list-head"><div><h2>Товары</h2><span>{products.length} позиций</span></div><input value={q} onChange={e=>setQ(e.target.value)} placeholder="Поиск по названию, SKU, OEM"/></div>
-   <div className="admin-table-wrap"><table className="admin-table"><thead><tr><th>ID</th><th>Товар</th><th>Категория</th><th>Цена</th><th>Остаток</th><th>SKU / OEM</th><th></th></tr></thead><tbody>{filtered.map(p=><tr key={p.id}><td>{p.id}</td><td><div className="table-product">{p.imageUrl?<img src={p.imageUrl} alt=""/>:<span>{p.emoji||'📦'}</span>}<div><b>{p.title}</b>{!p.isActive&&<small>Скрыт</small>}</div></div></td><td>{p.category}</td><td>{p.price.toLocaleString('ru-RU')} ₽</td><td>{p.stock}</td><td><small>{p.sku||'—'}<br/>{p.oem||''}</small></td><td><button className="edit-btn" onClick={()=>choose(p)}>Изменить</button></td></tr>)}</tbody></table></div>
+
+  <section className="benefits"><div className="wrap benefit-grid">{[['truck','Быстрая доставка','по всей России'],['shield','Гарантия качества','на все товары'],['star','Оплата по QR','и все способы оплаты'],['heart','Поддержка 24/7','ответим на любые вопросы'],['star','Бонусы и скидки','для постоянных клиентов']].map((b,i)=><div className="benefit" key={i}><Icon name={b[0]}/><div><b>{b[1]}</b><small>{b[2]}</small></div></div>)}</div></section>
+
+  <section id="products" className="section wrap"><div className="section-head"><div><h2>Популярные товары</h2><p>Хиты продаж, которые выбирают наши клиенты</p></div><button className="link" onClick={()=>setActive('all')}>Смотреть все →</button></div>
+   <div className="filters"><button className={active==='all'?'sel':''} onClick={()=>setActive('all')}>Все</button>{rooms.map(r=><button key={r.id} className={active===r.title?'sel':''} onClick={()=>setActive(r.title)}>{r.title}</button>)}</div>
+   <div className="products">{filtered.map(p=><article className="product" key={p.id}><div className="pic">{p.badge&&<span className="badge">{p.badge}</span>}<button className="fav"><Icon name="heart"/></button>{p.imageUrl?<img className="product-image" src={p.imageUrl} alt={p.title}/>:<div className="product-art">{p.emoji||'📦'}</div>}</div><small>{p.category}</small><h3>{p.title}</h3><div className="rating"><span>★ {p.rating}</span> ({p.reviews}) <em>{p.stock>0?'● В наличии':'○ Нет в наличии'}</em></div><div className="price-row"><strong>{money(p.price)}</strong>{p.oldPrice&&p.oldPrice>p.price?<del>{money(p.oldPrice)}</del>:null}</div><button className="buy" disabled={p.stock<=0} onClick={()=>add(p.id)}><Icon name="cart"/> {p.stock>0?'В корзину':'Нет в наличии'}</button></article>)}</div>
+   {!filtered.length&&<div className="empty">Ничего не нашли. Попробуйте изменить запрос или категорию.</div>}
   </section>
+
+  <section id="offers" className="offers"><div className="wrap"><div className="section-head"><div><h2>Акции и спецпредложения</h2><p>Выгодные предложения в каждой комнате</p></div><button className="link">Все акции →</button></div><div className="offer-grid">{[['Автозапчасти','Скидки до 30%','На популярные запчасти','auto'],['Электроника','Скидки до 20%','На технику и аксессуары','electronics'],['Гаджеты','Лучшие цены на хиты','На популярные гаджеты','gadgets'],['3D-печать','Скидка 15% на пластик','На расходные материалы','print']].map((o,i)=><div className={'offer '+o[3]} key={i}><small>{o[0]}</small><b>{o[1]}</b><span>{o[2]}</span><button>Перейти →</button></div>)}</div></div></section>
+
+  <section id="cart" className="cart-band"><div className="wrap cart-row"><div><b>Корзина</b><span>{cart.length?` ${cart.length} товар(ов) добавлено`:' пока пуста'}</span></div><button onClick={()=>{setNotice(cart.length?'Переходим к оформлению заказа':'Добавьте товар в корзину');}}>Оформить заказ →</button></div></section>
+
+  <footer><div className="wrap footer-grid"><div className="brand"><div className="logo">⌂</div><div><b>Tech<span>Room</span></b><small>Техника. Запчасти. Идеи.</small></div></div><div><h4>Каталог</h4><a>Автозапчасти</a><a>Электроника</a><a>Гаджеты</a><a>3D-печать</a></div><div><h4>Информация</h4><a>О магазине</a><a>Доставка и оплата</a><a>Гарантия</a><a>Контакты</a></div><div><h4>Мы в соцсетях</h4><div className="social">VK　TG　▶　◎</div></div><div><h4>Будьте в курсе новинок и акций</h4><div className="subscribe"><input placeholder="Ваш email"/><button>Подписаться</button></div></div></div><div className="wrap copyright">© 2026 TechRoom. Все права защищены. <span>Политика конфиденциальности　 Пользовательское соглашение</span></div></footer>
  </main>
 }
