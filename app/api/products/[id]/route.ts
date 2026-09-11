@@ -16,9 +16,9 @@ export async function PUT(request: Request, context: { params: Promise<{ id: str
     if (!id) return NextResponse.json({ error: 'Некорректный ID' }, { status: 400, headers: { 'Cache-Control': 'no-store' } });
     const b = validateProduct(await readJsonBody(request));
     const result = await getPool().query(
-      `UPDATE products SET category=$1,title=$2,price=$3,old_price=$4,rating=$5,reviews=$6,badge=$7,emoji=$8,image_url=$9,sku=$10,oem=$11,stock=$12,description=$13,specs=$14,is_active=$15,sort_order=$16,updated_at=NOW()
-       WHERE id=$17 RETURNING *`,
-      [b.category,b.title,b.price,b.oldPrice,b.rating,b.reviews,b.badge,b.emoji,b.imageUrl,b.sku,b.oem,b.stock,b.description,b.specs,b.isActive,b.sortOrder,id]
+      `UPDATE products SET category=$1,title=$2,price=$3,old_price=$4,rating=$5,reviews=$6,badge=$7,emoji=$8,image_url=$9,image_urls=$10::jsonb,sku=$11,oem=$12,stock=$13,description=$14,specs=$15,is_active=$16,sort_order=$17,updated_at=NOW()
+       WHERE id=$18 RETURNING *`,
+      [b.category,b.title,b.price,b.oldPrice,b.rating,b.reviews,b.badge,b.emoji,b.imageUrl,JSON.stringify(b.imageUrls),b.sku,b.oem,b.stock,b.description,b.specs,b.isActive,b.sortOrder,id]
     );
     if (!result.rowCount) return NextResponse.json({ error: 'Товар не найден' }, { status: 404, headers: { 'Cache-Control': 'no-store' } });
     return NextResponse.json(rowToProduct(result.rows[0]), { headers: { 'Cache-Control': 'no-store' } });
