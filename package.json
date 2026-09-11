@@ -1,21 +1,22 @@
 {
-  "name":"techroom-store",
-  "version":"1.0.0",
-  "private":true,
-  "scripts":{
-    "dev":"next dev",
-    "build":"next build",
-    "start":"next start"
+  "name": "techroom-store",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start"
   },
-  "dependencies":{
-    "next":"16.3.1",
-    "react":"19.2.0",
-    "react-dom":"19.2.0"
+  "dependencies": {
+    "next": "16.3.1",
+    "react": "19.2.0",
+    "react-dom": "19.2.0",
+    "pg": "^8.13.3"
   },
-  "devDependencies":{
-    "typescript":"^5.8.3",
-    "@types/react":"^19.0.0",
-    "@types/node":"^22.0.0"
+  "devDependencies": {
+    "typescript": "^5.8.3",
+    "@types/react": "^19.0.0",
+    "@types/node": "^22.0.0",
+    "@types/pg": "^8.11.11"
   }
 }
- 

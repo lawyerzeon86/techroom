@@ -1,20 +1,21 @@
 'use client';
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 
-type Product = { id:number; cat:string; title:string; price:number; old?:number; rating:number; reviews:number; badge?:string; emoji:string };
+type Product = { id:number; category:string; title:string; price:number; oldPrice?:number|null; rating:number; reviews:number; badge?:string|null; emoji?:string|null; imageUrl?:string|null; sku?:string|null; oem?:string|null; stock:number; description?:string|null; specs?:string|null; isActive:boolean; sortOrder:number };
+const fallbackProducts: Product[] = [
+  {id:1,category:'Автозапчасти',title:'Тормозные диски и колодки Brembo (комплект)',price:12990,rating:4.8,reviews:124,badge:'Хит',emoji:'◉',stock:8,isActive:true,sortOrder:10},
+  {id:2,category:'Электроника',title:'Беспроводные наушники Apple AirPods Pro 2',price:24990,rating:4.9,reviews:312,emoji:'◌',stock:12,isActive:true,sortOrder:20},
+  {id:3,category:'Гаджеты',title:'Смарт-часы Xiaomi Watch S3',price:16990,rating:4.7,reviews:198,emoji:'⌚',stock:7,isActive:true,sortOrder:30},
+  {id:4,category:'3D-печать',title:'PETG пластик для 3D-принтера (1 кг, чёрный)',price:1990,rating:4.8,reviews:76,emoji:'◍',stock:25,isActive:true,sortOrder:40},
+  {id:5,category:'Автозапчасти',title:'Фара передняя LED для Audi A4 B9',price:45990,rating:4.6,reviews:42,badge:'Новинка',emoji:'▰',stock:3,isActive:true,sortOrder:50},
+];
 const rooms = [
   {id:'auto', title:'Автозапчасти', sub:'Для твоего автомобиля', icon:'🚗', cls:'auto'},
   {id:'electronics', title:'Электроника', sub:'Технологии рядом', icon:'⚡', cls:'electronics'},
   {id:'gadgets', title:'Гаджеты', sub:'Удобство в деталях', icon:'🎧', cls:'gadgets'},
   {id:'print', title:'3D-печать', sub:'Печатай свои идеи', icon:'🧊', cls:'print'},
 ];
-const products: Product[] = [
-  {id:1,cat:'Автозапчасти',title:'Тормозные диски и колодки Brembo (комплект)',price:12990,rating:4.8,reviews:124,badge:'Хит',emoji:'◉'},
-  {id:2,cat:'Электроника',title:'Беспроводные наушники Apple AirPods Pro 2',price:24990,rating:4.9,reviews:312,emoji:'◌'},
-  {id:3,cat:'Гаджеты',title:'Смарт-часы Xiaomi Watch S3',price:16990,rating:4.7,reviews:198,emoji:'⌚'},
-  {id:4,cat:'3D-печать',title:'PETG пластик для 3D-принтера (1 кг, чёрный)',price:1990,rating:4.8,reviews:76,emoji:'◍'},
-  {id:5,cat:'Автозапчасти',title:'Фара передняя LED для Audi A4 B9',price:45990,rating:4.6,reviews:42,badge:'Новинка',emoji:'▰'},
-];
+
 
 const money=(n:number)=>new Intl.NumberFormat('ru-RU').format(n)+' ₽';
 
@@ -24,8 +25,9 @@ function Icon({name}:{name:string}){
 }
 
 export default function Home(){
- const [cart,setCart]=useState<number[]>([]); const [active,setActive]=useState('all'); const [q,setQ]=useState(''); const [notice,setNotice]=useState('');
- const filtered=useMemo(()=>products.filter(p=>(active==='all'||p.cat===active)&&p.title.toLowerCase().includes(q.toLowerCase())),[active,q]);
+ const [cart,setCart]=useState<number[]>([]); const [active,setActive]=useState('all'); const [q,setQ]=useState(''); const [notice,setNotice]=useState(''); const [products,setProducts]=useState<Product[]>(fallbackProducts);
+ useEffect(()=>{fetch('/api/products',{cache:'no-store'}).then(async r=>{if(!r.ok) throw new Error(); return r.json()}).then(setProducts).catch(()=>{})},[]);
+ const filtered=useMemo(()=>products.filter(p=>(active==='all'||p.category===active)&&p.title.toLowerCase().includes(q.toLowerCase())),[products,active,q]);
  const add=(id:number)=>{setCart(c=>[...c,id]);setNotice('Товар добавлен в корзину');setTimeout(()=>setNotice(''),1800)};
  const scroll=(id:string)=>document.getElementById(id)?.scrollIntoView({behavior:'smooth'});
  return <main>
@@ -48,7 +50,7 @@ export default function Home(){
 
   <section id="products" className="section wrap"><div className="section-head"><div><h2>Популярные товары</h2><p>Хиты продаж, которые выбирают наши клиенты</p></div><button className="link" onClick={()=>setActive('all')}>Смотреть все →</button></div>
    <div className="filters"><button className={active==='all'?'sel':''} onClick={()=>setActive('all')}>Все</button>{rooms.map(r=><button key={r.id} className={active===r.title?'sel':''} onClick={()=>setActive(r.title)}>{r.title}</button>)}</div>
-   <div className="products">{filtered.map(p=><article className="product" key={p.id}><div className="pic">{p.badge&&<span className="badge">{p.badge}</span>}<button className="fav"><Icon name="heart"/></button><div className="product-art">{p.emoji}</div></div><small>{p.cat}</small><h3>{p.title}</h3><div className="rating"><span>★ {p.rating}</span> ({p.reviews}) <em>● В наличии</em></div><strong>{money(p.price)}</strong><button className="buy" onClick={()=>add(p.id)}><Icon name="cart"/> В корзину</button></article>)}</div>
+   <div className="products">{filtered.map(p=><article className="product" key={p.id}><div className="pic">{p.badge&&<span className="badge">{p.badge}</span>}<button className="fav"><Icon name="heart"/></button>{p.imageUrl?<img className="product-image" src={p.imageUrl} alt={p.title}/>:<div className="product-art">{p.emoji||'📦'}</div>}</div><small>{p.category}</small><h3>{p.title}</h3><div className="rating"><span>★ {p.rating}</span> ({p.reviews}) <em>{p.stock>0?'● В наличии':'○ Нет в наличии'}</em></div><div className="price-row"><strong>{money(p.price)}</strong>{p.oldPrice&&p.oldPrice>p.price?<del>{money(p.oldPrice)}</del>:null}</div><button className="buy" disabled={p.stock<=0} onClick={()=>add(p.id)}><Icon name="cart"/> {p.stock>0?'В корзину':'Нет в наличии'}</button></article>)}</div>
    {!filtered.length&&<div className="empty">Ничего не нашли. Попробуйте изменить запрос или категорию.</div>}
   </section>
 
