@@ -1,6 +1,7 @@
 'use client';
 import { useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { addToCart, cartCount, CART_EVENT, loadCart } from '../lib/cart-client';
 
 type Product = { id:number; category:string; title:string; price:number; oldPrice?:number|null; rating:number; reviews:number; badge?:string|null; emoji?:string|null; imageUrl?:string|null; sku?:string|null; oem?:string|null; stock:number; description?:string|null; specs?:string|null; isActive:boolean; sortOrder:number };
 const fallbackProducts: Product[] = [
@@ -17,7 +18,6 @@ const rooms = [
   {id:'print', title:'3D-печать', sub:'Печатай свои идеи', icon:'🧊', cls:'print'},
 ];
 
-
 const money=(n:number)=>new Intl.NumberFormat('ru-RU').format(n)+' ₽';
 
 function Icon({name}:{name:string}){
@@ -27,10 +27,16 @@ function Icon({name}:{name:string}){
 
 export default function Home(){
  const router=useRouter();
- const [cart,setCart]=useState<number[]>([]); const [active,setActive]=useState('all'); const [q,setQ]=useState(''); const [notice,setNotice]=useState(''); const [products,setProducts]=useState<Product[]>(fallbackProducts);
- useEffect(()=>{fetch('/api/products',{cache:'no-store'}).then(async r=>{if(!r.ok) throw new Error(); return r.json()}).then(setProducts).catch(()=>{})},[]);
+ const [cartItems,setCartItems]=useState(0); const [active,setActive]=useState('all'); const [q,setQ]=useState(''); const [notice,setNotice]=useState(''); const [products,setProducts]=useState<Product[]>(fallbackProducts);
+ useEffect(()=>{
+   const sync=()=>setCartItems(cartCount(loadCart()));
+   sync();
+   window.addEventListener(CART_EVENT,sync);
+   fetch('/api/products',{cache:'no-store'}).then(async r=>{if(!r.ok) throw new Error(); return r.json()}).then(setProducts).catch(()=>{});
+   return ()=>window.removeEventListener(CART_EVENT,sync);
+ },[]);
  const filtered=useMemo(()=>products.filter(p=>(active==='all'||p.category===active)&&p.title.toLowerCase().includes(q.toLowerCase())),[products,active,q]);
- const add=(id:number)=>{setCart(c=>[...c,id]);setNotice('Товар добавлен в корзину');setTimeout(()=>setNotice(''),1800)};
+ const add=(id:number)=>{addToCart(id,1);setCartItems(cartCount(loadCart()));setNotice('Товар добавлен в корзину');setTimeout(()=>setNotice(''),1800)};
  const scroll=(id:string)=>document.getElementById(id)?.scrollIntoView({behavior:'smooth'});
  return <main>
   {notice&&<div className="toast">✓ {notice}</div>}
@@ -38,7 +44,7 @@ export default function Home(){
    <div className="topbar wrap">
     <div className="brand" onClick={()=>scroll('home')}><div className="logo">⌂</div><div><b>Tech<span>Room</span></b><small>Техника. Запчасти. Идеи.</small></div></div>
     <div className="search"><input value={q} onChange={e=>setQ(e.target.value)} placeholder="Поиск товаров, брендов, категорий..."/><Icon name="search"/></div>
-    <div className="actions"><button><Icon name="heart"/> Избранное</button><button onClick={()=>scroll('cart')}><Icon name="cart"/> Корзина <i>{cart.length}</i></button><button><Icon name="user"/> Войти / Регистрация</button></div>
+    <div className="actions"><button><Icon name="heart"/> Избранное</button><button onClick={()=>router.push('/cart')}><Icon name="cart"/> Корзина <i>{cartItems}</i></button><button><Icon name="user"/> Войти / Регистрация</button></div>
    </div>
    <nav className="nav wrap"><a className="active" onClick={()=>scroll('home')}>Главная</a><a onClick={()=>setActive('Автозапчасти')}>Автозапчасти</a><a onClick={()=>setActive('Электроника')}>Электроника</a><a onClick={()=>setActive('Гаджеты')}>Гаджеты</a><a onClick={()=>setActive('3D-печать')}>3D-печать</a><a onClick={()=>scroll('offers')}>Акции</a><a>О магазине</a><a>Доставка и оплата</a><a>Контакты</a></nav>
   </header>
@@ -58,7 +64,7 @@ export default function Home(){
 
   <section id="offers" className="offers"><div className="wrap"><div className="section-head"><div><h2>Акции и спецпредложения</h2><p>Выгодные предложения в каждой комнате</p></div><button className="link">Все акции →</button></div><div className="offer-grid">{[['Автозапчасти','Скидки до 30%','На популярные запчасти','auto'],['Электроника','Скидки до 20%','На технику и аксессуары','electronics'],['Гаджеты','Лучшие цены на хиты','На популярные гаджеты','gadgets'],['3D-печать','Скидка 15% на пластик','На расходные материалы','print']].map((o,i)=><div className={'offer '+o[3]} key={i}><small>{o[0]}</small><b>{o[1]}</b><span>{o[2]}</span><button>Перейти →</button></div>)}</div></div></section>
 
-  <section id="cart" className="cart-band"><div className="wrap cart-row"><div><b>Корзина</b><span>{cart.length?` ${cart.length} товар(ов) добавлено`:' пока пуста'}</span></div><button onClick={()=>{setNotice(cart.length?'Переходим к оформлению заказа':'Добавьте товар в корзину');}}>Оформить заказ →</button></div></section>
+  <section id="cart" className="cart-band"><div className="wrap cart-row"><div><b>Корзина</b><span>{cartItems?` ${cartItems} товар(ов) добавлено`:' пока пуста'}</span></div><button onClick={()=>router.push('/cart')}>{cartItems?'Перейти к оформлению →':'Открыть корзину →'}</button></div></section>
 
   <footer><div className="wrap footer-grid"><div className="brand"><div className="logo">⌂</div><div><b>Tech<span>Room</span></b><small>Техника. Запчасти. Идеи.</small></div></div><div><h4>Каталог</h4><a>Автозапчасти</a><a>Электроника</a><a>Гаджеты</a><a>3D-печать</a></div><div><h4>Информация</h4><a>О магазине</a><a>Доставка и оплата</a><a>Гарантия</a><a>Контакты</a></div><div><h4>Мы в соцсетях</h4><div className="social">VK　TG　▶　◎</div></div><div><h4>Будьте в курсе новинок и акций</h4><div className="subscribe"><input placeholder="Ваш email"/><button>Подписаться</button></div></div></div><div className="wrap copyright">© 2026 TechRoom. Все права защищены. <span>Политика конфиденциальности　 Пользовательское соглашение</span></div></footer>
  </main>
