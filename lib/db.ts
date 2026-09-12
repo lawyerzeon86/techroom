@@ -76,8 +76,30 @@ export async function ensureSchema() {
           line_total INTEGER NOT NULL
         );
       `);
+
+      await pool.query(`
+        CREATE TABLE IF NOT EXISTS marketplace_orders (
+          id BIGSERIAL PRIMARY KEY,
+          source TEXT NOT NULL,
+          external_id TEXT NOT NULL,
+          order_number TEXT,
+          status TEXT NOT NULL,
+          total_amount INTEGER NOT NULL DEFAULT 0,
+          customer_name TEXT,
+          phone TEXT,
+          items JSONB NOT NULL DEFAULT '[]'::jsonb,
+          raw_payload JSONB NOT NULL DEFAULT '{}'::jsonb,
+          external_created_at TIMESTAMPTZ,
+          synced_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+          updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+          UNIQUE(source, external_id)
+        );
+      `);
+
       await pool.query(`CREATE INDEX IF NOT EXISTS idx_orders_created_at ON orders(created_at DESC)`);
       await pool.query(`CREATE INDEX IF NOT EXISTS idx_order_items_order_id ON order_items(order_id)`);
+      await pool.query(`CREATE INDEX IF NOT EXISTS idx_marketplace_orders_source ON marketplace_orders(source, synced_at DESC)`);
+      await pool.query(`CREATE INDEX IF NOT EXISTS idx_marketplace_orders_created ON marketplace_orders(external_created_at DESC)`);
 
       const count = await pool.query('SELECT COUNT(*)::int AS count FROM products');
       if (count.rows[0].count === 0) {
