@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
-import { isAdminSession, readJsonBody } from '../../../../../../lib/security';
-import { getWarehouseSettings, saveWarehouseSettings } from '../../../../../../lib/marketplace-settings';
+import { isAdminSession, readJsonBody } from '../../../../../lib/security';
+import { getWarehouseSettings, saveWarehouseSettings } from '../../../../../lib/marketplace-settings';
 
 export const runtime='nodejs';
 export const dynamic='force-dynamic';
