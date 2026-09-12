@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
-import { isAdminSession } from '../../../../../../lib/security';
-import { listCommunications, type CommunicationType } from '../../../../../../lib/communications';
-import type { MarketplaceName } from '../../../../../../lib/marketplaces';
+import { isAdminSession } from '../../../../../lib/security';
+import { listCommunications, type CommunicationType } from '../../../../../lib/communications';
+import type { MarketplaceName } from '../../../../../lib/marketplaces';
 
 export const runtime='nodejs';
 export const dynamic='force-dynamic';
