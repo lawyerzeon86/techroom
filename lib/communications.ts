@@ -2,10 +2,20 @@ import type { MarketplaceName } from './marketplaces';
 
 export type CommunicationType = 'reviews' | 'questions';
 
+type CacheEntry = { expiresAt:number; value:any };
+const cache = new Map<string, CacheEntry>();
+const CACHE_TTL_MS = 3 * 60 * 1000;
+
 function env(name:string){
   const value=process.env[name]?.trim();
   if(!value) throw new Error(`${name}_NOT_CONFIGURED`);
   return value;
+}
+
+function retryAfterSeconds(res:Response){
+  const raw = res.headers.get('x-ratelimit-retry') || res.headers.get('retry-after') || '';
+  const n = Number(raw);
+  return Number.isFinite(n) && n > 0 ? Math.ceil(n) : 180;
 }
 
 async function readJson(res:Response){
@@ -13,6 +23,10 @@ async function readJson(res:Response){
   let data:any={};
   try{ data=text?JSON.parse(text):{}; }catch{ data={raw:text}; }
   if(!res.ok){
+    if(res.status===429){
+      const retry=retryAfterSeconds(res);
+      throw new Error(`RATE_LIMIT: повторите через ${retry} сек.`);
+    }
     const msg=data?.message||data?.error||data?.detail||data?.errors?.[0]?.message||`HTTP_${res.status}`;
     throw new Error(String(msg));
   }
@@ -31,7 +45,22 @@ function ozonHeaders(){
   };
 }
 
+function getCached(key:string){
+  const hit=cache.get(key);
+  if(hit && hit.expiresAt>Date.now()) return hit.value;
+  if(hit) cache.delete(key);
+  return null;
+}
+
+function setCached(key:string,value:any){
+  cache.set(key,{value,expiresAt:Date.now()+CACHE_TTL_MS});
+}
+
 export async function listWildberries(type:CommunicationType){
+  const cacheKey=`wb:${type}`;
+  const cached=getCached(cacheKey);
+  if(cached) return cached;
+
   const token=wbToken();
   const endpoint=type==='reviews'?'feedbacks':'questions';
   const qs=new URLSearchParams({isAnswered:'false',take:'100',skip:'0',order:'dateDesc'});
@@ -55,7 +84,9 @@ export async function listWildberries(type:CommunicationType){
     answer:x.answer?.text??x.answer??null,
     raw:x,
   }));
-  return {items,total:Number(data?.data?.countUnanswered??items.length)||items.length};
+  const result={items,total:Number(data?.data?.countUnanswered??items.length)||items.length};
+  setCached(cacheKey,result);
+  return result;
 }
 
 export async function replyWildberries(type:CommunicationType,id:string,text:string){
@@ -69,12 +100,20 @@ export async function replyWildberries(type:CommunicationType,id:string,text:str
     body:JSON.stringify(type==='reviews'?{id,text}:{id,text,state:'wbRu'}),
     cache:'no-store'
   });
-  if(res.status===204) return {ok:true};
+  if(res.status===204){
+    cache.delete(`wb:${type}`);
+    return {ok:true};
+  }
   await readJson(res);
+  cache.delete(`wb:${type}`);
   return {ok:true};
 }
 
 export async function listOzon(type:CommunicationType){
+  const cacheKey=`ozon:${type}`;
+  const cached=getCached(cacheKey);
+  if(cached) return cached;
+
   const headers=ozonHeaders();
   const url=type==='reviews'
     ? 'https://api-seller.ozon.ru/v2/review/list'
@@ -100,7 +139,9 @@ export async function listOzon(type:CommunicationType){
     answer:x.answer??null,
     raw:x,
   }));
-  return {items,total:items.length};
+  const result={items,total:items.length};
+  setCached(cacheKey,result);
+  return result;
 }
 
 export async function replyOzon(type:CommunicationType,id:string,text:string,sku?:string|number|null){
@@ -117,6 +158,7 @@ export async function replyOzon(type:CommunicationType,id:string,text:string,sku
   }
   const res=await fetch(url,{method:'POST',headers,body:JSON.stringify(body),cache:'no-store'});
   const data=await readJson(res);
+  cache.delete(`ozon:${type}`);
   return {ok:true,data};
 }
 
