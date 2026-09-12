@@ -46,6 +46,39 @@ export async function ensureSchema() {
       `);
       await pool.query(`ALTER TABLE products ADD COLUMN IF NOT EXISTS image_urls JSONB NOT NULL DEFAULT '[]'::jsonb`);
       await pool.query(`UPDATE products SET image_urls = jsonb_build_array(image_url) WHERE image_url IS NOT NULL AND image_url <> '' AND jsonb_array_length(image_urls)=0`);
+
+      await pool.query(`
+        CREATE TABLE IF NOT EXISTS orders (
+          id BIGSERIAL PRIMARY KEY,
+          order_number TEXT UNIQUE NOT NULL,
+          customer_name TEXT NOT NULL,
+          phone TEXT NOT NULL,
+          email TEXT,
+          delivery_method TEXT NOT NULL,
+          address TEXT,
+          payment_method TEXT NOT NULL,
+          comment TEXT,
+          total_amount INTEGER NOT NULL,
+          status TEXT NOT NULL DEFAULT 'new',
+          created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+          updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+        );
+      `);
+      await pool.query(`
+        CREATE TABLE IF NOT EXISTS order_items (
+          id BIGSERIAL PRIMARY KEY,
+          order_id BIGINT NOT NULL REFERENCES orders(id) ON DELETE CASCADE,
+          product_id INTEGER NOT NULL REFERENCES products(id),
+          title TEXT NOT NULL,
+          sku TEXT,
+          price INTEGER NOT NULL,
+          quantity INTEGER NOT NULL,
+          line_total INTEGER NOT NULL
+        );
+      `);
+      await pool.query(`CREATE INDEX IF NOT EXISTS idx_orders_created_at ON orders(created_at DESC)`);
+      await pool.query(`CREATE INDEX IF NOT EXISTS idx_order_items_order_id ON order_items(order_id)`);
+
       const count = await pool.query('SELECT COUNT(*)::int AS count FROM products');
       if (count.rows[0].count === 0) {
         for (const p of seedProducts) {
