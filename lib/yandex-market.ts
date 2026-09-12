@@ -14,6 +14,14 @@ function asNumber(value:any){
   return 0;
 }
 
+async function readJson(res:Response){
+  const text=await res.text();
+  let data:any={};
+  try{data=text?JSON.parse(text):{};}catch{data={raw:text};}
+  if(!res.ok) throw new Error(String(data?.message||data?.error||data?.errors?.[0]?.message||`YANDEX_MARKET_HTTP_${res.status}`));
+  return data;
+}
+
 async function upsert(order:any){
   await ensureSchema();
   const pool=getPool();
@@ -38,6 +46,15 @@ export function yandexMarketConfigured(){
   return Boolean(process.env.YANDEX_MARKET_API_KEY?.trim()&&process.env.YANDEX_MARKET_BUSINESS_ID?.trim());
 }
 
+export async function testYandexMarket(){
+  const apiKey=env('YANDEX_MARKET_API_KEY');
+  const res=await fetch('https://api.partner.market.yandex.ru/v2/auth/token',{
+    method:'POST',headers:{'Api-Key':apiKey,'Content-Type':'application/json'},body:'{}',cache:'no-store'
+  });
+  const data=await readJson(res);
+  return {ok:true,details:data?.status||'OK'};
+}
+
 export async function syncYandexMarketOrders(){
   const apiKey=env('YANDEX_MARKET_API_KEY');
   const businessId=env('YANDEX_MARKET_BUSINESS_ID');
@@ -54,11 +71,7 @@ export async function syncYandexMarketOrders(){
       body:JSON.stringify({fake:false,sourcePlatforms:['MARKET']}),
       cache:'no-store'
     });
-    const text=await res.text();
-    let data:any={};
-    try{data=text?JSON.parse(text):{};}catch{data={raw:text};}
-    if(!res.ok) throw new Error(String(data?.message||data?.error||data?.errors?.[0]?.message||`YANDEX_MARKET_HTTP_${res.status}`));
-
+    const data=await readJson(res);
     const orders=Array.isArray(data?.orders)?data.orders:[];
     for(const o of orders){
       const items=(Array.isArray(o.items)?o.items:[]).map((x:any)=>({
