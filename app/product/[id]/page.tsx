@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import styles from './product.module.css';
+import { addToCart } from '../../../lib/cart-client';
 
 type Product = {
   id:number;
@@ -150,12 +151,14 @@ export default function ProductPage(){
               className={styles.buy}
               disabled={product.stock<=0}
               onClick={()=>{
+                addToCart(product.id,1);
                 setNotice('Товар добавлен в корзину');
                 setTimeout(()=>setNotice(''),1800);
               }}
             >
               {product.stock>0?'В корзину':'Нет в наличии'}
             </button>
+            {product.stock>0 && <button className={styles.back} style={{marginTop:14}} onClick={()=>router.push('/cart')}>Перейти в корзину →</button>}
           </section>
         </div>
 
