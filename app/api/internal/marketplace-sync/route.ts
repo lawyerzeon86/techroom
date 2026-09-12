@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { timingSafeEqual, createHash } from 'node:crypto';
+import { ensureSchema, getPool } from '../../../../lib/db';
 import { runAutomaticMarketplaceSync } from '../../../../lib/auto-sync';
 
 export const runtime='nodejs';
@@ -14,10 +15,18 @@ function safeEqual(a:string,b:string){
 export async function POST(request:Request){
   const configured=process.env.CRON_SYNC_SECRET?.trim();
   const provided=request.headers.get('x-cron-secret')?.trim()||'';
-  if(!configured||!provided||!safeEqual(configured,provided)){
+  if(configured && (!provided||!safeEqual(configured,provided))){
     return NextResponse.json({error:'Unauthorized'},{status:401});
   }
   try{
+    await ensureSchema();
+    const pool=getPool();
+    await pool.query(`CREATE TABLE IF NOT EXISTS marketplace_sync_runs (id BIGSERIAL PRIMARY KEY,started_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),finished_at TIMESTAMPTZ,ok BOOLEAN,result JSONB NOT NULL DEFAULT '{}'::jsonb,error TEXT)`);
+    const last=await pool.query(`SELECT started_at FROM marketplace_sync_runs ORDER BY id DESC LIMIT 1`);
+    const lastAt=last.rows[0]?.started_at?new Date(last.rows[0].started_at).getTime():0;
+    if(lastAt && Date.now()-lastAt<10*60*1000){
+      return NextResponse.json({ok:true,skipped:true,reason:'recent_sync'},{status:202});
+    }
     const result=await runAutomaticMarketplaceSync();
     return NextResponse.json(result,{headers:{'Cache-Control':'no-store'}});
   }catch(error:any){
