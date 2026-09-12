@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { timingSafeEqual, createHash } from 'node:crypto';
 import { ensureSchema, getPool } from '../../../../lib/db';
+import { getWarehouseSettings } from '../../../../lib/marketplace-settings';
 import { runAutomaticMarketplaceSync } from '../../../../lib/auto-sync';
 
 export const runtime='nodejs';
@@ -27,6 +28,9 @@ export async function POST(request:Request){
     if(lastAt && Date.now()-lastAt<10*60*1000){
       return NextResponse.json({ok:true,skipped:true,reason:'recent_sync'},{status:202});
     }
+    const warehouseSettings=await getWarehouseSettings();
+    if(warehouseSettings.wbWarehouseId) process.env.WB_WAREHOUSE_ID=warehouseSettings.wbWarehouseId;
+    if(warehouseSettings.ozonWarehouseId) process.env.OZON_WAREHOUSE_ID=warehouseSettings.ozonWarehouseId;
     const result=await runAutomaticMarketplaceSync();
     return NextResponse.json(result,{headers:{'Cache-Control':'no-store'}});
   }catch(error:any){
