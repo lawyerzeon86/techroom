@@ -15,6 +15,7 @@ export async function PATCH(request: Request) {
       offerId: b.offerId ? String(b.offerId) : undefined,
       title: b.title,
       description: b.description,
+      dimensions: b.dimensions,
       ozonDescriptionAttributeId: b.ozonDescriptionAttributeId ? Number(b.ozonDescriptionAttributeId) : undefined,
     });
     return NextResponse.json({ ok: true, result });
@@ -22,8 +23,14 @@ export async function PATCH(request: Request) {
     const known:any = {
       VALIDATION: [400, 'Проверьте поля'],
       WB_CARD_NOT_FOUND: [404, 'Карточка WB не найдена'],
+      OZON_CARD_NOT_FOUND: [404, 'Карточка Ozon не найдена'],
+      OZON_FULL_CARD_DATA_INCOMPLETE: [400, 'Ozon не вернул все обязательные данные карточки. Изменение габаритов отменено, чтобы не повредить карточку.'],
       OZON_TITLE_UPDATE_REQUIRES_FULL_IMPORT: [400, 'Название Ozon этим безопасным методом не меняется. Здесь доступно изменение описания.'],
       OZON_DESCRIPTION_ATTRIBUTE_ID_NOT_CONFIGURED: [400, 'Не задан OZON_DESCRIPTION_ATTRIBUTE_ID'],
+      INVALID_LENGTH: [400, 'Длина упаковки должна быть больше 0'],
+      INVALID_WIDTH: [400, 'Ширина упаковки должна быть больше 0'],
+      INVALID_HEIGHT: [400, 'Высота упаковки должна быть больше 0'],
+      INVALID_WEIGHT: [400, 'Вес упаковки должен быть больше 0'],
     };
     const k = known[e.message];
     return NextResponse.json({ error: k?.[1] || e.message || 'Marketplace API error' }, { status: e.status || k?.[0] || 502 });
