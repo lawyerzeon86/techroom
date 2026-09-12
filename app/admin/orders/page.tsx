@@ -3,13 +3,16 @@
 import { useEffect, useMemo, useState } from 'react';
 
 type Order={
-  id:string; source:'site'|'wildberries'|'ozon'; orderNumber:string; status:string; totalAmount:number;
+  id:string; source:string; orderNumber:string; status:string; totalAmount:number;
   customerName?:string|null; phone?:string|null; email?:string|null; deliveryMethod?:string|null; address?:string|null;
   paymentMethod?:string|null; comment?:string|null; items:any[]; createdAt:string; syncedAt?:string|null;
 };
 
 const labels:Record<string,string>={new:'Новый',confirmed:'Подтверждён',shipped:'Отправлен',completed:'Завершён',cancelled:'Отменён'};
-const sourceLabels:Record<string,string>={site:'TechRoom',wildberries:'Wildberries',ozon:'Ozon'};
+const sourceLabels:Record<string,string>={
+  site:'TechRoom',wildberries:'Wildberries',ozon:'Ozon',yandex_market:'Яндекс Маркет',avito:'Avito',
+  megamarket:'Мегамаркет',aliexpress:'AliExpress',other:'Другой маркетплейс'
+};
 const money=(n:number)=>new Intl.NumberFormat('ru-RU').format(n)+' ₽';
 
 export default function OrdersPage(){
@@ -30,9 +33,10 @@ export default function OrdersPage(){
   };
   useEffect(()=>{load()},[]);
 
+  const sources=useMemo(()=>Array.from(new Set(orders.map(o=>o.source))).sort(),[orders]);
   const filtered=useMemo(()=>orders.filter(o=>{
     if(source!=='all'&&o.source!==source)return false;
-    const hay=[o.orderNumber,o.customerName,o.phone,o.email,o.status,sourceLabels[o.source]].filter(Boolean).join(' ').toLowerCase();
+    const hay=[o.orderNumber,o.customerName,o.phone,o.email,o.status,sourceLabels[o.source]||o.source].filter(Boolean).join(' ').toLowerCase();
     return hay.includes(q.toLowerCase());
   }),[orders,source,q]);
 
@@ -46,13 +50,15 @@ export default function OrdersPage(){
   };
 
   return <main className="admin-shell">
-    <div className="admin-top"><div><h1>Заказы</h1><p>TechRoom + Wildberries + Ozon в одном окне</p></div><button className="edit-btn" onClick={load}>Обновить</button></div>
+    <div className="admin-top"><div><h1>Заказы</h1><p>TechRoom + Wildberries + Ozon + Яндекс Маркет + Avito + другие площадки</p></div><button className="edit-btn" onClick={load}>Обновить</button></div>
     <section className="admin-card list-card">
       <div className="list-head" style={{alignItems:'center'}}>
         <div><h2>Все заказы</h2><span>{filtered.length} из {orders.length}</span></div>
         <div style={{display:'flex',gap:8,flexWrap:'wrap'}}>
           <select value={source} onChange={e=>setSource(e.target.value)} style={{border:'1px solid #ded4ca',borderRadius:10,padding:'11px 12px'}}>
-            <option value="all">Все источники</option><option value="site">TechRoom</option><option value="wildberries">Wildberries</option><option value="ozon">Ozon</option>
+            <option value="all">Все источники</option>
+            <option value="site">TechRoom</option><option value="wildberries">Wildberries</option><option value="ozon">Ozon</option><option value="yandex_market">Яндекс Маркет</option><option value="avito">Avito</option><option value="megamarket">Мегамаркет</option><option value="aliexpress">AliExpress</option><option value="other">Другие</option>
+            {sources.filter(s=>!['site','wildberries','ozon','yandex_market','avito','megamarket','aliexpress','other'].includes(s)).map(s=><option key={s} value={s}>{sourceLabels[s]||s}</option>)}
           </select>
           <input value={q} onChange={e=>setQ(e.target.value)} placeholder="Номер, клиент, телефон"/>
         </div>
@@ -61,7 +67,7 @@ export default function OrdersPage(){
       {error&&<p>{error} {error.includes('войти')&&<a href="/admin">Войти</a>}</p>}
       {!loading&&!error&&<div className="admin-table-wrap"><table className="admin-table"><thead><tr><th>Источник</th><th>Заказ</th><th>Клиент</th><th>Товары</th><th>Сумма</th><th>Статус</th><th>Дата</th></tr></thead><tbody>
         {filtered.map(o=><tr key={`${o.source}-${o.id}`}>
-          <td><b>{sourceLabels[o.source]}</b></td>
+          <td><b>{sourceLabels[o.source]||o.source}</b></td>
           <td><b>{o.orderNumber||'—'}</b>{o.source==='site'&&<small style={{display:'block'}}>#{o.id}</small>}</td>
           <td><div>{o.customerName||'—'}</div><small>{o.phone||''}{o.email?<><br/>{o.email}</>:null}</small>{o.address&&<small style={{display:'block',maxWidth:260}}>{o.address}</small>}</td>
           <td><details><summary>{o.items?.length||0} поз.</summary><div style={{minWidth:260,paddingTop:8}}>{(o.items||[]).map((x:any,i:number)=><div key={i} style={{marginBottom:7}}><b>{x.title||x.name||x.offerId||x.article||'Товар'}</b><br/><small>{x.sku||''} · {x.quantity||1} шт.{x.price!=null?` · ${money(Number(x.price))}`:''}</small></div>)}</div></details></td>
