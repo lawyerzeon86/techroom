@@ -3,7 +3,7 @@ import { timingSafeEqual, createHash } from 'node:crypto';
 import { ensureSchema, getPool } from '../../../../lib/db';
 import { getWarehouseSettings } from '../../../../lib/marketplace-settings';
 import { runAutomaticMarketplaceSync } from '../../../../lib/auto-sync';
-import { importMarketplaceProducts, runAutoProductTransfers } from '../../../../lib/product-hub';
+import { importMarketplaceProducts, runAutoProductTransfers, syncHubCatalogToSite } from '../../../../lib/product-hub';
 
 export const runtime='nodejs';
 export const dynamic='force-dynamic';
@@ -33,13 +33,14 @@ export async function POST(request:Request){
     if(warehouseSettings.wbWarehouseId) process.env.WB_WAREHOUSE_ID=warehouseSettings.wbWarehouseId;
     if(warehouseSettings.ozonWarehouseId) process.env.OZON_WAREHOUSE_ID=warehouseSettings.ozonWarehouseId;
     const result:any=await runAutomaticMarketplaceSync();
-    result.productHub={imports:{},transfer:null};
+    result.productHub={imports:{},site:null,transfer:null};
     if(process.env.WB_API_TOKEN?.trim()){
       try{result.productHub.imports.wb=await importMarketplaceProducts('wb',100)}catch(e:any){result.productHub.imports.wb={error:String(e?.message||e)}}
     }
     if(process.env.OZON_CLIENT_ID?.trim()&&process.env.OZON_API_KEY?.trim()){
       try{result.productHub.imports.ozon=await importMarketplaceProducts('ozon',100)}catch(e:any){result.productHub.imports.ozon={error:String(e?.message||e)}}
     }
+    try{result.productHub.site=await syncHubCatalogToSite()}catch(e:any){result.productHub.site={error:String(e?.message||e)}}
     try{result.productHub.transfer=await runAutoProductTransfers()}catch(e:any){result.productHub.transfer={error:String(e?.message||e)}}
     return NextResponse.json(result,{headers:{'Cache-Control':'no-store'}});
   }catch(error:any){
