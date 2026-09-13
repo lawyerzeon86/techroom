@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
-import { isAdminSession } from '../../../../../../lib/security';
-import { syncHubCatalogToSite } from '../../../../../../lib/product-hub';
+import { isAdminSession } from '../../../../../lib/security';
+import { syncHubCatalogToSite } from '../../../../../lib/product-hub';
 
 export const runtime='nodejs';
 export const dynamic='force-dynamic';
