@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
-import { isAdminSession } from '../../../../../../lib/security';
-import { ensureProductHubSchema } from '../../../../../../lib/product-hub';
-import { getPool } from '../../../../../../lib/db';
+import { isAdminSession } from '../../../../../lib/security';
+import { ensureProductHubSchema } from '../../../../../lib/product-hub';
+import { getPool } from '../../../../../lib/db';
 
 export const runtime='nodejs';
 export const dynamic='force-dynamic';
