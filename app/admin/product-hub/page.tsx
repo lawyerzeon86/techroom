@@ -33,6 +33,16 @@ export default function ProductHubPage(){
     await load();setBusy(false);
   };
 
+  const autoMap=async()=>{
+    setBusy(true);setMsg('Автоматически разбираю несопоставленные карточки…');
+    const r=await fetch('/api/admin/product-hub/auto-map',{method:'POST'});
+    const j=await r.json().catch(()=>({}));
+    setMsg(r.ok?`✓ Проверено: ${j.processed||0}. Автоматически сопоставлено: ${j.autoMapped||0}. Нужна проверка: ${j.manualReview||0}.`:(j.error||'Ошибка автосопоставления'));
+    await load();setBusy(false);
+  };
+
+  const needsMapping=products.reduce((n,p)=>n+(p.links||[]).filter((l:any)=>['needs_mapping','manual_review'].includes(l.status)).length,0);
+
   return <main className="admin-shell">
     <div className="admin-top"><div><h1>Product Hub</h1><p>Автоперенос карточек между маркетплейсами по SKU</p></div><button className="edit-btn" onClick={load}>Обновить</button></div>
 
@@ -43,7 +53,8 @@ export default function ProductHubPage(){
         <select value={source} onChange={e=>setSource(e.target.value as MP)} style={{padding:11,borderRadius:10,border:'1px solid #ddd'}}><option value="wb">Wildberries</option><option value="ozon">Ozon</option></select>
         <span>→</span>
         <select value={target} onChange={e=>setTarget(e.target.value as MP)} style={{padding:11,borderRadius:10,border:'1px solid #ddd'}}><option value="ozon">Ozon</option><option value="wb">Wildberries</option></select>
-        <button className="save-btn" disabled={busy} onClick={start}>{busy?'Настраиваю…':'Подтянуть и включить автоперенос'}</button>
+        <button className="save-btn" disabled={busy} onClick={start}>{busy?'Работаю…':'Подтянуть и включить автоперенос'}</button>
+        <button className="edit-btn" disabled={busy||needsMapping===0} onClick={autoMap}>Автосопоставить {needsMapping?`(${needsMapping})`:''}</button>
       </div>
       {msg&&<p><b>{msg}</b></p>}
       {rules.length>0&&<p>Активные правила: {rules.map((r:any)=>`${labels[r.source]||r.source} → ${labels[r.target]||r.target}`).join(', ')}</p>}
@@ -56,6 +67,6 @@ export default function ProductHubPage(){
       </tbody></table></div>
     </section>
 
-    <section className="admin-card editor"><h2>Как работает автоматизация</h2><p>Если одинаковый SKU уже есть на целевой площадке, TechRoom синхронизирует название, описание и габариты автоматически. Если карточки ещё нет, она получает статус «needs_mapping»: нужно один раз сопоставить категорию и обязательные характеристики площадки. После этого последующие изменения идут автоматически.</p></section>
+    <section className="admin-card editor"><h2>Как работает автоматизация</h2><p>Если одинаковый SKU уже есть на целевой площадке, TechRoom синхронизирует название, описание и габариты автоматически. Если карточки ещё нет, Smart Mapper пытается определить категорию по названию, описанию и характеристикам. Очевидные товары получают статус «auto_mapped», спорные — «manual_review» и не публикуются автоматически.</p></section>
   </main>;
 }
