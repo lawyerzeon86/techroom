@@ -17,9 +17,35 @@ function wbHeaders(){const token=env('WB_API_TOKEN');if(!token)throw new Error('
 function ozonHeaders(){const id=env('OZON_CLIENT_ID'),key=env('OZON_API_KEY');if(!id||!key)throw new Error('OZON_NOT_CONFIGURED');return{'Client-Id':id,'Api-Key':key,'Content-Type':'application/json'}}
 export function contentStatus(){return{wb:{configured:Boolean(env('WB_API_TOKEN'))},ozon:{configured:Boolean(env('OZON_CLIENT_ID')&&env('OZON_API_KEY'))},ai:{configured:Boolean(env('OPENAI_API_KEY')),model:env('OPENAI_MODEL')||'gpt-5.6-luna'}}}
 
-function normalizeWbCard(c:any){
+function imageList(value:any){
+  if(!Array.isArray(value))return [];
+  return value.map((x:any)=>typeof x==='string'?x:(x?.big||x?.url||x?.file_name||x?.original||x?.c516x688||x?.c246x328||'')).filter((x:any)=>typeof x==='string'&&/^https?:\/\//i.test(x));
+}
+function attrObject(value:any){
+  if(!Array.isArray(value))return {};
+  const out:any={};
+  for(const a of value){
+    const key=String(a?.name||a?.id||a?.attribute_id||'').trim();
+    if(!key)continue;
+    let v=a?.value??a?.values??a?.value_id??null;
+    if(Array.isArray(v))v=v.map((z:any)=>z?.value??z?.dictionary_value??z?.value_id??z).filter((z:any)=>z!==undefined&&z!==null);
+    out[key]=v;
+  }
+  return out;
+}
+async function wbPrice(nmId:string|number){
+  try{
+    const qs=new URLSearchParams({limit:'1',offset:'0',filterNmID:String(nmId)});
+    const d=await fetchJson(`https://discounts-prices-api.wildberries.ru/api/v2/list/goods/filter?${qs}`,{headers:wbHeaders()});
+    const g=(d?.data?.listGoods||d?.listGoods||[])[0]||{};
+    const sizes=Array.isArray(g?.sizes)?g.sizes:[];
+    const s=sizes[0]||{};
+    return Number(s?.discountedPrice??s?.price??g?.discountedPrice??g?.price??0)||0;
+  }catch{return 0}
+}
+function normalizeWbCardBase(c:any){
   const d=c?.dimensions||{};
-  return {marketplace:'wb',id:String(c.nmID),offerId:c.vendorCode||null,title:c.title||'',description:c.description||'',sku:c.vendorCode||null,dimensions:{length:Number(d.length)||0,width:Number(d.width)||0,height:Number(d.height)||0,weight:Number(d.weightBrutto)||0,dimensionUnit:'cm',weightUnit:'kg',valid:d.isValid!==false}};
+  return {marketplace:'wb',id:String(c.nmID),offerId:c.vendorCode||null,title:c.title||'',description:c.description||'',sku:c.vendorCode||null,images:imageList(c.photos||c.mediaFiles||c.images),attributes:attrObject(c.characteristics),brand:c.brand||null,category:String(c.subjectName||c.subjectID||''),dimensions:{length:Number(d.length)||0,width:Number(d.width)||0,height:Number(d.height)||0,weight:Number(d.weightBrutto)||0,dimensionUnit:'cm',weightUnit:'kg',valid:d.isValid!==false},raw:c};
 }
 
 async function ozonAttributeItems(productIds:(string|number)[]){
@@ -28,6 +54,12 @@ async function ozonAttributeItems(productIds:(string|number)[]){
   const d=await fetchJson('https://api-seller.ozon.ru/v4/product/info/attributes',{method:'POST',headers:ozonHeaders(),body:JSON.stringify({filter:{product_id:ids},limit:Math.min(1000,Math.max(1,ids.length))})});
   return d?.result?.items||d?.items||[];
 }
+async function ozonInfo(offerId:string){
+  try{
+    const d=await fetchJson('https://api-seller.ozon.ru/v3/product/info/list',{method:'POST',headers:ozonHeaders(),body:JSON.stringify({offer_id:[offerId],product_id:[],sku:[]})});
+    return (d?.items||d?.result?.items||[])[0]||{};
+  }catch{return {}}
+}
 
 export async function getProducts(mp:MarketplaceUi,q='',limit=50){
   limit=Math.max(1,Math.min(100,limit));
@@ -35,7 +67,10 @@ export async function getProducts(mp:MarketplaceUi,q='',limit=50){
     const body:any={settings:{cursor:{limit},filter:{withPhoto:-1},sort:{ascending:false}}};
     if(q.trim())body.settings.filter.textSearch=q.trim();
     const d=await fetchJson('https://content-api.wildberries.ru/content/v2/get/cards/list',{method:'POST',headers:wbHeaders(),body:JSON.stringify(body)});
-    return(d?.cards||[]).map(normalizeWbCard);
+    const cards=d?.cards||[];
+    const out:any[]=[];
+    for(const c of cards){const p:any=normalizeWbCardBase(c);p.price=await wbPrice(c.nmID);out.push(p)}
+    return out;
   }
   const list=await fetchJson('https://api-seller.ozon.ru/v3/product/list',{method:'POST',headers:ozonHeaders(),body:JSON.stringify({filter:{visibility:'ALL'},last_id:'',limit})});
   let items=list?.result?.items||list?.items||[];
@@ -47,7 +82,10 @@ export async function getProducts(mp:MarketplaceUi,q='',limit=50){
     let description='';
     try{const d=await fetchJson('https://api-seller.ozon.ru/v1/product/info/description',{method:'POST',headers:ozonHeaders(),body:JSON.stringify({offer_id:String(p.offer_id||'')})});description=d?.result?.description||d?.description||''}catch{}
     const a:any=attrById.get(String(p.product_id))||{};
-    out.push({marketplace:'ozon',id:String(p.product_id||p.offer_id),offerId:String(p.offer_id||a.offer_id||''),title:String(a.name||p.offer_id||p.product_id||'Товар'),description,sku:p.product_id??null,dimensions:{length:Number(a.depth)||0,width:Number(a.width)||0,height:Number(a.height)||0,weight:Number(a.weight)||0,dimensionUnit:String(a.dimension_unit||'mm'),weightUnit:String(a.weight_unit||'g'),valid:true}})
+    const pi:any=await ozonInfo(String(p.offer_id||a.offer_id||''));
+    const images=[...imageList(a.images),...imageList(pi.images),...imageList(a.primary_image?[a.primary_image]:[])].filter((x,i,arr)=>arr.indexOf(x)===i);
+    const price=Number(pi.price??pi.marketing_price??pi.min_ozon_price??0)||0;
+    out.push({marketplace:'ozon',id:String(p.product_id||p.offer_id),offerId:String(p.offer_id||a.offer_id||''),title:String(a.name||pi.name||p.offer_id||p.product_id||'Товар'),description,sku:String(p.offer_id||a.offer_id||p.product_id||''),images,attributes:attrObject(a.attributes),brand:pi.brand||null,category:String(a.description_category_id||a.type_id||''),price,dimensions:{length:Number(a.depth)||0,width:Number(a.width)||0,height:Number(a.height)||0,weight:Number(a.weight)||0,dimensionUnit:String(a.dimension_unit||'mm'),weightUnit:String(a.weight_unit||'g'),valid:true},raw:{list:p,attributes:a,info:pi}})
   }
   return out;
 }
@@ -60,9 +98,7 @@ function wbPayload(card:any,patch:{title?:string;description?:string;dimensions?
   if(patch.dimensions!==undefined)x.dimensions=patch.dimensions;
   return x;
 }
-
 function positive(v:any,name:string){const n=Number(v);if(!Number.isFinite(n)||n<=0)throw new Error(`INVALID_${name}`);return n}
-
 async function updateWb(p:any){
   if(!p.id)throw new Error('VALIDATION');
   const body={settings:{cursor:{limit:100},filter:{textSearch:String(p.id),withPhoto:-1}}};
@@ -75,7 +111,6 @@ async function updateWb(p:any){
   if(p.dimensions){patch.dimensions={length:positive(p.dimensions.length,'LENGTH'),width:positive(p.dimensions.width,'WIDTH'),height:positive(p.dimensions.height,'HEIGHT'),weightBrutto:positive(p.dimensions.weight,'WEIGHT')}}
   return fetchJson('https://content-api.wildberries.ru/content/v2/cards/update',{method:'POST',headers:wbHeaders(),body:JSON.stringify([wbPayload(card,patch)])});
 }
-
 async function updateOzonDimensions(p:any){
   if(!p.offerId||!p.id)throw new Error('VALIDATION');
   const attrs=await ozonAttributeItems([p.id]);
@@ -84,43 +119,18 @@ async function updateOzonDimensions(p:any){
   const info=await fetchJson('https://api-seller.ozon.ru/v3/product/info/list',{method:'POST',headers:ozonHeaders(),body:JSON.stringify({offer_id:[String(p.offerId)],product_id:[],sku:[]})});
   const pi=(info?.items||info?.result?.items||[])[0]||{};
   const dim=p.dimensions||{};
-  const item:any={
-    attributes:Array.isArray(a.attributes)?a.attributes:[],
-    barcode:String(a.barcode||pi.barcode||''),
-    description_category_id:Number(a.description_category_id||pi.description_category_id||0),
-    type_id:Number(a.type_id||pi.type_id||0),
-    color_image:String(a.color_image||''),
-    complex_attributes:Array.isArray(a.complex_attributes)?a.complex_attributes:[],
-    currency_code:String(pi.currency_code||'RUB'),
-    depth:Math.round(positive(dim.length,'LENGTH')),
-    dimension_unit:String(dim.dimensionUnit||a.dimension_unit||'mm'),
-    height:Math.round(positive(dim.height,'HEIGHT')),
-    images:Array.isArray(a.images)?a.images.map((x:any)=>typeof x==='string'?x:(x.file_name||x.url)).filter(Boolean):[],
-    name:String(a.name||pi.name||p.title||p.offerId),
-    offer_id:String(p.offerId),
-    old_price:String(pi.old_price||'0'),
-    price:String(pi.price||pi.marketing_price||pi.min_ozon_price||'0'),
-    primary_image:String(a.primary_image||''),
-    vat:String(pi.vat||'0'),
-    weight:Math.round(positive(dim.weight,'WEIGHT')),
-    weight_unit:String(dim.weightUnit||a.weight_unit||'g'),
-    width:Math.round(positive(dim.width,'WIDTH')),
-  };
+  const item:any={attributes:Array.isArray(a.attributes)?a.attributes:[],barcode:String(a.barcode||pi.barcode||''),description_category_id:Number(a.description_category_id||pi.description_category_id||0),type_id:Number(a.type_id||pi.type_id||0),color_image:String(a.color_image||''),complex_attributes:Array.isArray(a.complex_attributes)?a.complex_attributes:[],currency_code:String(pi.currency_code||'RUB'),depth:Math.round(positive(dim.length,'LENGTH')),dimension_unit:String(dim.dimensionUnit||a.dimension_unit||'mm'),height:Math.round(positive(dim.height,'HEIGHT')),images:imageList(a.images),name:String(a.name||pi.name||p.title||p.offerId),offer_id:String(p.offerId),old_price:String(pi.old_price||'0'),price:String(pi.price||pi.marketing_price||pi.min_ozon_price||'0'),primary_image:String(a.primary_image||''),vat:String(pi.vat||'0'),weight:Math.round(positive(dim.weight,'WEIGHT')),weight_unit:String(dim.weightUnit||a.weight_unit||'g'),width:Math.round(positive(dim.width,'WIDTH'))};
   if(!item.description_category_id||!item.type_id||!Number(item.price))throw new Error('OZON_FULL_CARD_DATA_INCOMPLETE');
   return fetchJson('https://api-seller.ozon.ru/v3/product/import',{method:'POST',headers:ozonHeaders(),body:JSON.stringify({items:[item]})});
 }
-
 export async function updateProductText(mp:MarketplaceUi,p:{id?:string;offerId?:string;title?:string;description?:string;ozonDescriptionAttributeId?:number;dimensions?:any}){
-  const title=p.title?.trim(),description=p.description?.trim();
-  const hasDimensions=Boolean(p.dimensions);
+  const title=p.title?.trim(),description=p.description?.trim();const hasDimensions=Boolean(p.dimensions);
   if(!title&&!description&&!hasDimensions)throw new Error('VALIDATION');
   if((title?.length||0)>200||(description?.length||0)>10000)throw new Error('VALIDATION');
   if(mp==='wb')return updateWb(p);
   if(hasDimensions)return updateOzonDimensions(p);
-  if(!p.offerId)throw new Error('VALIDATION');
-  if(title)throw new Error('OZON_TITLE_UPDATE_REQUIRES_FULL_IMPORT');
-  const attr=p.ozonDescriptionAttributeId||Number(process.env.OZON_DESCRIPTION_ATTRIBUTE_ID||0);
-  if(!attr)throw new Error('OZON_DESCRIPTION_ATTRIBUTE_ID_NOT_CONFIGURED');
+  if(!p.offerId)throw new Error('VALIDATION');if(title)throw new Error('OZON_TITLE_UPDATE_REQUIRES_FULL_IMPORT');
+  const attr=p.ozonDescriptionAttributeId||Number(process.env.OZON_DESCRIPTION_ATTRIBUTE_ID||0);if(!attr)throw new Error('OZON_DESCRIPTION_ATTRIBUTE_ID_NOT_CONFIGURED');
   return fetchJson('https://api-seller.ozon.ru/v1/product/attributes/update',{method:'POST',headers:ozonHeaders(),body:JSON.stringify({items:[{offer_id:p.offerId,attributes:[{id:attr,complex_id:0,values:[{value:description||''}]}]}]})});
 }
 
