@@ -1,6 +1,7 @@
 import { ensureSchema, getPool } from './db';
 import { syncMarketplace, type MarketplaceName } from './marketplaces';
 import { listCommunications, type CommunicationType } from './communications';
+import { importMarketplaceProducts, runAutoProductTransfers } from './product-hub';
 
 async function ensureAutoSyncSchema(){
   await ensureSchema();
@@ -53,12 +54,7 @@ async function saveCommunications(source:MarketplaceName,kind:CommunicationType)
         external_created_at=EXCLUDED.external_created_at,
         raw_payload=EXCLUDED.raw_payload,
         synced_at=NOW()
-    `,[
-      source,kind,String(item.id),item.productName||null,item.sku||null,item.article||null,
-      item.rating==null?null:Number(item.rating),item.text||null,
-      typeof item.answer==='string'?item.answer:(item.answer?JSON.stringify(item.answer):null),
-      item.createdAt||null,JSON.stringify(item.raw||{})
-    ]);
+    `,[source,kind,String(item.id),item.productName||null,item.sku||null,item.article||null,item.rating==null?null:Number(item.rating),item.text||null,typeof item.answer==='string'?item.answer:(item.answer?JSON.stringify(item.answer):null),item.createdAt||null,JSON.stringify(item.raw||{})]);
   }
   return Number(data.total||data.items?.length||0);
 }
@@ -72,40 +68,25 @@ async function pushPricesAndStocks(){
   if(process.env.WB_API_TOKEN?.trim() && products.length){
     try{
       const token=process.env.WB_API_TOKEN!.trim();
-      const cardsRes=await fetch('https://content-api.wildberries.ru/content/v2/get/cards/list',{
-        method:'POST',headers:{Authorization:token,'Content-Type':'application/json'},
-        body:JSON.stringify({settings:{cursor:{limit:100},filter:{withPhoto:-1},sort:{ascending:false}}}),cache:'no-store'
-      });
+      const cardsRes=await fetch('https://content-api.wildberries.ru/content/v2/get/cards/list',{method:'POST',headers:{Authorization:token,'Content-Type':'application/json'},body:JSON.stringify({settings:{cursor:{limit:100},filter:{withPhoto:-1},sort:{ascending:false}}}),cache:'no-store'});
       const cardsJson=await cardsRes.json().catch(()=>({}));
       if(!cardsRes.ok) throw new Error(cardsJson?.message||`WB_CARDS_${cardsRes.status}`);
       const cards=Array.isArray(cardsJson?.cards)?cardsJson.cards:[];
       const local=new Map(products.map((p:any)=>[p.sku,p]));
-      const prices:any[]=[];
-      const stocks:any[]=[];
+      const prices:any[]=[];const stocks:any[]=[];
       for(const c of cards){
-        const p=local.get(String(c.vendorCode||''));
-        if(!p) continue;
+        const p=local.get(String(c.vendorCode||''));if(!p) continue;
         if(c.nmID) prices.push({nmID:Number(c.nmID),price:Math.max(1,Math.round(p.price)),discount:0});
-        const sizes=Array.isArray(c.sizes)?c.sizes:[];
-        for(const s of sizes){
-          const skus=Array.isArray(s.skus)?s.skus:[];
-          for(const barcode of skus) stocks.push({sku:String(barcode),amount:Math.max(0,Math.round(p.stock))});
-        }
+        for(const s of Array.isArray(c.sizes)?c.sizes:[]) for(const barcode of Array.isArray(s.skus)?s.skus:[]) stocks.push({sku:String(barcode),amount:Math.max(0,Math.round(p.stock))});
       }
       if(prices.length && process.env.SYNC_MARKETPLACE_PRICES==='1'){
-        const r=await fetch('https://discounts-prices-api.wildberries.ru/api/v2/upload/task',{
-          method:'POST',headers:{Authorization:token,'Content-Type':'application/json'},body:JSON.stringify({data:prices}),cache:'no-store'
-        });
-        if(!r.ok) throw new Error(`WB_PRICE_${r.status}`);
-        result.wb.prices=prices.length;
+        const r=await fetch('https://discounts-prices-api.wildberries.ru/api/v2/upload/task',{method:'POST',headers:{Authorization:token,'Content-Type':'application/json'},body:JSON.stringify({data:prices}),cache:'no-store'});
+        if(!r.ok) throw new Error(`WB_PRICE_${r.status}`);result.wb.prices=prices.length;
       }
       const warehouseId=process.env.WB_WAREHOUSE_ID?.trim();
       if(stocks.length && warehouseId && process.env.SYNC_MARKETPLACE_STOCKS==='1'){
-        const r=await fetch(`https://marketplace-api.wildberries.ru/api/v3/stocks/${encodeURIComponent(warehouseId)}`,{
-          method:'PUT',headers:{Authorization:token,'Content-Type':'application/json'},body:JSON.stringify({stocks}),cache:'no-store'
-        });
-        if(!r.ok) throw new Error(`WB_STOCK_${r.status}`);
-        result.wb.stocks=stocks.length;
+        const r=await fetch(`https://marketplace-api.wildberries.ru/api/v3/stocks/${encodeURIComponent(warehouseId)}`,{method:'PUT',headers:{Authorization:token,'Content-Type':'application/json'},body:JSON.stringify({stocks}),cache:'no-store'});
+        if(!r.ok) throw new Error(`WB_STOCK_${r.status}`);result.wb.stocks=stocks.length;
       } else if(!warehouseId) result.wb.stocks='needs_WB_WAREHOUSE_ID';
     }catch(e:any){result.wb.error=String(e?.message||e)}
   }
@@ -116,15 +97,13 @@ async function pushPricesAndStocks(){
       if(process.env.SYNC_MARKETPLACE_PRICES==='1'){
         const prices=products.map((p:any)=>({offer_id:p.sku,price:String(Math.max(1,Math.round(p.price))),old_price:'0',premium_price:'0'}));
         const r=await fetch('https://api-seller.ozon.ru/v1/product/import/prices',{method:'POST',headers,body:JSON.stringify({prices}),cache:'no-store'});
-        if(!r.ok) throw new Error(`OZON_PRICE_${r.status}`);
-        result.ozon.prices=prices.length;
+        if(!r.ok) throw new Error(`OZON_PRICE_${r.status}`);result.ozon.prices=prices.length;
       }
       const warehouseId=process.env.OZON_WAREHOUSE_ID?.trim();
       if(warehouseId && process.env.SYNC_MARKETPLACE_STOCKS==='1'){
         const stocks=products.map((p:any)=>({offer_id:p.sku,stock:Math.max(0,Math.round(p.stock)),warehouse_id:Number(warehouseId)}));
         const r=await fetch('https://api-seller.ozon.ru/v2/products/stocks',{method:'POST',headers,body:JSON.stringify({stocks}),cache:'no-store'});
-        if(!r.ok) throw new Error(`OZON_STOCK_${r.status}`);
-        result.ozon.stocks=stocks.length;
+        if(!r.ok) throw new Error(`OZON_STOCK_${r.status}`);result.ozon.stocks=stocks.length;
       } else if(!warehouseId) result.ozon.stocks='needs_OZON_WAREHOUSE_ID';
     }catch(e:any){result.ozon.error=String(e?.message||e)}
   }
@@ -136,7 +115,7 @@ export async function runAutomaticMarketplaceSync(){
   const pool=getPool();
   const run=await pool.query(`INSERT INTO marketplace_sync_runs DEFAULT VALUES RETURNING id`);
   const runId=run.rows[0].id;
-  const result:any={orders:{},communications:{},catalog:{}};
+  const result:any={orders:{},communications:{},catalog:{},productHub:{imports:{},transfer:null}};
   try{
     for(const mp of ['wildberries','ozon'] as MarketplaceName[]){
       try{result.orders[mp]=await syncMarketplace(mp)}catch(e:any){result.orders[mp]={error:String(e?.message||e)}}
@@ -145,6 +124,13 @@ export async function runAutomaticMarketplaceSync(){
       }
     }
     result.catalog=await pushPricesAndStocks();
+    if(process.env.WB_API_TOKEN?.trim()){
+      try{result.productHub.imports.wb=await importMarketplaceProducts('wb',100)}catch(e:any){result.productHub.imports.wb={error:String(e?.message||e)}}
+    }
+    if(process.env.OZON_CLIENT_ID?.trim()&&process.env.OZON_API_KEY?.trim()){
+      try{result.productHub.imports.ozon=await importMarketplaceProducts('ozon',100)}catch(e:any){result.productHub.imports.ozon={error:String(e?.message||e)}}
+    }
+    try{result.productHub.transfer=await runAutoProductTransfers()}catch(e:any){result.productHub.transfer={error:String(e?.message||e)}}
     await pool.query(`UPDATE marketplace_sync_runs SET finished_at=NOW(),ok=TRUE,result=$2::jsonb WHERE id=$1`,[runId,JSON.stringify(result)]);
     return {ok:true,runId:Number(runId),...result};
   }catch(error:any){
