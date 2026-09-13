@@ -14,6 +14,11 @@
 - `DATABASE_URL` — Internal Database URL базы `techroom-db`
 - `ADMIN_PASSWORD` — уникальный пароль администратора, минимум 12 символов
 - `ADMIN_SESSION_SECRET` — случайная строка минимум 32 символа для подписи защищённой сессии
+- `TELEGRAM_BOT_TOKEN`, `TELEGRAM_WEBAPP_URL`, `TELEGRAM_WEBHOOK_SECRET` — настройки Telegram-магазина
+- `TELEGRAM_ADMIN_CHAT_ID` — необязательные уведомления о заказах
+- `NEXT_PUBLIC_TELEGRAM_MANAGER_URL` — ссылка на менеджера
+
+Подробная настройка Telegram описана в `TELEGRAM.md`. Все секреты задаются только в Render, не в репозитории.
 
 После этого при первом открытии `/api/products` таблица создастся автоматически.
 

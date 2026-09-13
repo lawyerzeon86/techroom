@@ -1,0 +1,27 @@
+services:
+  - type: web
+    name: techroom-main
+    runtime: node
+    plan: free
+    buildCommand: npm ci && npm run build
+    startCommand: npm start
+    healthCheckPath: /api/products
+    envVars:
+      - key: NODE_VERSION
+        value: 22.14.0
+      - key: DATABASE_URL
+        sync: false
+      - key: ADMIN_PASSWORD
+        sync: false
+      - key: ADMIN_SESSION_SECRET
+        generateValue: true
+      - key: TELEGRAM_BOT_TOKEN
+        sync: false
+      - key: TELEGRAM_WEBAPP_URL
+        value: https://techroom-main.onrender.com/telegram
+      - key: TELEGRAM_WEBHOOK_SECRET
+        generateValue: true
+      - key: TELEGRAM_ADMIN_CHAT_ID
+        sync: false
+      - key: NEXT_PUBLIC_TELEGRAM_MANAGER_URL
+        sync: false
