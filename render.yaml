@@ -25,3 +25,25 @@ services:
         sync: false
       - key: NEXT_PUBLIC_TELEGRAM_MANAGER_URL
         sync: false
+      - key: MAX_BOT_TOKEN
+        sync: false
+      - key: MAX_WEBAPP_URL
+        value: https://techroom-main.onrender.com/max
+      - key: MAX_WEBHOOK_SECRET
+        sync: false
+      - key: MAX_ADMIN_USER_ID
+        sync: false
+      - key: NEXT_PUBLIC_MAX_MANAGER_URL
+        sync: false
+      - key: WHATSAPP_ACCESS_TOKEN
+        sync: false
+      - key: WHATSAPP_PHONE_NUMBER_ID
+        sync: false
+      - key: WHATSAPP_APP_SECRET
+        sync: false
+      - key: WHATSAPP_VERIFY_TOKEN
+        sync: false
+      - key: WHATSAPP_GRAPH_VERSION
+        value: v23.0
+      - key: WHATSAPP_STORE_URL
+        value: https://techroom-main.onrender.com/

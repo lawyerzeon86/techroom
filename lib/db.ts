@@ -78,7 +78,12 @@ export async function ensureSchema() {
       `);
       await pool.query(`ALTER TABLE orders ADD COLUMN IF NOT EXISTS telegram_user_id BIGINT`);
       await pool.query(`ALTER TABLE orders ADD COLUMN IF NOT EXISTS telegram_username TEXT`);
+      await pool.query(`ALTER TABLE orders ADD COLUMN IF NOT EXISTS max_user_id BIGINT`);
+      await pool.query(`ALTER TABLE orders ADD COLUMN IF NOT EXISTS max_username TEXT`);
+      await pool.query(`ALTER TABLE orders ADD COLUMN IF NOT EXISTS whatsapp_phone TEXT`);
       await pool.query(`CREATE INDEX IF NOT EXISTS idx_orders_telegram_user ON orders(telegram_user_id, created_at DESC)`);
+      await pool.query(`CREATE INDEX IF NOT EXISTS idx_orders_max_user ON orders(max_user_id, created_at DESC)`);
+      await pool.query(`CREATE INDEX IF NOT EXISTS idx_orders_whatsapp_phone ON orders(whatsapp_phone, created_at DESC)`);
 
       await pool.query(`
         CREATE TABLE IF NOT EXISTS marketplace_orders (
