@@ -28,7 +28,7 @@ async function priceGuardCycle(){
   g.__techroomPriceGuardBusy=true;
   try{
     const result=await runPriceGuard();
-    console.log('[price-guard] completed',JSON.stringify({raised:result.raised||0,checkedAt:result.checkedAt||null}));
+    console.log('[price-guard] completed',JSON.stringify(result));
   }catch(e:any){
     console.error('[price-guard]',String(e?.message||e));
   }finally{
