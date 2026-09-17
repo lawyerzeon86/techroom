@@ -1,5 +1,3 @@
-import { getProducts } from './marketplace-content';
-
 export type PriceGuardRule={sku:string;minPrice:number};
 
 const RULES:PriceGuardRule[]=[
@@ -21,7 +19,7 @@ async function fetchJson(url:string,init:RequestInit={}){
     let data:any={};
     try{data=text?JSON.parse(text):{}}catch{data={raw:text}}
     if(!response.ok){
-      const error:any=new Error(String(data?.message||data?.errorText||data?.error||`HTTP_${response.status}`));
+      const error:any=new Error(String(data?.message||data?.errorText||data?.error||data?.errors?.[0]?.message||`HTTP_${response.status}`));
       error.status=response.status;
       throw error;
     }
@@ -29,28 +27,68 @@ async function fetchJson(url:string,init:RequestInit={}){
   }finally{clearTimeout(timeout)}
 }
 
-async function guardWb(rule:PriceGuardRule){
-  const token=env('WB_API_TOKEN');
+type WbGood={
+  nmID:number;
+  vendorCode?:string;
+  sizes?:Array<{sizeID?:number;price?:number;discountedPrice?:number;clubDiscountedPrice?:number}>;
+  price?:number;
+  discountedPrice?:number;
+  editableSizePrice?:boolean;
+};
+
+async function loadWbGoods(token:string){
+  const all:WbGood[]=[];
+  const limit=1000;
+  for(let page=0;page<20;page++){
+    const offset=page*limit;
+    const qs=new URLSearchParams({limit:String(limit),offset:String(offset)});
+    const data=await fetchJson(`https://discounts-prices-api.wildberries.ru/api/v2/list/goods/filter?${qs}`,{
+      headers:{Authorization:token,'Content-Type':'application/json'}
+    });
+    const list=(data?.data?.listGoods||data?.listGoods||[]) as WbGood[];
+    all.push(...list);
+    if(list.length<limit)break;
+  }
+  return all;
+}
+
+function wbCurrentPrice(good:WbGood){
+  const sizePrices=(Array.isArray(good.sizes)?good.sizes:[])
+    .map(s=>Number(s?.discountedPrice??s?.price??0))
+    .filter(n=>Number.isFinite(n)&&n>0);
+  if(sizePrices.length)return Math.round(Math.min(...sizePrices));
+  const direct=Number(good.discountedPrice??good.price??0);
+  return Number.isFinite(direct)&&direct>0?Math.round(direct):0;
+}
+
+async function guardWb(rule:PriceGuardRule,token:string|null,goods:WbGood[]|null,loadError:string|null){
   if(!token)return {marketplace:'wb',sku:rule.sku,status:'skipped',reason:'WB_API_TOKEN_NOT_CONFIGURED'};
+  if(loadError)return {marketplace:'wb',sku:rule.sku,status:'error',error:loadError};
+  const good=(goods||[]).find(g=>String(g.vendorCode||'').trim()===rule.sku);
+  if(!good)return {marketplace:'wb',sku:rule.sku,status:'not_found'};
 
-  const products=await getProducts('wb',rule.sku,100);
-  const product=products.find((p:any)=>String(p.offerId||p.sku||'').trim()===rule.sku);
-  if(!product)return {marketplace:'wb',sku:rule.sku,status:'not_found'};
+  const current=wbCurrentPrice(good);
+  if(!current)return {marketplace:'wb',sku:rule.sku,status:'unknown_price',nmID:Number(good.nmID)||null};
+  if(current>=rule.minPrice)return {marketplace:'wb',sku:rule.sku,status:'ok',price:current,minPrice:rule.minPrice,nmID:Number(good.nmID)||null};
 
-  const current=Math.round(Number(product.price||0));
-  if(!current)return {marketplace:'wb',sku:rule.sku,status:'unknown_price'};
-  if(current>=rule.minPrice)return {marketplace:'wb',sku:rule.sku,status:'ok',price:current,minPrice:rule.minPrice};
-
-  const nmID=Number(product.id);
+  const nmID=Number(good.nmID);
   if(!Number.isFinite(nmID)||nmID<=0)return {marketplace:'wb',sku:rule.sku,status:'error',error:'WB_NMID_NOT_FOUND'};
 
-  await fetchJson('https://discounts-prices-api.wildberries.ru/api/v2/upload/task',{
-    method:'POST',
-    headers:{Authorization:token,'Content-Type':'application/json'},
-    body:JSON.stringify({data:[{nmID,price:rule.minPrice,discount:0}]})
-  });
+  if(good.editableSizePrice===true){
+    const sizeRows=(Array.isArray(good.sizes)?good.sizes:[])
+      .filter(s=>Number.isFinite(Number(s?.sizeID))&&Number(s?.sizeID)>0)
+      .map(s=>({nmID,sizeID:Number(s.sizeID),price:rule.minPrice}));
+    if(!sizeRows.length)return {marketplace:'wb',sku:rule.sku,status:'error',error:'WB_SIZE_IDS_NOT_FOUND',nmID};
+    const upload=await fetchJson('https://discounts-prices-api.wildberries.ru/api/v2/upload/task/size',{
+      method:'POST',headers:{Authorization:token,'Content-Type':'application/json'},body:JSON.stringify({data:sizeRows})
+    });
+    return {marketplace:'wb',sku:rule.sku,status:'raised',from:current,to:rule.minPrice,minPrice:rule.minPrice,nmID,mode:'size',uploadId:upload?.data?.id??null,pending:true};
+  }
 
-  return {marketplace:'wb',sku:rule.sku,status:'raised',from:current,to:rule.minPrice,minPrice:rule.minPrice};
+  const upload=await fetchJson('https://discounts-prices-api.wildberries.ru/api/v2/upload/task',{
+    method:'POST',headers:{Authorization:token,'Content-Type':'application/json'},body:JSON.stringify({data:[{nmID,price:rule.minPrice,discount:0}]})
+  });
+  return {marketplace:'wb',sku:rule.sku,status:'raised',from:current,to:rule.minPrice,minPrice:rule.minPrice,nmID,mode:'product',uploadId:upload?.data?.id??null,pending:true};
 }
 
 async function ozonInfo(rule:PriceGuardRule){
@@ -80,14 +118,22 @@ async function guardOzon(rule:PriceGuardRule){
     body:JSON.stringify({prices:[{offer_id:rule.sku,price:String(rule.minPrice),old_price:'0',premium_price:'0'}]})
   });
 
-  return {marketplace:'ozon',sku:rule.sku,status:'raised',from:current,to:rule.minPrice,minPrice:rule.minPrice};
+  return {marketplace:'ozon',sku:rule.sku,status:'raised',from:current,to:rule.minPrice,minPrice:rule.minPrice,pending:true};
 }
 
 export async function runPriceGuard(){
   if(process.env.PRICE_GUARD_ENABLED==='0')return {enabled:false,checkedAt:new Date().toISOString(),raised:0,results:[] as any[]};
   const results:any[]=[];
+
+  const wbToken=env('WB_API_TOKEN');
+  let wbGoods:WbGood[]|null=null;
+  let wbLoadError:string|null=null;
+  if(wbToken){
+    try{wbGoods=await loadWbGoods(wbToken)}catch(e:any){wbLoadError=String(e?.message||e)}
+  }
+
   for(const rule of RULES){
-    try{results.push(await guardWb(rule))}catch(e:any){results.push({marketplace:'wb',sku:rule.sku,status:'error',error:String(e?.message||e)})}
+    try{results.push(await guardWb(rule,wbToken,wbGoods,wbLoadError))}catch(e:any){results.push({marketplace:'wb',sku:rule.sku,status:'error',error:String(e?.message||e)})}
     try{results.push(await guardOzon(rule))}catch(e:any){results.push({marketplace:'ozon',sku:rule.sku,status:'error',error:String(e?.message||e)})}
   }
   const raised=results.filter(r=>r.status==='raised');
