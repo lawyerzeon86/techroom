@@ -144,7 +144,7 @@ export async function updateProductText(mp:MarketplaceUi,p:{id?:string;offerId?:
   if(hasDimensions)return updateOzonDimensions(p);
   if(!p.offerId)throw new Error('VALIDATION');if(title)throw new Error('OZON_TITLE_UPDATE_REQUIRES_FULL_IMPORT');
   const attr=p.ozonDescriptionAttributeId||Number(process.env.OZON_DESCRIPTION_ATTRIBUTE_ID||0);if(!attr)throw new Error('OZON_DESCRIPTION_ATTRIBUTE_ID_NOT_CONFIGURED');
-  return fetchJson('https://api-seller.ozon.ru/v1/product/attributes/update',{method:'POST',headers:ozonHeaders(),body:JSON.stringify({items:[{offer_id:p.offerId,attributes:[{id:attr,complex_id:0,values:[{value:description||''}]}]})});
+  return fetchJson('https://api-seller.ozon.ru/v1/product/attributes/update',{method:'POST',headers:ozonHeaders(),body:JSON.stringify({items:[{offer_id:p.offerId,attributes:[{id:attr,complex_id:0,values:[{value:description||''}]}]}]})});
 }
 
 function fallback(r:number,text:string){if(r>=5)return text.trim()?'Спасибо за ваш отзыв! Очень рады, что товар вам понравился. Будем рады видеть вас снова!':'Спасибо за высокую оценку! Будем рады видеть вас снова.';if(r===4)return'Спасибо за отзыв и высокую оценку! Учтём ваши замечания и постараемся стать ещё лучше.';if(r<=2)return'Спасибо, что сообщили о проблеме. Нам важно разобраться в ситуации. Пожалуйста, напишите продавцу через официальный канал площадки и укажите детали заказа — постараемся помочь.';return'Спасибо за обратную связь. Мы учтём ваши замечания и постараемся улучшить товар и качество обслуживания.'}
