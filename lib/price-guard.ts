@@ -84,7 +84,7 @@ async function guardOzon(rule:PriceGuardRule){
 }
 
 export async function runPriceGuard(){
-  if(process.env.PRICE_GUARD_ENABLED==='0')return {enabled:false,results:[]};
+  if(process.env.PRICE_GUARD_ENABLED==='0')return {enabled:false,checkedAt:new Date().toISOString(),raised:0,results:[] as any[]};
   const results:any[]=[];
   for(const rule of RULES){
     try{results.push(await guardWb(rule))}catch(e:any){results.push({marketplace:'wb',sku:rule.sku,status:'error',error:String(e?.message||e)})}
