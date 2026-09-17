@@ -9,22 +9,28 @@ const RULES:PriceGuardRule[]=[
 ];
 
 function env(name:string){return process.env[name]?.trim()||null}
+function delay(ms:number){return new Promise(resolve=>setTimeout(resolve,ms))}
 
-async function fetchJson(url:string,init:RequestInit={}){
-  const controller=new AbortController();
-  const timeout=setTimeout(()=>controller.abort(),Number(process.env.MARKETPLACE_API_TIMEOUT_MS||15000));
-  try{
-    const response=await fetch(url,{...init,signal:controller.signal,cache:'no-store'});
-    const text=await response.text();
-    let data:any={};
-    try{data=text?JSON.parse(text):{}}catch{data={raw:text}}
-    if(!response.ok){
+async function fetchJson(url:string,init:RequestInit={},retries=2){
+  for(let attempt=0;attempt<=retries;attempt++){
+    const controller=new AbortController();
+    const timeout=setTimeout(()=>controller.abort(),Number(process.env.MARKETPLACE_API_TIMEOUT_MS||15000));
+    try{
+      const response=await fetch(url,{...init,signal:controller.signal,cache:'no-store'});
+      const text=await response.text();
+      let data:any={};
+      try{data=text?JSON.parse(text):{}}catch{data={raw:text}}
+      if(response.ok)return data;
+      if(response.status===429&&attempt<retries){
+        await delay(900+(attempt*900));
+        continue;
+      }
       const error:any=new Error(String(data?.message||data?.errorText||data?.error||data?.errors?.[0]?.message||`HTTP_${response.status}`));
       error.status=response.status;
       throw error;
-    }
-    return data;
-  }finally{clearTimeout(timeout)}
+    }finally{clearTimeout(timeout)}
+  }
+  throw new Error('HTTP_RETRY_EXHAUSTED');
 }
 
 type WbGood={
@@ -40,6 +46,7 @@ async function loadWbGoods(token:string){
   const all:WbGood[]=[];
   const limit=1000;
   for(let page=0;page<20;page++){
+    if(page>0)await delay(650);
     const offset=page*limit;
     const qs=new URLSearchParams({limit:String(limit),offset:String(offset)});
     const data=await fetchJson(`https://discounts-prices-api.wildberries.ru/api/v2/list/goods/filter?${qs}`,{
