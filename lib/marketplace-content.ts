@@ -33,15 +33,29 @@ function attrObject(value:any){
   }
   return out;
 }
-async function wbPrice(nmId:string|number){
+function wbGoodPrice(g:any){
+  const sizes=Array.isArray(g?.sizes)?g.sizes:[];
+  const prices=sizes.map((s:any)=>Number(s?.discountedPrice??s?.price??0)).filter((n:number)=>Number.isFinite(n)&&n>0);
+  if(prices.length)return Math.min(...prices);
+  const direct=Number(g?.discountedPrice??g?.price??0);
+  return Number.isFinite(direct)&&direct>0?direct:0;
+}
+async function wbPriceMap(nmIds:(string|number)[]){
+  const wanted=new Set(nmIds.map(Number).filter(n=>Number.isFinite(n)&&n>0).map(String));
+  const out=new Map<string,number>();
+  if(!wanted.size)return out;
   try{
-    const qs=new URLSearchParams({limit:'1',offset:'0',filterNmID:String(nmId)});
-    const d=await fetchJson(`https://discounts-prices-api.wildberries.ru/api/v2/list/goods/filter?${qs}`,{headers:wbHeaders()});
-    const g=(d?.data?.listGoods||d?.listGoods||[])[0]||{};
-    const sizes=Array.isArray(g?.sizes)?g.sizes:[];
-    const s=sizes[0]||{};
-    return Number(s?.discountedPrice??s?.price??g?.discountedPrice??g?.price??0)||0;
-  }catch{return 0}
+    const limit=1000;
+    for(let page=0;page<20&&out.size<wanted.size;page++){
+      const qs=new URLSearchParams({limit:String(limit),offset:String(page*limit)});
+      const d=await fetchJson(`https://discounts-prices-api.wildberries.ru/api/v2/list/goods/filter?${qs}`,{headers:wbHeaders()});
+      const goods=d?.data?.listGoods||d?.listGoods||[];
+      for(const g of goods){const id=String(g?.nmID||'');if(wanted.has(id))out.set(id,wbGoodPrice(g))}
+      if(!Array.isArray(goods)||goods.length<limit)break;
+      await new Promise(resolve=>setTimeout(resolve,650));
+    }
+  }catch{}
+  return out;
 }
 function normalizeWbCardBase(c:any){
   const d=c?.dimensions||{};
@@ -68,9 +82,8 @@ export async function getProducts(mp:MarketplaceUi,q='',limit=50){
     if(q.trim())body.settings.filter.textSearch=q.trim();
     const d=await fetchJson('https://content-api.wildberries.ru/content/v2/get/cards/list',{method:'POST',headers:wbHeaders(),body:JSON.stringify(body)});
     const cards=d?.cards||[];
-    const out:any[]=[];
-    for(const c of cards){const p:any=normalizeWbCardBase(c);p.price=await wbPrice(c.nmID);out.push(p)}
-    return out;
+    const prices=await wbPriceMap(cards.map((c:any)=>c.nmID));
+    return cards.map((c:any)=>{const p:any=normalizeWbCardBase(c);p.price=prices.get(String(c.nmID))||0;return p});
   }
   const list=await fetchJson('https://api-seller.ozon.ru/v3/product/list',{method:'POST',headers:ozonHeaders(),body:JSON.stringify({filter:{visibility:'ALL'},last_id:'',limit})});
   let items=list?.result?.items||list?.items||[];
@@ -131,7 +144,7 @@ export async function updateProductText(mp:MarketplaceUi,p:{id?:string;offerId?:
   if(hasDimensions)return updateOzonDimensions(p);
   if(!p.offerId)throw new Error('VALIDATION');if(title)throw new Error('OZON_TITLE_UPDATE_REQUIRES_FULL_IMPORT');
   const attr=p.ozonDescriptionAttributeId||Number(process.env.OZON_DESCRIPTION_ATTRIBUTE_ID||0);if(!attr)throw new Error('OZON_DESCRIPTION_ATTRIBUTE_ID_NOT_CONFIGURED');
-  return fetchJson('https://api-seller.ozon.ru/v1/product/attributes/update',{method:'POST',headers:ozonHeaders(),body:JSON.stringify({items:[{offer_id:p.offerId,attributes:[{id:attr,complex_id:0,values:[{value:description||''}]}]}]})});
+  return fetchJson('https://api-seller.ozon.ru/v1/product/attributes/update',{method:'POST',headers:ozonHeaders(),body:JSON.stringify({items:[{offer_id:p.offerId,attributes:[{id:attr,complex_id:0,values:[{value:description||''}]}]})});
 }
 
 function fallback(r:number,text:string){if(r>=5)return text.trim()?'Спасибо за ваш отзыв! Очень рады, что товар вам понравился. Будем рады видеть вас снова!':'Спасибо за высокую оценку! Будем рады видеть вас снова.';if(r===4)return'Спасибо за отзыв и высокую оценку! Учтём ваши замечания и постараемся стать ещё лучше.';if(r<=2)return'Спасибо, что сообщили о проблеме. Нам важно разобраться в ситуации. Пожалуйста, напишите продавцу через официальный канал площадки и укажите детали заказа — постараемся помочь.';return'Спасибо за обратную связь. Мы учтём ваши замечания и постараемся улучшить товар и качество обслуживания.'}
