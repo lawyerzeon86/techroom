@@ -113,7 +113,7 @@ async function loadWbGoods(token:string):Promise<WbLoadState>{
     const unique=[...new Set(ids)];
     if(!unique.length)return {goods:[]};
     const data=await wbRequest('https://discounts-prices-api.wildberries.ru/api/v2/list/goods/filter',{
-      method:'POST',headers:{Authorization:token,'Content-Type':'application/json'},body:JSON.stringify({nmIDs:unique})
+      method:'POST',headers:{Authorization:token,'Content-Type':'application/json'},body:JSON.stringify({nmList:unique})
     });
     return {goods:(data?.data?.listGoods||data?.listGoods||[]) as WbGood[]};
   }catch(e:any){
