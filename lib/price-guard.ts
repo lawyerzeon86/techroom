@@ -1,5 +1,7 @@
 export type PriceGuardRule={sku:string;minPrice:number};
 
+const OZON_PROMO_FLOOR_SKUS=new Set(['R8W0821653','8W0821653','DAK8T54A53A','FenderAudiA4B8front']);
+
 const RULES:PriceGuardRule[]=[
   {sku:'R8W0821653',minPrice:2990},
   {sku:'8W0821653',minPrice:2990},
@@ -194,16 +196,42 @@ async function guardOzon(rule:PriceGuardRule){
   const item=info.item;
   if(!item)return {marketplace:'ozon',sku:rule.sku,status:'not_found'};
 
-  const current=Math.round(Number(item.price??item.marketing_price??item.min_ozon_price??0));
-  if(!current)return {marketplace:'ozon',sku:rule.sku,status:'unknown_price'};
-  if(current>=rule.minPrice)return {marketplace:'ozon',sku:rule.sku,status:'ok',price:current,minPrice:rule.minPrice};
+  const sellerPrice=Math.round(Number(item.price??item.marketing_price??item.min_ozon_price??0));
+  if(!sellerPrice)return {marketplace:'ozon',sku:rule.sku,status:'unknown_price'};
+
+  if(OZON_PROMO_FLOOR_SKUS.has(rule.sku)){
+    const promoMin=Math.round(Number(item.min_price??item.min_ozon_price??0));
+    if(promoMin>=rule.minPrice){
+      return {marketplace:'ozon',sku:rule.sku,status:'ok',price:sellerPrice,promoMinPrice:promoMin,minPromoPrice:rule.minPrice,mode:'promo_floor'};
+    }
+
+    const data=await fetchJson('https://api-seller.ozon.ru/v1/product/import/prices',{
+      method:'POST',headers:info.headers,
+      body:JSON.stringify({prices:[{
+        offer_id:rule.sku,
+        price:String(sellerPrice),
+        min_price:String(rule.minPrice),
+        min_price_for_auto_actions_enabled:true,
+        old_price:String(item.old_price??'0'),
+        currency_code:String(item.currency_code||'RUB')
+      }]})
+    });
+    const result=(data?.result||[])[0]||{};
+    if(result?.updated===false||Array.isArray(result?.errors)&&result.errors.length){
+      const message=(result?.errors||[]).map((e:any)=>e?.message||e?.code).filter(Boolean).join('; ')||'OZON_PRICE_UPDATE_REJECTED';
+      throw new Error(message);
+    }
+    return {marketplace:'ozon',sku:rule.sku,status:'raised',price:sellerPrice,fromPromoMin:promoMin,toPromoMin:rule.minPrice,minPromoPrice:rule.minPrice,mode:'promo_floor',pending:true};
+  }
+
+  if(sellerPrice>=rule.minPrice)return {marketplace:'ozon',sku:rule.sku,status:'ok',price:sellerPrice,minPrice:rule.minPrice};
 
   await fetchJson('https://api-seller.ozon.ru/v1/product/import/prices',{
     method:'POST',headers:info.headers,
-    body:JSON.stringify({prices:[{offer_id:rule.sku,price:String(rule.minPrice),old_price:'0',premium_price:'0'}]})
+    body:JSON.stringify({prices:[{offer_id:rule.sku,price:String(rule.minPrice),old_price:'0'}]})
   });
 
-  return {marketplace:'ozon',sku:rule.sku,status:'raised',from:current,to:rule.minPrice,minPrice:rule.minPrice,pending:true};
+  return {marketplace:'ozon',sku:rule.sku,status:'raised',from:sellerPrice,to:rule.minPrice,minPrice:rule.minPrice,pending:true};
 }
 
 export async function runPriceGuard(){
