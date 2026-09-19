@@ -33,6 +33,11 @@ export async function ensureProductHubSchema(){
 }
 
 function canonicalSku(p:any){return String(p.offerId||p.sku||p.id||'').trim()}
+function firstPositiveNumber(...values:any[]){for(const value of values){const n=Number(value);if(Number.isFinite(n)&&n>0)return n}return 0}
+function sitePriceFromPayload(source:string,payload:any){
+  if(source==='ozon')return firstPositiveNumber(payload?.raw?.info?.min_price,payload?.price,payload?.raw?.info?.price,payload?.raw?.info?.marketing_price,payload?.raw?.info?.min_ozon_price);
+  return firstPositiveNumber(payload?.price);
+}
 function categoryFrom(h:any){
   const text=`${h.title||''} ${h.description||''} ${JSON.stringify(h.attributes||{})}`.toLowerCase();
   if(/audi|bmw|mercedes|porsche|авто|порог|датчик|кожух|запчаст/.test(text))return 'Автозапчасти';
@@ -72,7 +77,7 @@ export async function syncHubCatalogToSite(){
   for(const h of rows){
     const payload=h.source_payload||{};
     const images=Array.isArray(h.images)?h.images.filter((x:any)=>typeof x==='string'&&x):[];
-    const price=Math.max(0,Math.round(Number(payload?.price||0)||0));
+    const price=Math.max(0,Math.round(sitePriceFromPayload(String(h.source_marketplace||''),payload)));
     const existing=await pool.query(`SELECT id,price,stock,image_urls FROM products WHERE sku=$1 ORDER BY id LIMIT 1`,[h.canonical_sku]);
     const category=categoryFrom(h);const specs=specsFrom(h);const mainImage=images[0]||null;
     if(existing.rows[0]){
