@@ -1,9 +1,9 @@
 export type PriceGuardRule={sku:string;minPrice:number};
 
 const RULES:PriceGuardRule[]=[
-  {sku:'R8W0821653',minPrice:2000},
-  {sku:'DAK8T54A53A',minPrice:2000},
-  {sku:'FenderAudiA4B8front',minPrice:2000},
+  {sku:'R8W0821653',minPrice:2990},
+  {sku:'DAK8T54A53A',minPrice:2990},
+  {sku:'FenderAudiA4B8front',minPrice:2990},
   {sku:'DAK123456',minPrice:5000},
   {sku:'DAK-VASE-SHELL-ASA-WH-001',minPrice:5000},
 ];
