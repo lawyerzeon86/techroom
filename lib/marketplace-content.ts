@@ -21,6 +21,11 @@ function imageList(value:any){
   if(!Array.isArray(value))return [];
   return value.map((x:any)=>typeof x==='string'?x:(x?.big||x?.url||x?.file_name||x?.original||x?.c516x688||x?.c246x328||'')).filter((x:any)=>typeof x==='string'&&/^https?:\/\//i.test(x));
 }
+function firstPositiveNumber(...values:any[]){
+  for(const value of values){const n=Number(value);if(Number.isFinite(n)&&n>0)return n}
+  return 0;
+}
+function ozonSitePrice(info:any){return firstPositiveNumber(info?.min_price,info?.price,info?.marketing_price,info?.min_ozon_price)}
 function attrObject(value:any){
   if(!Array.isArray(value))return {};
   const out:any={};
@@ -97,7 +102,7 @@ export async function getProducts(mp:MarketplaceUi,q='',limit=50){
     const a:any=attrById.get(String(p.product_id))||{};
     const pi:any=await ozonInfo(String(p.offer_id||a.offer_id||''));
     const images=[...imageList(a.images),...imageList(pi.images),...imageList(a.primary_image?[a.primary_image]:[])].filter((x,i,arr)=>arr.indexOf(x)===i);
-    const price=Number(pi.price??pi.marketing_price??pi.min_ozon_price??0)||0;
+    const price=ozonSitePrice(pi);
     out.push({marketplace:'ozon',id:String(p.product_id||p.offer_id),offerId:String(p.offer_id||a.offer_id||''),title:String(a.name||pi.name||p.offer_id||p.product_id||'Товар'),description,sku:String(p.offer_id||a.offer_id||p.product_id||''),images,attributes:attrObject(a.attributes),brand:pi.brand||null,category:String(a.description_category_id||a.type_id||''),price,dimensions:{length:Number(a.depth)||0,width:Number(a.width)||0,height:Number(a.height)||0,weight:Number(a.weight)||0,dimensionUnit:String(a.dimension_unit||'mm'),weightUnit:String(a.weight_unit||'g'),valid:true},raw:{list:p,attributes:a,info:pi}})
   }
   return out;
