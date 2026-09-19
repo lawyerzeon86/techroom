@@ -24,8 +24,12 @@ async function loadOzonAutoPromoRules():Promise<PriceGuardRule[]>{
       JOIN marketplace_product_links l ON l.hub_id=h.id AND l.marketplace='ozon'
       JOIN products p ON p.sku=h.canonical_sku
       WHERE p.is_active=TRUE
-        AND p.category='Автозапчасти'
         AND COALESCE(h.canonical_sku,'')<>''
+        AND (
+          p.category='Автозапчасти'
+          OR LOWER(CONCAT_WS(' ',p.title,p.description,p.specs,h.title,h.description,h.canonical_sku))
+             ~ '(audi|bmw|mercedes|porsche|авто|порог|датчик|кожух|запчаст|fender)'
+        )
       ORDER BY h.canonical_sku
     `);
     const seen=new Set<string>();
