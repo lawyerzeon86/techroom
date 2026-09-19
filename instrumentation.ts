@@ -1,8 +1,10 @@
 import { runPriceGuard } from './lib/price-guard';
+import { syncHubCatalogToSite } from './lib/product-hub';
 
 const g=globalThis as typeof globalThis & {
   __techroomPriceGuardTimer?:NodeJS.Timeout;
   __techroomPriceGuardBusy?:boolean;
+  __techroomSiteSyncStarted?:boolean;
 };
 
 async function priceGuardCycle(){
@@ -18,9 +20,26 @@ async function priceGuardCycle(){
   }
 }
 
+async function siteSyncOnce(){
+  try{
+    const result=await syncHubCatalogToSite();
+    console.log('[site-price-sync] completed',JSON.stringify(result));
+  }catch(e:any){
+    console.error('[site-price-sync]',String(e?.message||e));
+  }
+}
+
 export async function register(){
-  if(process.env.NEXT_RUNTIME!=='nodejs'||g.__techroomPriceGuardTimer)return;
-  setTimeout(()=>void priceGuardCycle(),45000);
-  g.__techroomPriceGuardTimer=setInterval(()=>void priceGuardCycle(),3*60*1000);
-  g.__techroomPriceGuardTimer.unref?.();
+  if(process.env.NEXT_RUNTIME!=='nodejs')return;
+
+  if(!g.__techroomSiteSyncStarted){
+    g.__techroomSiteSyncStarted=true;
+    setTimeout(()=>void siteSyncOnce(),15000);
+  }
+
+  if(!g.__techroomPriceGuardTimer){
+    setTimeout(()=>void priceGuardCycle(),45000);
+    g.__techroomPriceGuardTimer=setInterval(()=>void priceGuardCycle(),3*60*1000);
+    g.__techroomPriceGuardTimer.unref?.();
+  }
 }
