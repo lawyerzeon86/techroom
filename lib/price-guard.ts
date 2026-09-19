@@ -19,13 +19,14 @@ async function loadOzonAutoPromoRules():Promise<PriceGuardRule[]>{
     await ensureSchema();
     const pool=getPool();
     const {rows}=await pool.query(`
-      SELECT sku,title
-      FROM products
-      WHERE marketplace_source='ozon'
-        AND is_active=TRUE
-        AND category='Автозапчасти'
-        AND COALESCE(sku,'')<>''
-      ORDER BY id
+      SELECT DISTINCT h.canonical_sku AS sku,p.title
+      FROM marketplace_product_hub h
+      JOIN marketplace_product_links l ON l.hub_id=h.id AND l.marketplace='ozon'
+      JOIN products p ON p.sku=h.canonical_sku
+      WHERE p.is_active=TRUE
+        AND p.category='Автозапчасти'
+        AND COALESCE(h.canonical_sku,'')<>''
+      ORDER BY h.canonical_sku
     `);
     const seen=new Set<string>();
     const rules:PriceGuardRule[]=[];
