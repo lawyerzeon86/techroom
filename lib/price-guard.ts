@@ -33,6 +33,7 @@ async function loadOzonAutoPromoRules():Promise<PriceGuardRule[]>{
         method:'POST',headers,body:JSON.stringify({offer_id:offerIds,product_id:[],sku:[]})
       });
       const items=info?.items||info?.result?.items||[];
+      console.log('[price-guard] Ozon catalog offers',JSON.stringify(items.map((item:any)=>({offerId:String(item?.offer_id||''),name:String(item?.name||'')}))));
       const autoPattern=/(audi|bmw|mercedes|porsche|авто|автомоб|порог|наклад|датчик|кожух|запчаст|fender|8w0821653|a4\s*b9|a4\s*b8)/i;
       for(const item of items){
         const offerId=String(item?.offer_id||'').trim();
