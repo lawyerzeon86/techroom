@@ -1,6 +1,9 @@
+import { ensureSchema, getPool } from './db';
+
 export type PriceGuardRule={sku:string;minPrice:number};
 
 const OZON_PROMO_FLOOR_SKUS=new Set(['R8W0821653','8W0821653','DAK8T54A53A','FenderAudiA4B8front']);
+const OZON_AUTO_PROMO_FLOOR=2990;
 
 const RULES:PriceGuardRule[]=[
   {sku:'R8W0821653',minPrice:2990},
@@ -10,6 +13,37 @@ const RULES:PriceGuardRule[]=[
   {sku:'DAK123456',minPrice:5000},
   {sku:'DAK-VASE-SHELL-ASA-WH-001',minPrice:5000},
 ];
+
+async function loadOzonAutoPromoRules():Promise<PriceGuardRule[]>{
+  try{
+    await ensureSchema();
+    const pool=getPool();
+    const {rows}=await pool.query(`
+      SELECT sku,title
+      FROM products
+      WHERE marketplace_source='ozon'
+        AND is_active=TRUE
+        AND category='Автозапчасти'
+        AND COALESCE(sku,'')<>''
+      ORDER BY id
+    `);
+    const seen=new Set<string>();
+    const rules:PriceGuardRule[]=[];
+    for(const row of rows){
+      const sku=String(row?.sku||'').trim();
+      if(!sku||seen.has(sku))continue;
+      seen.add(sku);
+      rules.push({sku,minPrice:OZON_AUTO_PROMO_FLOOR});
+    }
+    if(rules.length){
+      console.log('[price-guard] Ozon auto promo SKUs',JSON.stringify(rules.map(r=>r.sku)));
+      return rules;
+    }
+  }catch(e:any){
+    console.warn('[price-guard] Ozon auto SKU discovery failed',String(e?.message||e));
+  }
+  return [...OZON_PROMO_FLOOR_SKUS].map(sku=>({sku,minPrice:OZON_AUTO_PROMO_FLOOR}));
+}
 
 function env(name:string){return process.env[name]?.trim()||null}
 function timeoutMs(){return Math.max(3000,Number(process.env.MARKETPLACE_API_TIMEOUT_MS||15000))}
@@ -190,7 +224,7 @@ async function ozonInfo(rule:PriceGuardRule){
   return {configured:true as const,headers,item};
 }
 
-async function guardOzon(rule:PriceGuardRule){
+async function guardOzon(rule:PriceGuardRule,promoFloor=false){
   const info=await ozonInfo(rule);
   if(!info.configured)return {marketplace:'ozon',sku:rule.sku,status:'skipped',reason:'OZON_NOT_CONFIGURED'};
   const item=info.item;
@@ -199,7 +233,7 @@ async function guardOzon(rule:PriceGuardRule){
   const sellerPrice=Math.round(Number(item.price??item.marketing_price??item.min_ozon_price??0));
   if(!sellerPrice)return {marketplace:'ozon',sku:rule.sku,status:'unknown_price'};
 
-  if(OZON_PROMO_FLOOR_SKUS.has(rule.sku)){
+  if(promoFloor){
     const promoMin=Math.round(Number(item.min_price??item.min_ozon_price??0));
     if(promoMin>=rule.minPrice){
       return {marketplace:'ozon',sku:rule.sku,status:'ok',price:sellerPrice,promoMinPrice:promoMin,minPromoPrice:rule.minPrice,mode:'promo_floor'};
@@ -243,7 +277,14 @@ export async function runPriceGuard(){
 
   for(const rule of RULES){
     try{results.push(await guardWb(rule,wbToken,wbState))}catch(e:any){results.push({marketplace:'wb',sku:rule.sku,status:'error',error:String(e?.message||e)})}
-    try{results.push(await guardOzon(rule))}catch(e:any){results.push({marketplace:'ozon',sku:rule.sku,status:'error',error:String(e?.message||e)})}
+  }
+
+  const ozonAutoRules=await loadOzonAutoPromoRules();
+  for(const rule of ozonAutoRules){
+    try{results.push(await guardOzon(rule,true))}catch(e:any){results.push({marketplace:'ozon',sku:rule.sku,status:'error',error:String(e?.message||e)})}
+  }
+  for(const rule of RULES.filter(r=>!OZON_PROMO_FLOOR_SKUS.has(r.sku))){
+    try{results.push(await guardOzon(rule,false))}catch(e:any){results.push({marketplace:'ozon',sku:rule.sku,status:'error',error:String(e?.message||e)})}
   }
   const raised=results.filter(r=>r.status==='raised');
   if(raised.length)console.warn('[price-guard] restored prices',JSON.stringify(raised));
