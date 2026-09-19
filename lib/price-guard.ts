@@ -2,6 +2,7 @@ export type PriceGuardRule={sku:string;minPrice:number};
 
 const RULES:PriceGuardRule[]=[
   {sku:'R8W0821653',minPrice:2990},
+  {sku:'8W0821653',minPrice:2990},
   {sku:'DAK8T54A53A',minPrice:2990},
   {sku:'FenderAudiA4B8front',minPrice:2990},
   {sku:'DAK123456',minPrice:5000},
