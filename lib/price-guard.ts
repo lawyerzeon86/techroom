@@ -97,7 +97,8 @@ async function resolveWbNmId(token:string,sku:string){
   const exact=cards.find((card:any)=>String(card?.vendorCode||'').trim()===sku);
   const nmID=Number(exact?.nmID||0);
   const value=Number.isFinite(nmID)&&nmID>0?nmID:null;
-  wbNmIdCache.set(sku,value);
+  if(value)wbNmIdCache.set(sku,value);
+  else wbNmIdCache.delete(sku);
   return value;
 }
 
