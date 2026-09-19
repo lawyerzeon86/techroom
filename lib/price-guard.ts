@@ -1,8 +1,7 @@
-import { ensureSchema, getPool } from './db';
-
 export type PriceGuardRule={sku:string;minPrice:number};
 
 const OZON_PROMO_FLOOR_SKUS=new Set(['R8W0821653','8W0821653','DAK8T54A53A','FenderAudiA4B8front']);
+const OZON_KNOWN_AUTO_SKUS=new Set(['R8W0821653','DAK8T54A53A','FenderAudiA4B8front']);
 const OZON_AUTO_PROMO_FLOOR=2990;
 
 const RULES:PriceGuardRule[]=[
@@ -14,40 +13,41 @@ const RULES:PriceGuardRule[]=[
   {sku:'DAK-VASE-SHELL-ASA-WH-001',minPrice:5000},
 ];
 
+let ozonAutoRuleCache:{expiresAt:number;rules:PriceGuardRule[]}|null=null;
+
 async function loadOzonAutoPromoRules():Promise<PriceGuardRule[]>{
+  if(ozonAutoRuleCache&&Date.now()<ozonAutoRuleCache.expiresAt)return ozonAutoRuleCache.rules;
+  const fallback=[...OZON_KNOWN_AUTO_SKUS].map(sku=>({sku,minPrice:OZON_AUTO_PROMO_FLOOR}));
   try{
-    await ensureSchema();
-    const pool=getPool();
-    const {rows}=await pool.query(`
-      SELECT DISTINCT h.canonical_sku AS sku,p.title
-      FROM marketplace_product_hub h
-      JOIN marketplace_product_links l ON l.hub_id=h.id AND l.marketplace='ozon'
-      JOIN products p ON p.sku=h.canonical_sku
-      WHERE p.is_active=TRUE
-        AND COALESCE(h.canonical_sku,'')<>''
-        AND (
-          p.category='Автозапчасти'
-          OR LOWER(CONCAT_WS(' ',p.title,p.description,p.specs,h.title,h.description,h.canonical_sku))
-             ~ '(audi|bmw|mercedes|porsche|авто|порог|датчик|кожух|запчаст|fender)'
-        )
-      ORDER BY h.canonical_sku
-    `);
-    const seen=new Set<string>();
-    const rules:PriceGuardRule[]=[];
-    for(const row of rows){
-      const sku=String(row?.sku||'').trim();
-      if(!sku||seen.has(sku))continue;
-      seen.add(sku);
-      rules.push({sku,minPrice:OZON_AUTO_PROMO_FLOOR});
+    const clientId=env('OZON_CLIENT_ID'),apiKey=env('OZON_API_KEY');
+    if(!clientId||!apiKey)return fallback;
+    const headers={'Client-Id':clientId,'Api-Key':apiKey,'Content-Type':'application/json'};
+    const list=await fetchJson('https://api-seller.ozon.ru/v3/product/list',{
+      method:'POST',headers,body:JSON.stringify({filter:{visibility:'ALL'},last_id:'',limit:1000})
+    });
+    const listItems=list?.result?.items||list?.items||[];
+    const offerIds=[...new Set(listItems.map((p:any)=>String(p?.offer_id||'').trim()).filter(Boolean))];
+    const seen=new Set<string>(OZON_KNOWN_AUTO_SKUS);
+    if(offerIds.length){
+      const info=await fetchJson('https://api-seller.ozon.ru/v3/product/info/list',{
+        method:'POST',headers,body:JSON.stringify({offer_id:offerIds,product_id:[],sku:[]})
+      });
+      const items=info?.items||info?.result?.items||[];
+      const autoPattern=/(audi|bmw|mercedes|porsche|авто|автомоб|порог|наклад|датчик|кожух|запчаст|fender|8w0821653|a4\s*b9|a4\s*b8)/i;
+      for(const item of items){
+        const offerId=String(item?.offer_id||'').trim();
+        const text=`${item?.name||''} ${offerId}`;
+        if(offerId&&autoPattern.test(text))seen.add(offerId);
+      }
     }
-    if(rules.length){
-      console.log('[price-guard] Ozon auto promo SKUs',JSON.stringify(rules.map(r=>r.sku)));
-      return rules;
-    }
+    const rules=[...seen].map(sku=>({sku,minPrice:OZON_AUTO_PROMO_FLOOR}));
+    ozonAutoRuleCache={expiresAt:Date.now()+60*60*1000,rules};
+    console.log('[price-guard] Ozon auto promo SKUs',JSON.stringify(rules.map(r=>r.sku)));
+    return rules;
   }catch(e:any){
     console.warn('[price-guard] Ozon auto SKU discovery failed',String(e?.message||e));
+    return fallback;
   }
-  return [...OZON_PROMO_FLOOR_SKUS].map(sku=>({sku,minPrice:OZON_AUTO_PROMO_FLOOR}));
 }
 
 function env(name:string){return process.env[name]?.trim()||null}
