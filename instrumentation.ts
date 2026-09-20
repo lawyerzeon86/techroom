@@ -1,12 +1,14 @@
 import { runPriceGuard } from './lib/price-guard';
 import { syncHubCatalogToSite } from './lib/product-hub';
 import { pushPricesAndStocks } from './lib/auto-sync';
+import { syncTechRoomPricesFromWildberries } from './lib/wb-price-source';
 
 const g=globalThis as typeof globalThis & {
   __techroomPriceGuardTimer?:NodeJS.Timeout;
   __techroomPriceGuardBusy?:boolean;
   __techroomSiteSyncStarted?:boolean;
   __techroomOzonPriceSyncStarted?:boolean;
+  __techroomWbPriceBootstrapStarted?:boolean;
 };
 
 async function priceGuardCycle(){
@@ -31,6 +33,11 @@ async function marketplacePriceSyncOnce(){
   }
 }
 
+async function wbPriceBootstrapOnce(){
+  try{const result=await syncTechRoomPricesFromWildberries();console.log('[wb-site-price-sync] completed',JSON.stringify(result));}
+  catch(e:any){console.error('[wb-site-price-sync]',String(e?.message||e));}
+}
+
 async function siteSyncOnce(){
   try{
     const result=await syncHubCatalogToSite();
@@ -42,6 +49,8 @@ async function siteSyncOnce(){
 
 export async function register(){
   if(process.env.NEXT_RUNTIME!=='nodejs')return;
+
+  if(!g.__techroomWbPriceBootstrapStarted){g.__techroomWbPriceBootstrapStarted=true;setTimeout(()=>void wbPriceBootstrapOnce(),5000);}
 
   if(!g.__techroomSiteSyncStarted){
     g.__techroomSiteSyncStarted=true;
