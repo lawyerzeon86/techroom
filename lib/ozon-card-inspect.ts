@@ -12,6 +12,12 @@ function flatten(nodes:any[],path:string[]=[]):any[]{
   for(const n of Array.isArray(nodes)?nodes:[]){
     const title=String(n?.category_name||n?.name||n?.title||'');
     const p=[...path,title].filter(Boolean);
+    const nodeTypeId=Number(n?.type_id||n?.type?.id||0);
+    if(nodeTypeId)out.push({
+      description_category_id:Number(n?.description_category_id||n?.category_id||n?.id||0),
+      category:title,path:p.join(' > '),type_id:nodeTypeId,
+      type_name:String(n?.type_name||n?.type?.name||n?.type?.title||title)
+    });
     const types=Array.isArray(n?.type)?n.type:(Array.isArray(n?.types)?n.types:[]);
     for(const t of types)out.push({
       description_category_id:Number(n?.description_category_id||n?.category_id||n?.id||0),
