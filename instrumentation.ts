@@ -2,7 +2,7 @@ import { runPriceGuard } from './lib/price-guard';
 import { syncHubCatalogToSite } from './lib/product-hub';
 import { pushPricesAndStocks } from './lib/auto-sync';
 import { syncTechRoomPricesFromWildberries } from './lib/wb-price-source';
-import { inspectOzonSellerDefaults } from './lib/ozon-card-inspect';
+import { inspectOzonExternalDecor } from './lib/ozon-card-inspect';
 
 const g=globalThis as typeof globalThis & {
   __techroomPriceGuardTimer?:NodeJS.Timeout;
@@ -58,7 +58,7 @@ async function siteSyncOnce(){
 export async function register(){
   if(process.env.NEXT_RUNTIME!=='nodejs')return;
 
-  if(!g.__techroomOzonCardInspectStarted){g.__techroomOzonCardInspectStarted=true;setTimeout(()=>void inspectOzonSellerDefaults().then(r=>console.log('[ozon-seller-defaults]',JSON.stringify(r))).catch(e=>console.error('[ozon-card-inspect]',String(e?.message||e))),8000);}
+  if(!g.__techroomOzonCardInspectStarted){g.__techroomOzonCardInspectStarted=true;setTimeout(()=>void inspectOzonExternalDecor().then(r=>console.log('[ozon-external-decor]',JSON.stringify(r))).catch(e=>console.error('[ozon-card-inspect]',String(e?.message||e))),8000);}
 
   if(!g.__techroomWbPriceBootstrapStarted){g.__techroomWbPriceBootstrapStarted=true;setTimeout(()=>void wbPriceBootstrapOnce(),5000);}
 
