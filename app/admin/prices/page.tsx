@@ -4,7 +4,7 @@ import { useEffect,useMemo,useState } from 'react';
 
 type PriceRow={
   sku:string;productId:number|null;title:string;price:number;minPrice:number;stock:number;
-  syncOzon:boolean;syncWb:boolean;syncYandex:boolean;updatedAt:string;
+  syncOzon:boolean;syncWb:boolean;syncYandex:boolean;syncAvito:boolean;avitoItemId:number|null;updatedAt:string;
 };
 
 export default function PricesPage(){
@@ -33,7 +33,7 @@ export default function PricesPage(){
   const save=async(syncAfter=false)=>{
     setBusy(true);setStatus('Сохраняю лист цен…');
     const r=await fetch('/api/admin/prices',{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify({items:items.map(x=>({
-      sku:x.sku,price:Number(x.price)||0,minPrice:Number(x.minPrice)||0,syncOzon:x.syncOzon,syncWb:x.syncWb,syncYandex:x.syncYandex
+      sku:x.sku,price:Number(x.price)||0,minPrice:Number(x.minPrice)||0,syncOzon:x.syncOzon,syncWb:x.syncWb,syncYandex:x.syncYandex,syncAvito:x.syncAvito,avitoItemId:x.avitoItemId
     }))})});
     const j=await r.json().catch(()=>({}));
     if(!r.ok){setStatus(j.error||'Ошибка сохранения');setBusy(false);return}
@@ -53,6 +53,7 @@ export default function PricesPage(){
       res.ozon?.prices&&typeof res.ozon.prices==='object'?'Ozon: '+(res.ozon.prices.updated??res.ozon.prices.requested??0):null,
       typeof res.wb?.prices==='number'?'WB: '+res.wb.prices:null,
       typeof res.yandex?.prices==='number'?'Яндекс: '+res.yandex.prices:null,
+      res.avito?.prices&&typeof res.avito.prices==='object'?'Avito: '+(res.avito.prices.updated??0):null,
     ].filter(Boolean);
     setStatus('✓ Синхронизация завершена'+(parts.length?' · '+parts.join(' · '):''));
     setBusy(false);
@@ -75,7 +76,7 @@ export default function PricesPage(){
         {badge('Ozon',Boolean(marketplaces.ozon))}
         {badge('Wildberries',Boolean(marketplaces.wb))}
         {badge('Яндекс Маркет',Boolean(marketplaces.yandex))}
-        {badge('Avito — адаптер позже',false)}
+        {badge('Avito',Boolean(marketplaces.avito))}
       </div>
       <p style={{marginBottom:0,color:'#756c64'}}>Цена из этого листа является главной. Минимальная цена — нижний предел: ниже него выгрузка не уйдёт.</p>
       {status&&<p style={{marginBottom:0}}><b>{status}</b></p>}
@@ -87,8 +88,8 @@ export default function PricesPage(){
         <input value={q} onChange={e=>setQ(e.target.value)} placeholder="Поиск по названию или SKU"/>
       </div>
       <div className="admin-table-wrap">
-        <table className="admin-table" style={{minWidth:1100}}>
-          <thead><tr><th>SKU</th><th>Товар</th><th>Цена TechRoom</th><th>Минимальная</th><th>Остаток</th><th>Ozon</th><th>WB</th><th>Яндекс</th><th>Обновлено</th></tr></thead>
+        <table className="admin-table" style={{minWidth:1250}}>
+          <thead><tr><th>SKU</th><th>Товар</th><th>Цена TechRoom</th><th>Минимальная</th><th>Остаток</th><th>Ozon</th><th>WB</th><th>Яндекс</th><th>Avito</th><th>Avito ID</th><th>Обновлено</th></tr></thead>
           <tbody>
             {filtered.map(x=><tr key={x.sku}>
               <td><b>{x.sku}</b></td>
@@ -99,6 +100,8 @@ export default function PricesPage(){
               <td><input type="checkbox" checked={x.syncOzon} disabled={!marketplaces.ozon} onChange={e=>patch(x.sku,{syncOzon:e.target.checked})}/></td>
               <td><input type="checkbox" checked={x.syncWb} disabled={!marketplaces.wb} onChange={e=>patch(x.sku,{syncWb:e.target.checked})}/></td>
               <td><input type="checkbox" checked={x.syncYandex} disabled={!marketplaces.yandex} onChange={e=>patch(x.sku,{syncYandex:e.target.checked})}/></td>
+              <td><input type="checkbox" checked={x.syncAvito} disabled={!marketplaces.avito} onChange={e=>patch(x.sku,{syncAvito:e.target.checked})}/></td>
+              <td><input type="number" min="1" value={x.avitoItemId||''} onChange={e=>patch(x.sku,{avitoItemId:e.target.value?Number(e.target.value):null})} placeholder="авто" style={{width:110,padding:'8px',border:'1px solid #ded4ca',borderRadius:9}}/></td>
               <td><small>{x.updatedAt?new Date(x.updatedAt).toLocaleString('ru-RU'):'—'}</small></td>
             </tr>)}
           </tbody>
