@@ -2,15 +2,11 @@ import { ensureSchema, getPool } from './db';
 import { syncMarketplace, type MarketplaceName } from './marketplaces';
 import { listCommunications, type CommunicationType } from './communications';
 import { importMarketplaceProducts, runAutoProductTransfers } from './product-hub';
+import { hardFloorForSku, listPriceSheet } from './price-sheet';
 
-const OZON_PRICE_FLOORS:Record<string,number>={
-  R8W0821653:2000,
-  DAK8T54A53A:2000,
-  FenderAudiA4B8front:2000,
-  DAK123456:5000,
-  'DAK-VASE-SHELL-ASA-WH-001':5000,
-};
-function safeOzonTargetPrice(sku:string,price:number){return Math.max(1,Math.round(price),OZON_PRICE_FLOORS[sku]||0)}
+function targetPrice(p:{sku:string;price:number;minPrice:number}){
+  return Math.max(1,Math.round(p.price),Math.round(p.minPrice||0),hardFloorForSku(p.sku));
+}
 
 async function ensureAutoSyncSchema(){
   await ensureSchema();
@@ -68,11 +64,10 @@ async function saveCommunications(source:MarketplaceName,kind:CommunicationType)
   return Number(data.total||data.items?.length||0);
 }
 
-export async function pushPricesAndStocks(options:{onlyOzonPrices?:boolean}={}){
+export async function pushPricesAndStocks(options:{onlyOzonPrices?:boolean;onlyPrices?:boolean}={}){
   const pool=getPool();
-  const {rows}=await pool.query(`SELECT sku,price,stock,marketplace_source FROM products WHERE is_active=TRUE AND sku IS NOT NULL AND sku<>'' ORDER BY id`);
-  const products=rows.map((r:any)=>({sku:String(r.sku),price:Number(r.price)||0,stock:Number(r.stock)||0,marketplaceSource:String(r.marketplace_source||'')}));
-  const result:any={products:products.length,wb:{prices:'skipped',stocks:'skipped'},ozon:{prices:'skipped',stocks:'skipped'}};
+  const products=await listPriceSheet();
+  const result:any={products:products.length,wb:{prices:'skipped',stocks:'skipped'},ozon:{prices:'skipped',stocks:'skipped'},yandex:{prices:'skipped'}};
 
   if(!options.onlyOzonPrices && process.env.WB_API_TOKEN?.trim() && products.length){
     try{
@@ -81,19 +76,19 @@ export async function pushPricesAndStocks(options:{onlyOzonPrices?:boolean}={}){
       const cardsJson=await cardsRes.json().catch(()=>({}));
       if(!cardsRes.ok) throw new Error(cardsJson?.message||`WB_CARDS_${cardsRes.status}`);
       const cards=Array.isArray(cardsJson?.cards)?cardsJson.cards:[];
-      const local=new Map(products.map((p:any)=>[p.sku,p]));
+      const local=new Map(products.filter((p:any)=>p.syncWb).map((p:any)=>[p.sku,p]));
       const prices:any[]=[];const stocks:any[]=[];
       for(const c of cards){
         const p=local.get(String(c.vendorCode||''));if(!p) continue;
-        if(c.nmID) prices.push({nmID:Number(c.nmID),price:Math.max(1,Math.round(p.price)),discount:0});
+        if(c.nmID) prices.push({nmID:Number(c.nmID),price:targetPrice(p),discount:0});
         for(const s of Array.isArray(c.sizes)?c.sizes:[]) for(const barcode of Array.isArray(s.skus)?s.skus:[]) stocks.push({sku:String(barcode),amount:Math.max(0,Math.round(p.stock))});
       }
-      if(prices.length && process.env.SYNC_MARKETPLACE_PRICES==='1'){
+      if(prices.length && (process.env.SYNC_WB_PRICES==='1'||process.env.SYNC_MARKETPLACE_PRICES==='1')){
         const r=await fetch('https://discounts-prices-api.wildberries.ru/api/v2/upload/task',{method:'POST',headers:{Authorization:token,'Content-Type':'application/json'},body:JSON.stringify({data:prices}),cache:'no-store'});
         if(!r.ok) throw new Error(`WB_PRICE_${r.status}`);result.wb.prices=prices.length;
       }
       const warehouseId=process.env.WB_WAREHOUSE_ID?.trim();
-      if(stocks.length && warehouseId && process.env.SYNC_MARKETPLACE_STOCKS==='1'){
+      if(!options.onlyPrices && stocks.length && warehouseId && process.env.SYNC_MARKETPLACE_STOCKS==='1'){
         const r=await fetch(`https://marketplace-api.wildberries.ru/api/v3/stocks/${encodeURIComponent(warehouseId)}`,{method:'PUT',headers:{Authorization:token,'Content-Type':'application/json'},body:JSON.stringify({stocks}),cache:'no-store'});
         if(!r.ok) throw new Error(`WB_STOCK_${r.status}`);result.wb.stocks=stocks.length;
       } else if(!warehouseId) result.wb.stocks='needs_WB_WAREHOUSE_ID';
@@ -104,15 +99,15 @@ export async function pushPricesAndStocks(options:{onlyOzonPrices?:boolean}={}){
     try{
       const headers={'Client-Id':process.env.OZON_CLIENT_ID!.trim(),'Api-Key':process.env.OZON_API_KEY!.trim(),'Content-Type':'application/json'};
       if(process.env.SYNC_OZON_PRICES==='1'||process.env.SYNC_MARKETPLACE_PRICES==='1'){
-        const ozonProducts=products.filter((p:any)=>p.marketplaceSource==='ozon'&&p.price>0);
+        const ozonProducts=products.filter((p:any)=>p.syncOzon&&p.price>0);
         const currentRes=ozonProducts.length?await fetch('https://api-seller.ozon.ru/v3/product/info/list',{method:'POST',headers,body:JSON.stringify({offer_id:ozonProducts.map((p:any)=>p.sku),product_id:[],sku:[]}),cache:'no-store'}):null;
         const currentJson=currentRes?await currentRes.json().catch(()=>({})):{};
         if(currentRes&&!currentRes.ok)throw new Error(`OZON_PRICE_INFO_${currentRes.status}`);
         const currentItems=Array.isArray(currentJson?.items)?currentJson.items:(Array.isArray(currentJson?.result?.items)?currentJson.result.items:[]);
         const currentByOffer=new Map(currentItems.map((item:any)=>[String(item.offer_id||''),Number(item.price||0)]));
         const prices=ozonProducts
-          .map((p:any)=>({offer_id:p.sku,target:safeOzonTargetPrice(p.sku,p.price),current:Number(currentByOffer.get(p.sku)||0)}))
-          .filter((p:any)=>p.target>0&&(!p.current||Math.round(p.current)!==p.target))
+          .map((p:any)=>({offer_id:p.sku,target:targetPrice(p),current:Number(currentByOffer.get(p.sku)||0)}))
+          .filter((p:any)=>p.target>0&&p.current>0&&Math.round(p.current)!==p.target)
           .map((p:any)=>({offer_id:p.offer_id,price:String(p.target),old_price:'0',premium_price:'0'}));
         if(prices.length){
           const r=await fetch('https://api-seller.ozon.ru/v1/product/import/prices',{method:'POST',headers,body:JSON.stringify({prices}),cache:'no-store'});
@@ -123,13 +118,34 @@ export async function pushPricesAndStocks(options:{onlyOzonPrices?:boolean}={}){
         }else result.ozon.prices={requested:0,updated:0,errors:[]};
       }
       const warehouseId=process.env.OZON_WAREHOUSE_ID?.trim();
-      if(!options.onlyOzonPrices && warehouseId && process.env.SYNC_MARKETPLACE_STOCKS==='1'){
+      if(!options.onlyOzonPrices && !options.onlyPrices && warehouseId && process.env.SYNC_MARKETPLACE_STOCKS==='1'){
         const stocks=products.map((p:any)=>({offer_id:p.sku,stock:Math.max(0,Math.round(p.stock)),warehouse_id:Number(warehouseId)}));
         const r=await fetch('https://api-seller.ozon.ru/v2/products/stocks',{method:'POST',headers,body:JSON.stringify({stocks}),cache:'no-store'});
         if(!r.ok) throw new Error(`OZON_STOCK_${r.status}`);result.ozon.stocks=stocks.length;
-      } else if(!options.onlyOzonPrices && !warehouseId) result.ozon.stocks='needs_OZON_WAREHOUSE_ID';
+      } else if(!options.onlyOzonPrices && !options.onlyPrices && !warehouseId) result.ozon.stocks='needs_OZON_WAREHOUSE_ID';
     }catch(e:any){result.ozon.error=String(e?.message||e)}
   }
+  if(!options.onlyOzonPrices && process.env.YANDEX_MARKET_API_KEY?.trim() && process.env.YANDEX_MARKET_BUSINESS_ID?.trim() && products.length && (process.env.SYNC_YANDEX_PRICES==='1'||process.env.SYNC_MARKETPLACE_PRICES==='1')){
+    try{
+      const apiKey=process.env.YANDEX_MARKET_API_KEY!.trim();
+      const businessId=process.env.YANDEX_MARKET_BUSINESS_ID!.trim();
+      const yandexProducts=products.filter((p:any)=>p.syncYandex&&p.price>0);
+      let pushed=0;
+      for(let i=0;i<yandexProducts.length;i+=2000){
+        const part=yandexProducts.slice(i,i+2000);
+        const offers=part.map((p:any)=>({offerId:p.sku,price:{value:targetPrice(p),currencyId:'RUR'}}));
+        if(!offers.length)continue;
+        const res=await fetch(`https://api.partner.market.yandex.ru/v2/businesses/${encodeURIComponent(businessId)}/offer-prices/updates`,{
+          method:'POST',headers:{'Api-Key':apiKey,'Content-Type':'application/json'},body:JSON.stringify({offers}),cache:'no-store'
+        });
+        const data=await res.json().catch(()=>({}));
+        if(!res.ok)throw new Error(String(data?.message||data?.errors?.[0]?.message||`YANDEX_PRICE_${res.status}`));
+        pushed+=offers.length;
+      }
+      result.yandex.prices=pushed;
+    }catch(e:any){result.yandex.error=String(e?.message||e)}
+  }
+
   return result;
 }
 
