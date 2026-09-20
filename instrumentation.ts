@@ -2,7 +2,6 @@ import { runPriceGuard } from './lib/price-guard';
 import { syncHubCatalogToSite } from './lib/product-hub';
 import { pushPricesAndStocks } from './lib/auto-sync';
 import { syncTechRoomPricesFromWildberries } from './lib/wb-price-source';
-import { setAudiCoverStock10 } from './lib/ozon-stock-oneoff';
 
 const g=globalThis as typeof globalThis & {
   __techroomPriceGuardTimer?:NodeJS.Timeout;
@@ -10,7 +9,6 @@ const g=globalThis as typeof globalThis & {
   __techroomSiteSyncStarted?:boolean;
   __techroomOzonPriceSyncStarted?:boolean;
   __techroomWbPriceBootstrapStarted?:boolean;
-  __techroomOzonStockOneoffStarted?:boolean;
 };
 
 async function priceGuardCycle(){
@@ -59,7 +57,6 @@ export async function register(){
   if(process.env.NEXT_RUNTIME!=='nodejs')return;
 
 
-  if(!g.__techroomOzonStockOneoffStarted){g.__techroomOzonStockOneoffStarted=true;setTimeout(()=>void setAudiCoverStock10().then(r=>console.log('[ozon-stock-10]',JSON.stringify(r))).catch(e=>console.error('[ozon-stock-10]',String(e?.message||e))),6000);}
 
   if(!g.__techroomWbPriceBootstrapStarted){g.__techroomWbPriceBootstrapStarted=true;setTimeout(()=>void wbPriceBootstrapOnce(),5000);}
 
