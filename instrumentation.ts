@@ -33,9 +33,15 @@ async function marketplacePriceSyncOnce(){
   }
 }
 
-async function wbPriceBootstrapOnce(){
-  try{const result=await syncTechRoomPricesFromWildberries();console.log('[wb-site-price-sync] completed',JSON.stringify(result));}
-  catch(e:any){console.error('[wb-site-price-sync]',String(e?.message||e));}
+async function wbPriceBootstrapOnce(attempt=0){
+  try{
+    const result=await syncTechRoomPricesFromWildberries();
+    console.log('[wb-site-price-sync] completed',JSON.stringify({...result,attempt}));
+    if(result.updated===0&&attempt<2)setTimeout(()=>void wbPriceBootstrapOnce(attempt+1),10*60*1000);
+  }catch(e:any){
+    console.error('[wb-site-price-sync]',String(e?.message||e));
+    if(attempt<2)setTimeout(()=>void wbPriceBootstrapOnce(attempt+1),10*60*1000);
+  }
 }
 
 async function siteSyncOnce(){
