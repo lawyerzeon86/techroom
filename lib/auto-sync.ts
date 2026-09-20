@@ -3,6 +3,15 @@ import { syncMarketplace, type MarketplaceName } from './marketplaces';
 import { listCommunications, type CommunicationType } from './communications';
 import { importMarketplaceProducts, runAutoProductTransfers } from './product-hub';
 
+const OZON_PRICE_FLOORS:Record<string,number>={
+  R8W0821653:2000,
+  DAK8T54A53A:2000,
+  FenderAudiA4B8front:2000,
+  DAK123456:5000,
+  'DAK-VASE-SHELL-ASA-WH-001':5000,
+};
+function safeOzonTargetPrice(sku:string,price:number){return Math.max(1,Math.round(price),OZON_PRICE_FLOORS[sku]||0)}
+
 async function ensureAutoSyncSchema(){
   await ensureSchema();
   const pool=getPool();
@@ -59,10 +68,10 @@ async function saveCommunications(source:MarketplaceName,kind:CommunicationType)
   return Number(data.total||data.items?.length||0);
 }
 
-async function pushPricesAndStocks(){
+export async function pushPricesAndStocks(){
   const pool=getPool();
-  const {rows}=await pool.query(`SELECT sku,price,stock FROM products WHERE is_active=TRUE AND sku IS NOT NULL AND sku<>'' ORDER BY id`);
-  const products=rows.map((r:any)=>({sku:String(r.sku),price:Number(r.price)||0,stock:Number(r.stock)||0}));
+  const {rows}=await pool.query(`SELECT sku,price,stock,marketplace_source FROM products WHERE is_active=TRUE AND sku IS NOT NULL AND sku<>'' ORDER BY id`);
+  const products=rows.map((r:any)=>({sku:String(r.sku),price:Number(r.price)||0,stock:Number(r.stock)||0,marketplaceSource:String(r.marketplace_source||'')}));
   const result:any={products:products.length,wb:{prices:'skipped',stocks:'skipped'},ozon:{prices:'skipped',stocks:'skipped'}};
 
   if(process.env.WB_API_TOKEN?.trim() && products.length){
@@ -94,10 +103,24 @@ async function pushPricesAndStocks(){
   if(process.env.OZON_CLIENT_ID?.trim() && process.env.OZON_API_KEY?.trim() && products.length){
     try{
       const headers={'Client-Id':process.env.OZON_CLIENT_ID!.trim(),'Api-Key':process.env.OZON_API_KEY!.trim(),'Content-Type':'application/json'};
-      if(process.env.SYNC_MARKETPLACE_PRICES==='1'){
-        const prices=products.map((p:any)=>({offer_id:p.sku,price:String(Math.max(1,Math.round(p.price))),old_price:'0',premium_price:'0'}));
-        const r=await fetch('https://api-seller.ozon.ru/v1/product/import/prices',{method:'POST',headers,body:JSON.stringify({prices}),cache:'no-store'});
-        if(!r.ok) throw new Error(`OZON_PRICE_${r.status}`);result.ozon.prices=prices.length;
+      if(process.env.SYNC_OZON_PRICES==='1'||process.env.SYNC_MARKETPLACE_PRICES==='1'){
+        const ozonProducts=products.filter((p:any)=>p.marketplaceSource==='ozon'&&p.price>0);
+        const currentRes=ozonProducts.length?await fetch('https://api-seller.ozon.ru/v3/product/info/list',{method:'POST',headers,body:JSON.stringify({offer_id:ozonProducts.map((p:any)=>p.sku),product_id:[],sku:[]}),cache:'no-store'}):null;
+        const currentJson=currentRes?await currentRes.json().catch(()=>({})):{};
+        if(currentRes&&!currentRes.ok)throw new Error(`OZON_PRICE_INFO_${currentRes.status}`);
+        const currentItems=Array.isArray(currentJson?.items)?currentJson.items:(Array.isArray(currentJson?.result?.items)?currentJson.result.items:[]);
+        const currentByOffer=new Map(currentItems.map((item:any)=>[String(item.offer_id||''),Number(item.price||0)]));
+        const prices=ozonProducts
+          .map((p:any)=>({offer_id:p.sku,target:safeOzonTargetPrice(p.sku,p.price),current:Number(currentByOffer.get(p.sku)||0)}))
+          .filter((p:any)=>p.target>0&&(!p.current||Math.round(p.current)!==p.target))
+          .map((p:any)=>({offer_id:p.offer_id,price:String(p.target),old_price:'0',premium_price:'0'}));
+        if(prices.length){
+          const r=await fetch('https://api-seller.ozon.ru/v1/product/import/prices',{method:'POST',headers,body:JSON.stringify({prices}),cache:'no-store'});
+          const data=await r.json().catch(()=>({}));
+          if(!r.ok) throw new Error(String(data?.message||`OZON_PRICE_${r.status}`));
+          const errors=(Array.isArray(data?.result)?data.result:[]).flatMap((x:any)=>(Array.isArray(x?.errors)?x.errors:[]).map((e:any)=>({offerId:x.offer_id,code:e?.code,message:e?.message})));
+          result.ozon.prices={requested:prices.length,updated:(Array.isArray(data?.result)?data.result.filter((x:any)=>x?.updated===true).length:prices.length),errors};
+        }else result.ozon.prices={requested:0,updated:0,errors:[]};
       }
       const warehouseId=process.env.OZON_WAREHOUSE_ID?.trim();
       if(warehouseId && process.env.SYNC_MARKETPLACE_STOCKS==='1'){
