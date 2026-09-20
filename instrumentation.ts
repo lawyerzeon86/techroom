@@ -1,10 +1,12 @@
 import { runPriceGuard } from './lib/price-guard';
 import { syncHubCatalogToSite } from './lib/product-hub';
+import { pushPricesAndStocks } from './lib/auto-sync';
 
 const g=globalThis as typeof globalThis & {
   __techroomPriceGuardTimer?:NodeJS.Timeout;
   __techroomPriceGuardBusy?:boolean;
   __techroomSiteSyncStarted?:boolean;
+  __techroomOzonPriceSyncStarted?:boolean;
 };
 
 async function priceGuardCycle(){
@@ -17,6 +19,15 @@ async function priceGuardCycle(){
     console.error('[price-guard]',String(e?.message||e));
   }finally{
     g.__techroomPriceGuardBusy=false;
+  }
+}
+
+async function ozonPriceSyncOnce(){
+  try{
+    const result=await pushPricesAndStocks({onlyOzonPrices:true});
+    console.log('[ozon-price-sync] completed',JSON.stringify(result?.ozon||result));
+  }catch(e:any){
+    console.error('[ozon-price-sync]',String(e?.message||e));
   }
 }
 
@@ -35,6 +46,11 @@ export async function register(){
   if(!g.__techroomSiteSyncStarted){
     g.__techroomSiteSyncStarted=true;
     setTimeout(()=>void siteSyncOnce(),15000);
+  }
+
+  if(!g.__techroomOzonPriceSyncStarted){
+    g.__techroomOzonPriceSyncStarted=true;
+    setTimeout(()=>void ozonPriceSyncOnce(),30000);
   }
 
   if(!g.__techroomPriceGuardTimer){
