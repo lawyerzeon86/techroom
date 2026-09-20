@@ -23,6 +23,7 @@ export function marketplaceConfig(){
   return {
     wildberries:Boolean(process.env.WB_API_TOKEN?.trim()),
     ozon:Boolean(process.env.OZON_CLIENT_ID?.trim()&&process.env.OZON_API_KEY?.trim()),
+    avito:Boolean(process.env.AVITO_CLIENT_ID?.trim()&&process.env.AVITO_CLIENT_SECRET?.trim()),
   };
 }
 
