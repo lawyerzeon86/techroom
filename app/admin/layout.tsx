@@ -6,6 +6,7 @@ export default function AdminLayout({children}:{children:ReactNode}){
       <div style={{width:'min(1280px,calc(100% - 32px))',margin:'0 auto',height:50,display:'flex',alignItems:'center',gap:18,overflowX:'auto'}}>
         <b style={{whiteSpace:'nowrap'}}>TechRoom Admin</b>
         <a href="/admin" style={{color:'#fff',textDecoration:'none',whiteSpace:'nowrap'}}>Товары</a>
+        <a href="/admin/prices" style={{color:'#ffd27a',textDecoration:'none',whiteSpace:'nowrap'}}>Лист цен</a>
         <a href="/admin/orders" style={{color:'#fff',textDecoration:'none',whiteSpace:'nowrap'}}>Заказы</a>
         <a href="/admin/communications" style={{color:'#fff',textDecoration:'none',whiteSpace:'nowrap'}}>Отзывы и вопросы</a>
         <a href="/admin/marketplaces" style={{color:'#ffb07a',textDecoration:'none',whiteSpace:'nowrap'}}>AI Маркетплейсы</a>
