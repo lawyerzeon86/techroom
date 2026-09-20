@@ -22,12 +22,12 @@ async function priceGuardCycle(){
   }
 }
 
-async function ozonPriceSyncOnce(){
+async function marketplacePriceSyncOnce(){
   try{
-    const result=await pushPricesAndStocks({onlyOzonPrices:true});
-    console.log('[ozon-price-sync] completed',JSON.stringify(result?.ozon||result));
+    const result=await pushPricesAndStocks({onlyPrices:true});
+    console.log('[marketplace-price-sync] completed',JSON.stringify(result));
   }catch(e:any){
-    console.error('[ozon-price-sync]',String(e?.message||e));
+    console.error('[marketplace-price-sync]',String(e?.message||e));
   }
 }
 
@@ -50,7 +50,7 @@ export async function register(){
 
   if(!g.__techroomOzonPriceSyncStarted){
     g.__techroomOzonPriceSyncStarted=true;
-    setTimeout(()=>void ozonPriceSyncOnce(),30000);
+    setTimeout(()=>void marketplacePriceSyncOnce(),30000);
   }
 
   if(!g.__techroomPriceGuardTimer){
