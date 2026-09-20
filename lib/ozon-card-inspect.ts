@@ -65,5 +65,6 @@ export async function inspectOzonAutoPartCategory(){
       details.push({...c,attrs});
     }catch(e:any){details.push({...c,error:String(e?.message||e)})}
   }
-  return {count:all.length,samples:all.slice(0,30),candidates,details};
+  const lighting=all.filter((x:any)=>{const s=(x.path+' '+x.type_name).toLowerCase();return /фар|оптик|освещ|ксенон|блок розжига|заглушк/.test(s)&&/автотовар|запчаст/.test(s)}).slice(0,120);
+  return {count:all.length,lighting,candidates,details};
 }
