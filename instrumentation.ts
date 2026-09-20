@@ -2,6 +2,7 @@ import { runPriceGuard } from './lib/price-guard';
 import { syncHubCatalogToSite } from './lib/product-hub';
 import { pushPricesAndStocks } from './lib/auto-sync';
 import { syncTechRoomPricesFromWildberries } from './lib/wb-price-source';
+import { inspectOzonAutoPartCategory } from './lib/ozon-card-inspect';
 
 const g=globalThis as typeof globalThis & {
   __techroomPriceGuardTimer?:NodeJS.Timeout;
@@ -9,6 +10,7 @@ const g=globalThis as typeof globalThis & {
   __techroomSiteSyncStarted?:boolean;
   __techroomOzonPriceSyncStarted?:boolean;
   __techroomWbPriceBootstrapStarted?:boolean;
+  __techroomOzonCardInspectStarted?:boolean;
 };
 
 async function priceGuardCycle(){
@@ -55,6 +57,8 @@ async function siteSyncOnce(){
 
 export async function register(){
   if(process.env.NEXT_RUNTIME!=='nodejs')return;
+
+  if(!g.__techroomOzonCardInspectStarted){g.__techroomOzonCardInspectStarted=true;setTimeout(()=>void inspectOzonAutoPartCategory().then(r=>console.log('[ozon-card-inspect]',JSON.stringify(r))).catch(e=>console.error('[ozon-card-inspect]',String(e?.message||e))),8000);}
 
   if(!g.__techroomWbPriceBootstrapStarted){g.__techroomWbPriceBootstrapStarted=true;setTimeout(()=>void wbPriceBootstrapOnce(),5000);}
 
