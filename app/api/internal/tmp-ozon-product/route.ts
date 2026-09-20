@@ -51,3 +51,23 @@ export async function POST(req:Request){
     return NextResponse.json({count:all.length,candidates:scored});
   }catch(e:any){return NextResponse.json({error:String(e?.message||e)},{status:500})}
 }
+
+
+export async function GET(req:Request){
+  const url=new URL(req.url);
+  if(url.searchParams.get('token')!==NONCE)return NextResponse.json({error:'forbidden'},{status:403});
+  try{
+    const tree=await ozon('/v1/description-category/tree',{language:'RU'});
+    const all=flatten(tree?.result||tree?.categories||tree?.items||[]);
+    const terms=['заглуш','фара','освещ','автозапчаст','кузов','электрооборуд'];
+    const scored=all.map((x:any)=>{
+      const s=(x.path+' '+x.type_name).toLowerCase();
+      let score=0;for(const term of terms)if(s.includes(term))score++;
+      if(s.includes('запчаст'))score+=2;
+      if(s.includes('автомоб'))score+=2;
+      return {...x,score};
+    }).filter((x:any)=>x.description_category_id&&x.type_id&&x.score>0)
+      .sort((a:any,b:any)=>b.score-a.score||a.path.localeCompare(b.path,'ru')).slice(0,80);
+    return NextResponse.json({count:all.length,candidates:scored});
+  }catch(e:any){return NextResponse.json({error:String(e?.message||e)},{status:500})}
+}
