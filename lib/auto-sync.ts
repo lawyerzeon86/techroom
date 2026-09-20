@@ -3,6 +3,7 @@ import { syncMarketplace, type MarketplaceName } from './marketplaces';
 import { listCommunications, type CommunicationType } from './communications';
 import { importMarketplaceProducts, runAutoProductTransfers } from './product-hub';
 import { hardFloorForSku, listPriceSheet } from './price-sheet';
+import { pushAvitoPrices } from './avito';
 
 function targetPrice(p:{sku:string;price:number;minPrice:number}){
   return Math.max(1,Math.round(p.price),Math.round(p.minPrice||0),hardFloorForSku(p.sku));
@@ -67,7 +68,7 @@ async function saveCommunications(source:MarketplaceName,kind:CommunicationType)
 export async function pushPricesAndStocks(options:{onlyOzonPrices?:boolean;onlyPrices?:boolean}={}){
   const pool=getPool();
   const products=await listPriceSheet();
-  const result:any={products:products.length,wb:{prices:'skipped',stocks:'skipped'},ozon:{prices:'skipped',stocks:'skipped'},yandex:{prices:'skipped'}};
+  const result:any={products:products.length,wb:{prices:'skipped',stocks:'skipped'},ozon:{prices:'skipped',stocks:'skipped'},yandex:{prices:'skipped'},avito:{prices:'skipped'}};
 
   if(!options.onlyOzonPrices && process.env.WB_API_TOKEN?.trim() && products.length){
     try{
@@ -148,6 +149,10 @@ export async function pushPricesAndStocks(options:{onlyOzonPrices?:boolean;onlyP
       }
       result.yandex.prices=pushed;
     }catch(e:any){result.yandex.error=String(e?.message||e)}
+  }
+
+  if(!options.onlyOzonPrices){
+    try{result.avito.prices=await pushAvitoPrices()}catch(e:any){result.avito.error=String(e?.message||e)}
   }
 
   return result;
