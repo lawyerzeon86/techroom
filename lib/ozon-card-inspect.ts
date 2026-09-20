@@ -68,3 +68,42 @@ export async function inspectOzonAutoPartCategory(){
   const lighting=all.filter((x:any)=>{const s=(x.path+' '+x.type_name).toLowerCase();return /фар|оптик|освещ|ксенон|блок розжига|заглушк/.test(s)&&/автотовар|запчаст/.test(s)}).slice(0,120);
   return {count:all.length,lighting,candidates,details};
 }
+
+
+async function values(attributeId:number,categoryId:number,typeId:number){
+  const out:any[]=[];let last=0;
+  for(let page=0;page<20;page++){
+    const d=await ozon('/v1/description-category/attribute/values',{
+      attribute_id:attributeId,description_category_id:categoryId,type_id:typeId,
+      language:'RU',last_value_id:last,limit:100
+    });
+    const rows=d?.result||d?.values||[];
+    if(!Array.isArray(rows)||!rows.length)break;
+    out.push(...rows.map((x:any)=>({id:Number(x?.id||x?.value_id||x?.dictionary_value_id||0),value:String(x?.value||x?.name||'')})));
+    const next=Number(rows[rows.length-1]?.id||rows[rows.length-1]?.value_id||0);
+    if(!next||next===last||rows.length<100)break; last=next;
+  }
+  return out;
+}
+
+export async function inspectOzonHeadlightCover(){
+  const description_category_id=17028756,type_id=971102695;
+  const a=await ozon('/v1/description-category/attribute',{description_category_id,type_id,language:'RU'});
+  const attrs=(a?.result||a?.attributes||[]).map((x:any)=>({
+    id:Number(x?.id||0),name:String(x?.name||''),required:Boolean(x?.is_required),
+    dictionaryId:Number(x?.dictionary_id||0),type:String(x?.type||'')
+  }));
+  const important=attrs.filter((x:any)=>x.required||/бренд|материал|количество|комплект|цвет|марка|модель|тн|вид запчасти|страна/i.test(x.name));
+  const dictionaries:any={};
+  for(const x of important.filter((x:any)=>x.dictionaryId)){
+    const all=await values(x.id,description_category_id,type_id);
+    let filtered=all;
+    if(x.id===22232)filtered=all.filter((v:any)=>/3926|пластмасс|транспорт|автомоб/i.test(v.value)).slice(0,100);
+    else if(x.id===85)filtered=all.filter((v:any)=>/нет бренда|techroom/i.test(v.value)).slice(0,30);
+    else if(x.id===7199||/материал/i.test(x.name))filtered=all.filter((v:any)=>/asa|пласт/i.test(v.value)).slice(0,30);
+    else if(x.id===7202||/количество/i.test(x.name))filtered=all.filter((v:any)=>/^2$|2 шт/i.test(v.value)).slice(0,20);
+    else filtered=all.slice(0,30);
+    dictionaries[x.id]={name:x.name,count:all.length,values:filtered};
+  }
+  return {description_category_id,type_id,type_name:'Кожух фары',attributes:important,dictionaries};
+}
