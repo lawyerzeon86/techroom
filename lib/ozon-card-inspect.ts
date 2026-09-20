@@ -120,3 +120,23 @@ export async function inspectOzonSellerDefaults(){
   }));
   return {rows};
 }
+
+
+export async function inspectOzonExternalDecor(){
+  const tree=await ozon('/v1/description-category/tree',{language:'RU'});
+  const all=flatten(tree?.result||tree?.categories||tree?.items||[]);
+  const picks=all.filter((x:any)=>{
+    const s=(x.path+' '+x.type_name).toLowerCase();
+    return /автотовары/.test(s)&&/тюнинг|внешн|декор/.test(s);
+  }).slice(0,200);
+  const details=[];
+  for(const p of picks.slice(0,30)){
+    try{
+      const a=await ozon('/v1/description-category/attribute',{description_category_id:p.description_category_id,type_id:p.type_id,language:'RU'});
+      const attrs=(a?.result||a?.attributes||[]).map((x:any)=>({id:Number(x?.id||0),name:String(x?.name||''),required:Boolean(x?.is_required),dictionaryId:Number(x?.dictionary_id||0),type:String(x?.type||'')}))
+        .filter((x:any)=>x.required||/бренд|материал|количество|комплект|цвет|марка|модель|тн|тип|партномер/i.test(x.name));
+      details.push({...p,attrs});
+    }catch(e:any){details.push({...p,error:String(e?.message||e)})}
+  }
+  return {picks,details};
+}
