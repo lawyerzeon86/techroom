@@ -46,20 +46,22 @@ function wbGoodPrice(g:any){
   return Number.isFinite(direct)&&direct>0?direct:0;
 }
 async function wbPriceMap(nmIds:(string|number)[]){
-  const wanted=new Set(nmIds.map(Number).filter(n=>Number.isFinite(n)&&n>0).map(String));
+  const ids=[...new Set(nmIds.map(Number).filter(n=>Number.isFinite(n)&&n>0))];
   const out=new Map<string,number>();
-  if(!wanted.size)return out;
-  try{
-    const limit=1000;
-    for(let page=0;page<20&&out.size<wanted.size;page++){
-      const qs=new URLSearchParams({limit:String(limit),offset:String(page*limit)});
-      const d=await fetchJson(`https://discounts-prices-api.wildberries.ru/api/v2/list/goods/filter?${qs}`,{headers:wbHeaders()});
+  if(!ids.length)return out;
+  for(let i=0;i<ids.length;i+=100){
+    const part=ids.slice(i,i+100);
+    try{
+      const d=await fetchJson('https://discounts-prices-api.wildberries.ru/api/v2/list/goods/filter',{
+        method:'POST',headers:wbHeaders(),body:JSON.stringify({nmList:part})
+      });
       const goods=d?.data?.listGoods||d?.listGoods||[];
-      for(const g of goods){const id=String(g?.nmID||'');if(wanted.has(id))out.set(id,wbGoodPrice(g))}
-      if(!Array.isArray(goods)||goods.length<limit)break;
-      await new Promise(resolve=>setTimeout(resolve,650));
+      for(const g of goods){const id=String(g?.nmID||'');const price=wbGoodPrice(g);if(id&&price>0)out.set(id,price)}
+    }catch(e:any){
+      if(Number(e?.status)===429)throw e;
     }
-  }catch{}
+    if(i+100<ids.length)await new Promise(resolve=>setTimeout(resolve,700));
+  }
   return out;
 }
 function normalizeWbCardBase(c:any){
