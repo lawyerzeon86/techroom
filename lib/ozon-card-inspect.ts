@@ -64,5 +64,5 @@ export async function inspectOzonAutoPartCategory(){
       details.push({...c,attrs});
     }catch(e:any){details.push({...c,error:String(e?.message||e)})}
   }
-  return {count:all.length,candidates,details};
+  return {count:all.length,samples:all.slice(0,30),candidates,details};
 }
