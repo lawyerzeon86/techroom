@@ -1,5 +1,6 @@
 import { ensureSchema, getPool } from './db';
 import { getProducts, updateProductText, type MarketplaceUi } from './marketplace-content';
+import { ensurePriceSheetSchema } from './price-sheet';
 
 export type HubMarketplace = MarketplaceUi;
 
@@ -71,19 +72,26 @@ export async function importMarketplaceProducts(mp:HubMarketplace,limit=100){
 
 export async function syncHubCatalogToSite(){
   await ensureProductHubSchema();
+  await ensurePriceSheetSchema();
   const pool=getPool();
+  const sheetRows=await pool.query(`SELECT sku,price,min_price FROM price_sheet`);
+  const sheet=new Map(sheetRows.rows.map((r:any)=>[String(r.sku),{price:Number(r.price)||0,minPrice:Number(r.min_price)||0}]));
   const {rows}=await pool.query(`SELECT * FROM marketplace_product_hub ORDER BY updated_at DESC LIMIT 5000`);
   let created=0,updated=0;
   for(const h of rows){
     const payload=h.source_payload||{};
     const images=Array.isArray(h.images)?h.images.filter((x:any)=>typeof x==='string'&&x):[];
-    const price=Math.max(0,Math.round(sitePriceFromPayload(String(h.source_marketplace||''),payload)));
+    const importedPrice=Math.max(0,Math.round(sitePriceFromPayload(String(h.source_marketplace||''),payload)));
+    const controlled=sheet.get(String(h.canonical_sku));
+    const price=controlled?Math.max(controlled.price,controlled.minPrice):importedPrice;
     const existing=await pool.query(`SELECT id,price,stock,image_urls FROM products WHERE sku=$1 ORDER BY id LIMIT 1`,[h.canonical_sku]);
     const category=categoryFrom(h);const specs=specsFrom(h);const mainImage=images[0]||null;
     if(existing.rows[0]){
-      await pool.query(`UPDATE products SET category=$2,title=COALESCE(NULLIF($3::text,''),title),price=CASE WHEN $4::int>0 THEN $4::int ELSE price END,image_url=COALESCE($5::text,image_url),image_urls=CASE WHEN jsonb_array_length($6::jsonb)>0 THEN $6::jsonb ELSE image_urls END,description=CASE WHEN $7::text<>'' THEN $7::text ELSE description END,specs=CASE WHEN $8::text<>'' THEN $8::text ELSE specs END,marketplace_source=$9::text,marketplace_product_id=$10::text,marketplace_payload=$11::jsonb,updated_at=NOW() WHERE id=$1::int`,[existing.rows[0].id,category,h.title||'',price,mainImage,JSON.stringify(images),h.description||'',specs,h.source_marketplace,h.source_product_id,JSON.stringify(payload)]);updated++;
+      await pool.query(`UPDATE products SET category=$2,title=COALESCE(NULLIF($3::text,''),title),price=CASE WHEN $4::int>0 THEN $4::int ELSE price END,image_url=COALESCE($5::text,image_url),image_urls=CASE WHEN jsonb_array_length($6::jsonb)>0 THEN $6::jsonb ELSE image_urls END,description=CASE WHEN $7::text<>'' THEN $7::text ELSE description END,specs=CASE WHEN $8::text<>'' THEN $8::text ELSE specs END,marketplace_source=$9::text,marketplace_product_id=$10::text,marketplace_payload=$11::jsonb,updated_at=NOW() WHERE id=$1::int`,[existing.rows[0].id,category,h.title||'',price,mainImage,JSON.stringify(images),h.description||'',specs,h.source_marketplace,h.source_product_id,JSON.stringify(payload)]);
+      await pool.query(`INSERT INTO price_sheet(sku,product_id,title,price,min_price) VALUES($1,$2,$3,$4,0) ON CONFLICT(sku) DO UPDATE SET product_id=EXCLUDED.product_id,title=EXCLUDED.title`,[h.canonical_sku,existing.rows[0].id,h.title||h.canonical_sku,price]);updated++;
     }else{
-      await pool.query(`INSERT INTO products(category,title,price,old_price,rating,reviews,badge,emoji,image_url,image_urls,sku,oem,stock,description,specs,is_active,sort_order,marketplace_source,marketplace_product_id,marketplace_payload) VALUES($1,$2,$3,NULL,5,0,$4,'📦',$5,$6::jsonb,$7,NULL,0,$8,$9,TRUE,1000,$10,$11,$12::jsonb)`,[category,h.title||h.canonical_sku,price,'Маркетплейс',mainImage,JSON.stringify(images),h.canonical_sku,h.description||'',specs,h.source_marketplace,h.source_product_id,JSON.stringify(payload)]);created++;
+      const inserted=await pool.query(`INSERT INTO products(category,title,price,old_price,rating,reviews,badge,emoji,image_url,image_urls,sku,oem,stock,description,specs,is_active,sort_order,marketplace_source,marketplace_product_id,marketplace_payload) VALUES($1,$2,$3,NULL,5,0,$4,'📦',$5,$6::jsonb,$7,NULL,0,$8,$9,TRUE,1000,$10,$11,$12::jsonb) RETURNING id`,[category,h.title||h.canonical_sku,price,'Маркетплейс',mainImage,JSON.stringify(images),h.canonical_sku,h.description||'',specs,h.source_marketplace,h.source_product_id,JSON.stringify(payload)]);
+      await pool.query(`INSERT INTO price_sheet(sku,product_id,title,price,min_price) VALUES($1,$2,$3,$4,0) ON CONFLICT(sku) DO NOTHING`,[h.canonical_sku,inserted.rows[0].id,h.title||h.canonical_sku,price]);created++;
     }
   }
   return {processed:rows.length,created,updated};
