@@ -72,7 +72,7 @@ export async function inspectOzonAutoPartCategory(){
 
 async function values(attributeId:number,categoryId:number,typeId:number){
   const out:any[]=[];let last=0;
-  for(let page=0;page<20;page++){
+  for(let page=0;page<100;page++){
     const d=await ozon('/v1/description-category/attribute/values',{
       attribute_id:attributeId,description_category_id:categoryId,type_id:typeId,
       language:'RU',last_value_id:last,limit:100
@@ -98,8 +98,8 @@ export async function inspectOzonHeadlightCover(){
   for(const x of important.filter((x:any)=>x.dictionaryId)){
     const all=await values(x.id,description_category_id,type_id);
     let filtered=all;
-    if(x.id===22232)filtered=all.filter((v:any)=>/3926|пластмасс|транспорт|автомоб/i.test(v.value)).slice(0,100);
-    else if(x.id===85)filtered=all.filter((v:any)=>/нет бренда|techroom/i.test(v.value)).slice(0,30);
+    if(x.id===22232)filtered=all.filter((v:any)=>/8512\s*90|851290|3926300000|9405920008/i.test(v.value)).slice(0,50);
+    else if(x.id===85)filtered=all.filter((v:any)=>/нет бренда|без бренда|techroom/i.test(v.value)).slice(0,30);
     else if(x.id===7199||/материал/i.test(x.name))filtered=all.filter((v:any)=>/asa|пласт/i.test(v.value)).slice(0,30);
     else if(x.id===7202||/количество/i.test(x.name))filtered=all.filter((v:any)=>/^2$|2 шт/i.test(v.value)).slice(0,20);
     else filtered=all.slice(0,30);
