@@ -140,3 +140,62 @@ export async function inspectOzonExternalDecor(){
   }
   return {picks,details};
 }
+
+
+export async function publishOzonAudiXenonCover(){
+  const offerId='AUDI-A4B8-XENON-COVER-2PCS';
+  let existing:any=null;
+  try{
+    const x=await ozon('/v3/product/info/list',{offer_id:[offerId],product_id:[],sku:[]});
+    existing=(x?.items||x?.result?.items||[])[0]||null;
+  }catch{}
+  const item:any={
+    attributes:[
+      {id:8229,complex_id:0,values:[{dictionary_value_id:971006634,value:'Накладка на автомобиль'}]},
+      {id:85,complex_id:0,values:[{dictionary_value_id:126745801,value:'Нет бренда'}]},
+      {id:9048,complex_id:0,values:[{value:'Заглушка блока ксенона Audi A4 B8, комплект 2 шт.'}]},
+      {id:23536,complex_id:0,values:[{value:'false'}]},
+      {id:22232,complex_id:0,values:[{dictionary_value_id:971397975,value:'3926300000 - Крепежные изделия и фурнитура для мебели, транспортных средств или аналогичные изделия'}]},
+      {id:22916,complex_id:0,values:[{dictionary_value_id:58097,value:'Audi'}]},
+      {id:7199,complex_id:0,values:[{dictionary_value_id:62015,value:'Пластик'}]},
+      {id:7202,complex_id:0,values:[{dictionary_value_id:45566,value:'2'}]},
+      {id:4384,complex_id:0,values:[{value:'Заглушка блока ксенона — 2 шт.'}]}
+    ],
+    barcode:'',
+    description_category_id:17028755,
+    type_id:971006634,
+    color_image:'',
+    complex_attributes:[],
+    currency_code:'RUB',
+    depth:120,
+    dimension_unit:'mm',
+    height:30,
+    images:[
+      'https://d2ol7oe51mr4n9.cloudfront.net/user_3J9hS8Vj8qs7xcw1iabOO1dMJk0/081547c2-0d10-417b-a7ef-ffa636739218.jpg',
+      'https://d2ol7oe51mr4n9.cloudfront.net/user_3J9hS8Vj8qs7xcw1iabOO1dMJk0/7cb00e8c-d43f-4c43-a965-5793f5cce1b7.jpg',
+      'https://d2ol7oe51mr4n9.cloudfront.net/user_3J9hS8Vj8qs7xcw1iabOO1dMJk0/467c675c-2827-42d3-a4dc-c18605c88f5b.jpg'
+    ],
+    name:'Заглушка блока ксенона Audi A4 B8, 2 шт., ASA пластик',
+    offer_id:offerId,
+    old_price:'0',
+    price:'2000',
+    primary_image:'https://d2ol7oe51mr4n9.cloudfront.net/user_3J9hS8Vj8qs7xcw1iabOO1dMJk0/081547c2-0d10-417b-a7ef-ffa636739218.jpg',
+    vat:'0',
+    weight:50,
+    weight_unit:'g',
+    width:120
+  };
+  const imported=await ozon('/v3/product/import',{items:[item]});
+  const taskId=Number(imported?.result?.task_id||imported?.task_id||0);
+  let task:any=null;
+  if(taskId){
+    await new Promise(r=>setTimeout(r,8000));
+    try{task=await ozon('/v1/product/import/info',{task_id:taskId})}catch(e:any){task={error:String(e?.message||e)}}
+  }
+  let current:any=null;
+  try{
+    const x=await ozon('/v3/product/info/list',{offer_id:[offerId],product_id:[],sku:[]});
+    current=(x?.items||x?.result?.items||[])[0]||null;
+  }catch(e:any){current={error:String(e?.message||e)}}
+  return {offerId,existing:Boolean(existing),imported,task,current};
+}
