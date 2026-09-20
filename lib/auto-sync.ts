@@ -68,13 +68,13 @@ async function saveCommunications(source:MarketplaceName,kind:CommunicationType)
   return Number(data.total||data.items?.length||0);
 }
 
-export async function pushPricesAndStocks(){
+export async function pushPricesAndStocks(options:{onlyOzonPrices?:boolean}={}){
   const pool=getPool();
   const {rows}=await pool.query(`SELECT sku,price,stock,marketplace_source FROM products WHERE is_active=TRUE AND sku IS NOT NULL AND sku<>'' ORDER BY id`);
   const products=rows.map((r:any)=>({sku:String(r.sku),price:Number(r.price)||0,stock:Number(r.stock)||0,marketplaceSource:String(r.marketplace_source||'')}));
   const result:any={products:products.length,wb:{prices:'skipped',stocks:'skipped'},ozon:{prices:'skipped',stocks:'skipped'}};
 
-  if(process.env.WB_API_TOKEN?.trim() && products.length){
+  if(!options.onlyOzonPrices && process.env.WB_API_TOKEN?.trim() && products.length){
     try{
       const token=process.env.WB_API_TOKEN!.trim();
       const cardsRes=await fetch('https://content-api.wildberries.ru/content/v2/get/cards/list',{method:'POST',headers:{Authorization:token,'Content-Type':'application/json'},body:JSON.stringify({settings:{cursor:{limit:100},filter:{withPhoto:-1},sort:{ascending:false}}}),cache:'no-store'});
@@ -123,11 +123,11 @@ export async function pushPricesAndStocks(){
         }else result.ozon.prices={requested:0,updated:0,errors:[]};
       }
       const warehouseId=process.env.OZON_WAREHOUSE_ID?.trim();
-      if(warehouseId && process.env.SYNC_MARKETPLACE_STOCKS==='1'){
+      if(!options.onlyOzonPrices && warehouseId && process.env.SYNC_MARKETPLACE_STOCKS==='1'){
         const stocks=products.map((p:any)=>({offer_id:p.sku,stock:Math.max(0,Math.round(p.stock)),warehouse_id:Number(warehouseId)}));
         const r=await fetch('https://api-seller.ozon.ru/v2/products/stocks',{method:'POST',headers,body:JSON.stringify({stocks}),cache:'no-store'});
         if(!r.ok) throw new Error(`OZON_STOCK_${r.status}`);result.ozon.stocks=stocks.length;
-      } else if(!warehouseId) result.ozon.stocks='needs_OZON_WAREHOUSE_ID';
+      } else if(!options.onlyOzonPrices && !warehouseId) result.ozon.stocks='needs_OZON_WAREHOUSE_ID';
     }catch(e:any){result.ozon.error=String(e?.message||e)}
   }
   return result;
