@@ -107,3 +107,16 @@ export async function inspectOzonHeadlightCover(){
   }
   return {description_category_id,type_id,type_name:'Кожух фары',attributes:important,dictionaries};
 }
+
+
+export async function inspectOzonSellerDefaults(){
+  const offers=['R8W0821653','DAK8T54A53A','FenderAudiA4B8front','AUDI-ARCH-A4B8-A58T','DAK123456'];
+  const d=await ozon('/v3/product/info/list',{offer_id:offers,product_id:[],sku:[]});
+  const rows=(d?.items||d?.result?.items||[]).map((x:any)=>({
+    offer_id:String(x?.offer_id||''),
+    vat:String(x?.vat??''),
+    currency_code:String(x?.currency_code||''),
+    price:String(x?.price||'')
+  }));
+  return {rows};
+}
