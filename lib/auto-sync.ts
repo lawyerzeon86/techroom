@@ -85,7 +85,11 @@ export async function pushPricesAndStocks(options:{onlyOzonPrices?:boolean;onlyP
       }
       if(prices.length && (process.env.SYNC_WB_PRICES==='1'||process.env.SYNC_MARKETPLACE_PRICES==='1')){
         const r=await fetch('https://discounts-prices-api.wildberries.ru/api/v2/upload/task',{method:'POST',headers:{Authorization:token,'Content-Type':'application/json'},body:JSON.stringify({data:prices}),cache:'no-store'});
-        if(!r.ok) throw new Error(`WB_PRICE_${r.status}`);result.wb.prices=prices.length;
+        if(r.status===429){
+          result.wb.prices={status:'rate_limited',retryAfter:r.headers.get('x-ratelimit-retry')||r.headers.get('retry-after')||null};
+        }else if(!r.ok){
+          throw new Error(`WB_PRICE_${r.status}`);
+        }else result.wb.prices=prices.length;
       }
       const warehouseId=process.env.WB_WAREHOUSE_ID?.trim();
       if(!options.onlyPrices && stocks.length && warehouseId && process.env.SYNC_MARKETPLACE_STOCKS==='1'){
