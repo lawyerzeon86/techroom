@@ -22,12 +22,16 @@ export async function ensurePriceSheetSchema(){
       sync_ozon BOOLEAN NOT NULL DEFAULT TRUE,
       sync_wb BOOLEAN NOT NULL DEFAULT TRUE,
       sync_yandex BOOLEAN NOT NULL DEFAULT TRUE,
+      sync_avito BOOLEAN NOT NULL DEFAULT TRUE,
+      avito_item_id BIGINT,
       updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
     )
   `);
   await pool.query(`ALTER TABLE price_sheet ADD COLUMN IF NOT EXISTS sync_ozon BOOLEAN NOT NULL DEFAULT TRUE`);
   await pool.query(`ALTER TABLE price_sheet ADD COLUMN IF NOT EXISTS sync_wb BOOLEAN NOT NULL DEFAULT TRUE`);
   await pool.query(`ALTER TABLE price_sheet ADD COLUMN IF NOT EXISTS sync_yandex BOOLEAN NOT NULL DEFAULT TRUE`);
+  await pool.query(`ALTER TABLE price_sheet ADD COLUMN IF NOT EXISTS sync_avito BOOLEAN NOT NULL DEFAULT TRUE`);
+  await pool.query(`ALTER TABLE price_sheet ADD COLUMN IF NOT EXISTS avito_item_id BIGINT`);
   await pool.query(`ALTER TABLE price_sheet ADD COLUMN IF NOT EXISTS min_price INTEGER NOT NULL DEFAULT 0`);
   const seed=await pool.query(`
     SELECT DISTINCT ON (sku) id,sku,title,price
@@ -53,7 +57,7 @@ export async function listPriceSheet(){
   await ensurePriceSheetSchema();
   const pool=getPool();
   const {rows}=await pool.query(`
-    SELECT ps.sku,ps.product_id,ps.title,ps.price,ps.min_price,ps.sync_ozon,ps.sync_wb,ps.sync_yandex,ps.updated_at,
+    SELECT ps.sku,ps.product_id,ps.title,ps.price,ps.min_price,ps.sync_ozon,ps.sync_wb,ps.sync_yandex,ps.sync_avito,ps.avito_item_id,ps.updated_at,
            COALESCE(p.stock,0) AS stock
     FROM price_sheet ps
     LEFT JOIN products p ON p.id=ps.product_id
@@ -69,6 +73,8 @@ export async function listPriceSheet(){
     syncOzon:Boolean(r.sync_ozon),
     syncWb:Boolean(r.sync_wb),
     syncYandex:Boolean(r.sync_yandex),
+    syncAvito:Boolean(r.sync_avito),
+    avitoItemId:r.avito_item_id==null?null:Number(r.avito_item_id),
     updatedAt:r.updated_at,
   }));
 }
@@ -94,11 +100,14 @@ export async function savePriceSheet(items:any[]){
       const syncOzon=raw?.syncOzon!==false;
       const syncWb=raw?.syncWb!==false;
       const syncYandex=raw?.syncYandex!==false;
+      const syncAvito=raw?.syncAvito!==false;
+      const avitoItemId=raw?.avitoItemId===null||raw?.avitoItemId===''||raw?.avitoItemId===undefined?null:Number(raw.avitoItemId);
+      if(avitoItemId!==null&&(!Number.isSafeInteger(avitoItemId)||avitoItemId<=0))throw new Error('VALIDATION');
       const updated=await client.query(`
-        UPDATE price_sheet SET price=$2,min_price=$3,sync_ozon=$4,sync_wb=$5,sync_yandex=$6,updated_at=NOW()
+        UPDATE price_sheet SET price=$2,min_price=$3,sync_ozon=$4,sync_wb=$5,sync_yandex=$6,sync_avito=$7,avito_item_id=$8,updated_at=NOW()
         WHERE sku=$1
         RETURNING product_id
-      `,[sku,price,minPrice,syncOzon,syncWb,syncYandex]);
+      `,[sku,price,minPrice,syncOzon,syncWb,syncYandex,syncAvito,avitoItemId]);
       if(!updated.rows[0])throw new Error('SKU_NOT_FOUND');
       await client.query(`UPDATE products SET price=$2,updated_at=NOW() WHERE sku=$1`,[sku,price]);
     }
@@ -115,8 +124,43 @@ export function priceSheetMarketplaceStatus(){
     ozon:Boolean(process.env.OZON_CLIENT_ID?.trim()&&process.env.OZON_API_KEY?.trim()),
     wb:Boolean(process.env.WB_API_TOKEN?.trim()),
     yandex:Boolean(process.env.YANDEX_MARKET_API_KEY?.trim()&&process.env.YANDEX_MARKET_BUSINESS_ID?.trim()),
-    avito:false,
+    avito:Boolean(process.env.AVITO_CLIENT_ID?.trim()&&process.env.AVITO_CLIENT_SECRET?.trim()),
   };
 }
 
 export function hardFloorForSku(sku:string){return DEFAULT_FLOORS[sku]||0}
+
+
+export async function syncPriceSheetFromWildberries(products:Array<{sku?:string;offerId?:string;title?:string;price?:number}>){
+  await ensurePriceSheetSchema();
+  const pool=getPool();
+  let matched=0,updated=0,skipped=0;
+  for(const p of products){
+    const sku=String(p.offerId||p.sku||'').trim();
+    const wbPrice=Math.round(Number(p.price)||0);
+    if(!sku||wbPrice<=0){skipped++;continue}
+    const row=await pool.query(`SELECT min_price FROM price_sheet WHERE sku=$1`,[sku]);
+    if(!row.rows[0]){skipped++;continue}
+    matched++;
+    const minPrice=Math.max(Number(row.rows[0].min_price)||0,hardFloorForSku(sku));
+    const price=Math.max(wbPrice,minPrice);
+    await pool.query(`UPDATE price_sheet SET price=$2,updated_at=NOW() WHERE sku=$1`,[sku,price]);
+    await pool.query(`UPDATE products SET price=$2,updated_at=NOW() WHERE sku=$1`,[sku,price]);
+    updated++;
+  }
+  return {matched,updated,skipped};
+}
+
+export async function setAvitoItemMappings(mappings:Array<{sku:string;itemId:number}>){
+  await ensurePriceSheetSchema();
+  const pool=getPool();
+  let updated=0;
+  for(const m of mappings){
+    const sku=String(m.sku||'').trim();
+    const itemId=Number(m.itemId);
+    if(!sku||!Number.isSafeInteger(itemId)||itemId<=0)continue;
+    const r=await pool.query(`UPDATE price_sheet SET avito_item_id=$2,updated_at=NOW() WHERE sku=$1`,[sku,itemId]);
+    updated+=r.rowCount||0;
+  }
+  return {updated};
+}
