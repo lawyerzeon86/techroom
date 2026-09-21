@@ -240,7 +240,8 @@ async function guardOzon(rule:PriceGuardRule,promoFloor=false){
 
   if(promoFloor){
     const promoMin=Math.round(Number(item.min_price??item.min_ozon_price??0));
-    if(promoMin>=rule.minPrice){
+    const targetSellerPrice=Math.max(sellerPrice,rule.minPrice);
+    if(sellerPrice>=rule.minPrice&&promoMin>=rule.minPrice){
       return {marketplace:'ozon',sku:rule.sku,status:'ok',price:sellerPrice,promoMinPrice:promoMin,minPromoPrice:rule.minPrice,mode:'promo_floor'};
     }
 
@@ -248,7 +249,7 @@ async function guardOzon(rule:PriceGuardRule,promoFloor=false){
       method:'POST',headers:info.headers,
       body:JSON.stringify({prices:[{
         offer_id:rule.sku,
-        price:String(sellerPrice),
+        price:String(targetSellerPrice),
         min_price:String(rule.minPrice),
         min_price_for_auto_actions_enabled:true,
         old_price:String(item.old_price??'0'),
@@ -260,7 +261,7 @@ async function guardOzon(rule:PriceGuardRule,promoFloor=false){
       const message=(result?.errors||[]).map((e:any)=>e?.message||e?.code).filter(Boolean).join('; ')||'OZON_PRICE_UPDATE_REJECTED';
       throw new Error(message);
     }
-    return {marketplace:'ozon',sku:rule.sku,status:'raised',price:sellerPrice,fromPromoMin:promoMin,toPromoMin:rule.minPrice,minPromoPrice:rule.minPrice,mode:'promo_floor',pending:true};
+    return {marketplace:'ozon',sku:rule.sku,status:'raised',from:sellerPrice,to:targetSellerPrice,fromPromoMin:promoMin,toPromoMin:rule.minPrice,minPromoPrice:rule.minPrice,mode:'promo_floor',pending:true};
   }
 
   if(sellerPrice>=rule.minPrice)return {marketplace:'ozon',sku:rule.sku,status:'ok',price:sellerPrice,minPrice:rule.minPrice};
