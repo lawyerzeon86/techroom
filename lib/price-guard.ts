@@ -229,6 +229,57 @@ async function ozonInfo(rule:PriceGuardRule){
   return {configured:true as const,headers,item};
 }
 
+async function enforceOzonAutoActionsDisabled(){
+  const clientId=env('OZON_CLIENT_ID'),apiKey=env('OZON_API_KEY');
+  if(!clientId||!apiKey)return {configured:false,checked:0,disabled:0,errors:[] as any[]};
+  const headers={'Client-Id':clientId,'Api-Key':apiKey,'Content-Type':'application/json'};
+  const items:any[]=[];
+  let cursor='';
+  for(let page=0;page<20;page++){
+    const data=await fetchJson('https://api-seller.ozon.ru/v5/product/info/prices',{
+      method:'POST',headers,
+      body:JSON.stringify({cursor,filter:{visibility:'ALL'},limit:1000})
+    });
+    const pageItems=Array.isArray(data?.items)?data.items:[];
+    items.push(...pageItems);
+    const next=String(data?.cursor||'').trim();
+    if(!next||next===cursor||pageItems.length===0)break;
+    cursor=next;
+  }
+
+  const enabled=items.filter((item:any)=>item?.price?.auto_action_enabled===true);
+  const errors:any[]=[];
+  let disabled=0;
+
+  for(let i=0;i<enabled.length;i+=1000){
+    const part=enabled.slice(i,i+1000);
+    const prices=part.map((item:any)=>{
+      const price=item?.price||{};
+      return {
+        offer_id:String(item?.offer_id||''),
+        price:String(price?.price??0),
+        old_price:String(price?.old_price??0),
+        min_price:String(price?.min_price??0),
+        currency_code:String(price?.currency_code||'RUB'),
+        auto_action_enabled:'DISABLED'
+      };
+    }).filter((x:any)=>x.offer_id&&Number(x.price)>0);
+
+    if(!prices.length)continue;
+    const data=await fetchJson('https://api-seller.ozon.ru/v1/product/import/prices',{
+      method:'POST',headers,body:JSON.stringify({prices})
+    });
+    for(const result of Array.isArray(data?.result)?data.result:[]){
+      if(result?.updated===true)disabled++;
+      for(const e of Array.isArray(result?.errors)?result.errors:[]){
+        errors.push({offerId:result?.offer_id,code:e?.code,message:e?.message});
+      }
+    }
+  }
+
+  return {configured:true,checked:items.length,enabledBefore:enabled.length,disabled,errors};
+}
+
 async function guardOzon(rule:PriceGuardRule,promoFloor=false){
   let info=await ozonInfo(rule);
   if(!info.configured)return {marketplace:'ozon',sku:rule.sku,status:'skipped',reason:'OZON_NOT_CONFIGURED'};
@@ -281,6 +332,7 @@ async function guardOzon(rule:PriceGuardRule,promoFloor=false){
           price:String(targetSellerPrice),
           min_price:String(rule.minPrice),
           min_price_for_auto_actions_enabled:true,
+          auto_action_enabled:'DISABLED',
           old_price:String(item.old_price??'0'),
           currency_code:String(item.currency_code||'RUB')
         }]})
@@ -311,7 +363,7 @@ async function guardOzon(rule:PriceGuardRule,promoFloor=false){
 
   await fetchJson('https://api-seller.ozon.ru/v1/product/import/prices',{
     method:'POST',headers:info.headers,
-    body:JSON.stringify({prices:[{offer_id:rule.sku,price:String(rule.minPrice),old_price:'0'}]})
+    body:JSON.stringify({prices:[{offer_id:rule.sku,price:String(rule.minPrice),old_price:'0',auto_action_enabled:'DISABLED'}]})
   });
 
   return {marketplace:'ozon',sku:rule.sku,status:'raised',from:sellerPrice,to:rule.minPrice,minPrice:rule.minPrice,pending:true};
@@ -320,6 +372,15 @@ async function guardOzon(rule:PriceGuardRule,promoFloor=false){
 export async function runPriceGuard(){
   if(process.env.PRICE_GUARD_ENABLED==='0')return {enabled:false,checkedAt:new Date().toISOString(),raised:0,results:[] as any[]};
   const results:any[]=[];
+
+  // Keep auto-participation in Ozon promotions disabled for the entire catalog.
+  try{
+    const autoActions=await enforceOzonAutoActionsDisabled();
+    results.push({marketplace:'ozon',scope:'all',status:'auto_actions_guard',...autoActions});
+    if(autoActions.disabled)console.warn('[price-guard] disabled Ozon auto actions',JSON.stringify(autoActions));
+  }catch(e:any){
+    results.push({marketplace:'ozon',scope:'all',status:'auto_actions_error',error:String(e?.message||e)});
+  }
 
   // Ozon is checked first so WB rate limits or slow responses cannot delay the automotive promo floor.
   const ozonAutoRules=await loadOzonAutoPromoRules();
