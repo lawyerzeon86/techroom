@@ -9,6 +9,10 @@ function targetPrice(p:{sku:string;price:number;minPrice:number}){
   return Math.max(1,Math.round(p.price),Math.round(p.minPrice||0),hardFloorForSku(p.sku));
 }
 
+const OZON_AUTO_FLOOR=3500;
+const OZON_AUTO_PATTERN=/(audi|bmw|mercedes|porsche|авто|автомоб|порог|наклад|датчик|кожух|запчаст|fender|8w0821653|a4\s*b9|a4\s*b8)/i;
+function ozonAutoFloor(p:{sku:string;title?:string}){return OZON_AUTO_PATTERN.test(`${p.title||''} ${p.sku||''}`)?OZON_AUTO_FLOOR:0}
+
 async function ensureAutoSyncSchema(){
   await ensureSchema();
   const pool=getPool();
@@ -109,11 +113,15 @@ export async function pushPricesAndStocks(options:{onlyOzonPrices?:boolean;onlyP
         const currentJson=currentRes?await currentRes.json().catch(()=>({})):{};
         if(currentRes&&!currentRes.ok)throw new Error(`OZON_PRICE_INFO_${currentRes.status}`);
         const currentItems=Array.isArray(currentJson?.items)?currentJson.items:(Array.isArray(currentJson?.result?.items)?currentJson.result.items:[]);
-        const currentByOffer=new Map(currentItems.map((item:any)=>[String(item.offer_id||''),Number(item.price||0)]));
+        const currentByOffer=new Map(currentItems.map((item:any)=>[String(item.offer_id||''),{price:Number(item.price||0),minPrice:Number(item.min_price||0)}]));
         const prices=ozonProducts
-          .map((p:any)=>({offer_id:p.sku,target:targetPrice(p),current:Number(currentByOffer.get(p.sku)||0)}))
+          .map((p:any)=>{
+            const current:any=currentByOffer.get(p.sku)||{price:0,minPrice:0};
+            const target=Math.max(targetPrice(p),ozonAutoFloor(p),Math.round(current.minPrice||0));
+            return {offer_id:p.sku,target,current:Number(current.price||0),minPrice:Number(current.minPrice||0)};
+          })
           .filter((p:any)=>p.target>0&&p.current>0&&Math.round(p.current)!==p.target)
-          .map((p:any)=>({offer_id:p.offer_id,price:String(p.target),old_price:'0',premium_price:'0',auto_action_enabled:'DISABLED'}));
+          .map((p:any)=>({offer_id:p.offer_id,price:String(p.target),min_price:String(Math.max(p.minPrice||0,ozonAutoFloor({sku:p.offer_id}))),old_price:'0',premium_price:'0',auto_action_enabled:'DISABLED'}));
         if(prices.length){
           const r=await fetch('https://api-seller.ozon.ru/v1/product/import/prices',{method:'POST',headers,body:JSON.stringify({prices}),cache:'no-store'});
           const data=await r.json().catch(()=>({}));
