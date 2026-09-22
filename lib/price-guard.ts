@@ -321,13 +321,7 @@ export async function runPriceGuard(){
   if(process.env.PRICE_GUARD_ENABLED==='0')return {enabled:false,checkedAt:new Date().toISOString(),raised:0,results:[] as any[]};
   const results:any[]=[];
 
-  const wbToken=env('WB_API_TOKEN');
-  const wbState=wbToken?await loadWbGoods(wbToken):{goods:[] as WbGood[]};
-
-  for(const rule of RULES){
-    try{results.push(await guardWb(rule,wbToken,wbState))}catch(e:any){results.push({marketplace:'wb',sku:rule.sku,status:'error',error:String(e?.message||e)})}
-  }
-
+  // Ozon is checked first so WB rate limits or slow responses cannot delay the automotive promo floor.
   const ozonAutoRules=await loadOzonAutoPromoRules();
   for(const rule of ozonAutoRules){
     try{results.push(await guardOzon(rule,true))}catch(e:any){results.push({marketplace:'ozon',sku:rule.sku,status:'error',error:String(e?.message||e)})}
@@ -335,6 +329,13 @@ export async function runPriceGuard(){
   for(const rule of RULES.filter(r=>!OZON_PROMO_FLOOR_SKUS.has(r.sku))){
     try{results.push(await guardOzon(rule,false))}catch(e:any){results.push({marketplace:'ozon',sku:rule.sku,status:'error',error:String(e?.message||e)})}
   }
+
+  const wbToken=env('WB_API_TOKEN');
+  const wbState=wbToken?await loadWbGoods(wbToken):{goods:[] as WbGood[]};
+  for(const rule of RULES){
+    try{results.push(await guardWb(rule,wbToken,wbState))}catch(e:any){results.push({marketplace:'wb',sku:rule.sku,status:'error',error:String(e?.message||e)})}
+  }
+
   const raised=results.filter(r=>r.status==='raised');
   if(raised.length)console.warn('[price-guard] restored prices',JSON.stringify(raised));
   return {enabled:true,checkedAt:new Date().toISOString(),raised:raised.length,wbRateLimitedUntil:wbBlockedUntil>Date.now()?new Date(wbBlockedUntil).toISOString():null,results};
