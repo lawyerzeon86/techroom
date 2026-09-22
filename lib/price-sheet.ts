@@ -1,10 +1,10 @@
 import { ensureSchema, getPool } from './db';
 
 const DEFAULT_FLOORS:Record<string,number>={
-  R8W0821653:2990,
-  '8W0821653':2990,
-  DAK8T54A53A:2990,
-  FenderAudiA4B8front:2990,
+  R8W0821653:3500,
+  '8W0821653':3500,
+  DAK8T54A53A:3500,
+  FenderAudiA4B8front:3500,
   DAK123456:5000,
   'DAK-VASE-SHELL-ASA-WH-001':5000,
 };
