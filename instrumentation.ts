@@ -71,8 +71,8 @@ export async function register(){
   }
 
   if(!g.__techroomPriceGuardTimer){
-    setTimeout(()=>void priceGuardCycle(),45000);
-    g.__techroomPriceGuardTimer=setInterval(()=>void priceGuardCycle(),3*60*1000);
+    setTimeout(()=>void priceGuardCycle(),10000);
+    g.__techroomPriceGuardTimer=setInterval(()=>void priceGuardCycle(),60*1000);
     g.__techroomPriceGuardTimer.unref?.();
   }
 }
