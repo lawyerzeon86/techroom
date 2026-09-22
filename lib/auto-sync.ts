@@ -113,7 +113,7 @@ export async function pushPricesAndStocks(options:{onlyOzonPrices?:boolean;onlyP
         const prices=ozonProducts
           .map((p:any)=>({offer_id:p.sku,target:targetPrice(p),current:Number(currentByOffer.get(p.sku)||0)}))
           .filter((p:any)=>p.target>0&&p.current>0&&Math.round(p.current)!==p.target)
-          .map((p:any)=>({offer_id:p.offer_id,price:String(p.target),old_price:'0',premium_price:'0'}));
+          .map((p:any)=>({offer_id:p.offer_id,price:String(p.target),old_price:'0',premium_price:'0',auto_action_enabled:'DISABLED'}));
         if(prices.length){
           const r=await fetch('https://api-seller.ozon.ru/v1/product/import/prices',{method:'POST',headers,body:JSON.stringify({prices}),cache:'no-store'});
           const data=await r.json().catch(()=>({}));
