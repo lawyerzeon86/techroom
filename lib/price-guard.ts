@@ -230,40 +230,83 @@ async function ozonInfo(rule:PriceGuardRule){
 }
 
 async function guardOzon(rule:PriceGuardRule,promoFloor=false){
-  const info=await ozonInfo(rule);
+  let info=await ozonInfo(rule);
   if(!info.configured)return {marketplace:'ozon',sku:rule.sku,status:'skipped',reason:'OZON_NOT_CONFIGURED'};
-  const item=info.item;
-  if(!item)return {marketplace:'ozon',sku:rule.sku,status:'not_found'};
-
-  const sellerPrice=Math.round(Number(item.price??item.marketing_price??item.min_ozon_price??0));
-  if(!sellerPrice)return {marketplace:'ozon',sku:rule.sku,status:'unknown_price'};
+  if(!info.item)return {marketplace:'ozon',sku:rule.sku,status:'not_found'};
 
   if(promoFloor){
-    const promoMin=Math.round(Number(item.min_price??item.min_ozon_price??0));
-    const targetSellerPrice=Math.max(sellerPrice,rule.minPrice);
-    if(sellerPrice>=rule.minPrice&&promoMin>=rule.minPrice){
-      return {marketplace:'ozon',sku:rule.sku,status:'ok',price:sellerPrice,promoMinPrice:promoMin,minPromoPrice:rule.minPrice,mode:'promo_floor'};
+    const maxAttempts=Math.min(10,Math.max(1,Number(process.env.PRICE_GUARD_OZON_RETRIES||6)));
+    const retryDelayMs=Math.min(10000,Math.max(750,Number(process.env.PRICE_GUARD_OZON_RETRY_DELAY_MS||2000)));
+    let initialSellerPrice=0;
+    let initialPromoMin=0;
+    let changed=false;
+    let writes=0;
+
+    for(let attempt=1;attempt<=maxAttempts;attempt++){
+      const item=info.item;
+      if(!item)return {marketplace:'ozon',sku:rule.sku,status:'not_found',attempts:attempt-1};
+
+      const sellerPrice=Math.round(Number(item.price??item.marketing_price??item.min_ozon_price??0));
+      const promoMin=Math.round(Number(item.min_price??item.min_ozon_price??0));
+      if(!initialSellerPrice)initialSellerPrice=sellerPrice;
+      if(!initialPromoMin)initialPromoMin=promoMin;
+      if(!sellerPrice)return {marketplace:'ozon',sku:rule.sku,status:'unknown_price',attempts:attempt-1};
+
+      if(sellerPrice>=rule.minPrice&&promoMin>=rule.minPrice){
+        if(changed){
+          await delay(retryDelayMs);
+          const confirm=await ozonInfo(rule);
+          if(!confirm.configured)return {marketplace:'ozon',sku:rule.sku,status:'skipped',reason:'OZON_NOT_CONFIGURED'};
+          const confirmItem=confirm.item;
+          if(!confirmItem)return {marketplace:'ozon',sku:rule.sku,status:'not_found',attempts:writes};
+          const confirmSeller=Math.round(Number(confirmItem.price??confirmItem.marketing_price??confirmItem.min_ozon_price??0));
+          const confirmPromo=Math.round(Number(confirmItem.min_price??confirmItem.min_ozon_price??0));
+          if(confirmSeller>=rule.minPrice&&confirmPromo>=rule.minPrice){
+            return {marketplace:'ozon',sku:rule.sku,status:'raised',from:initialSellerPrice,to:confirmSeller,fromPromoMin:initialPromoMin,toPromoMin:confirmPromo,minPromoPrice:rule.minPrice,mode:'promo_floor',verified:true,attempts:writes};
+          }
+          console.warn('[price-guard] Ozon promo floor changed after update',JSON.stringify({sku:rule.sku,attempt,sellerPrice:confirmSeller,promoMin:confirmPromo,target:rule.minPrice}));
+          info=confirm;
+          continue;
+        }
+        return {marketplace:'ozon',sku:rule.sku,status:'ok',price:sellerPrice,promoMinPrice:promoMin,minPromoPrice:rule.minPrice,mode:'promo_floor',verified:true,attempts:0};
+      }
+
+      const targetSellerPrice=Math.max(sellerPrice,rule.minPrice);
+      console.warn('[price-guard] Ozon promo floor retry',JSON.stringify({sku:rule.sku,attempt,sellerPrice,promoMin,targetSellerPrice,targetPromoMin:rule.minPrice}));
+
+      const data=await fetchJson('https://api-seller.ozon.ru/v1/product/import/prices',{
+        method:'POST',headers:info.headers,
+        body:JSON.stringify({prices:[{
+          offer_id:rule.sku,
+          price:String(targetSellerPrice),
+          min_price:String(rule.minPrice),
+          min_price_for_auto_actions_enabled:true,
+          old_price:String(item.old_price??'0'),
+          currency_code:String(item.currency_code||'RUB')
+        }]})
+      });
+      const result=(data?.result||[])[0]||{};
+      if(result?.updated===false||Array.isArray(result?.errors)&&result.errors.length){
+        const message=(result?.errors||[]).map((e:any)=>e?.message||e?.code).filter(Boolean).join('; ')||'OZON_PRICE_UPDATE_REJECTED';
+        throw new Error(message);
+      }
+
+      changed=true;
+      writes++;
+      await delay(retryDelayMs);
+      info=await ozonInfo(rule);
+      if(!info.configured)return {marketplace:'ozon',sku:rule.sku,status:'skipped',reason:'OZON_NOT_CONFIGURED'};
     }
 
-    const data=await fetchJson('https://api-seller.ozon.ru/v1/product/import/prices',{
-      method:'POST',headers:info.headers,
-      body:JSON.stringify({prices:[{
-        offer_id:rule.sku,
-        price:String(targetSellerPrice),
-        min_price:String(rule.minPrice),
-        min_price_for_auto_actions_enabled:true,
-        old_price:String(item.old_price??'0'),
-        currency_code:String(item.currency_code||'RUB')
-      }]})
-    });
-    const result=(data?.result||[])[0]||{};
-    if(result?.updated===false||Array.isArray(result?.errors)&&result.errors.length){
-      const message=(result?.errors||[]).map((e:any)=>e?.message||e?.code).filter(Boolean).join('; ')||'OZON_PRICE_UPDATE_REJECTED';
-      throw new Error(message);
-    }
-    return {marketplace:'ozon',sku:rule.sku,status:'raised',from:sellerPrice,to:targetSellerPrice,fromPromoMin:promoMin,toPromoMin:rule.minPrice,minPromoPrice:rule.minPrice,mode:'promo_floor',pending:true};
+    const finalItem=info.item;
+    const finalSeller=Math.round(Number(finalItem?.price??finalItem?.marketing_price??finalItem?.min_ozon_price??0));
+    const finalPromo=Math.round(Number(finalItem?.min_price??finalItem?.min_ozon_price??0));
+    return {marketplace:'ozon',sku:rule.sku,status:'retry_pending',from:initialSellerPrice,price:finalSeller,fromPromoMin:initialPromoMin,promoMinPrice:finalPromo,minPromoPrice:rule.minPrice,mode:'promo_floor',verified:false,attempts:writes};
   }
 
+  const item=info.item;
+  const sellerPrice=Math.round(Number(item.price??item.marketing_price??item.min_ozon_price??0));
+  if(!sellerPrice)return {marketplace:'ozon',sku:rule.sku,status:'unknown_price'};
   if(sellerPrice>=rule.minPrice)return {marketplace:'ozon',sku:rule.sku,status:'ok',price:sellerPrice,minPrice:rule.minPrice};
 
   await fetchJson('https://api-seller.ozon.ru/v1/product/import/prices',{
