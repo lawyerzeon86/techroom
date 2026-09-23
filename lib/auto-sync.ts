@@ -194,3 +194,50 @@ export async function runAutomaticMarketplaceSync(){
     throw error;
   }
 }
+
+
+export async function pushStockForSku(sku:string,stock:number,warehouses?:{wbWarehouseId?:string|null;ozonWarehouseId?:string|null}){
+  const amount=Math.max(0,Math.round(stock));
+  const result:any={sku,stock:amount,wb:{status:'skipped'},ozon:{status:'skipped'}};
+
+  if(process.env.WB_API_TOKEN?.trim()&&warehouses?.wbWarehouseId){
+    try{
+      const token=process.env.WB_API_TOKEN.trim();
+      const cardsRes=await fetch('https://content-api.wildberries.ru/content/v2/get/cards/list',{
+        method:'POST',
+        headers:{Authorization:token,'Content-Type':'application/json'},
+        body:JSON.stringify({settings:{cursor:{limit:100},filter:{textSearch:sku,withPhoto:-1},sort:{ascending:false}}}),
+        cache:'no-store'
+      });
+      const cardsJson=await cardsRes.json().catch(()=>({}));
+      if(!cardsRes.ok)throw new Error(String(cardsJson?.message||`WB_CARDS_${cardsRes.status}`));
+      const card=(Array.isArray(cardsJson?.cards)?cardsJson.cards:[]).find((x:any)=>String(x?.vendorCode||'')===sku);
+      if(!card)throw new Error('WB_CARD_NOT_FOUND');
+      const barcodes:string[]=[];
+      for(const s of Array.isArray(card?.sizes)?card.sizes:[])for(const b of Array.isArray(s?.skus)?s.skus:[])if(b)barcodes.push(String(b));
+      if(!barcodes.length)throw new Error('WB_BARCODE_NOT_FOUND');
+      const stocks=barcodes.map(b=>({sku:b,amount}));
+      const rr=await fetch(`https://marketplace-api.wildberries.ru/api/v3/stocks/${encodeURIComponent(String(warehouses.wbWarehouseId))}`,{
+        method:'PUT',headers:{Authorization:token,'Content-Type':'application/json'},body:JSON.stringify({stocks}),cache:'no-store'
+      });
+      const data=await rr.json().catch(()=>({}));
+      if(!rr.ok)throw new Error(String(data?.message||data?.error||`WB_STOCK_${rr.status}`));
+      result.wb={status:'updated',warehouseId:String(warehouses.wbWarehouseId),barcodes:barcodes.length};
+    }catch(e:any){result.wb={status:'error',error:String(e?.message||e)}}
+  } else if(!warehouses?.wbWarehouseId) result.wb={status:'missing_warehouse'};
+
+  if(process.env.OZON_CLIENT_ID?.trim()&&process.env.OZON_API_KEY?.trim()&&warehouses?.ozonWarehouseId){
+    try{
+      const headers={'Client-Id':process.env.OZON_CLIENT_ID.trim(),'Api-Key':process.env.OZON_API_KEY.trim(),'Content-Type':'application/json'};
+      const stocks=[{offer_id:sku,stock:amount,warehouse_id:Number(warehouses.ozonWarehouseId)}];
+      const rr=await fetch('https://api-seller.ozon.ru/v2/products/stocks',{method:'POST',headers,body:JSON.stringify({stocks}),cache:'no-store'});
+      const data=await rr.json().catch(()=>({}));
+      if(!rr.ok)throw new Error(String(data?.message||data?.error||`OZON_STOCK_${rr.status}`));
+      const errors=(Array.isArray(data?.result)?data.result:[]).flatMap((x:any)=>(Array.isArray(x?.errors)?x.errors:[]));
+      if(errors.length)throw new Error('OZON_STOCK_'+JSON.stringify(errors).slice(0,2000));
+      result.ozon={status:'updated',warehouseId:String(warehouses.ozonWarehouseId)};
+    }catch(e:any){result.ozon={status:'error',error:String(e?.message||e)}}
+  } else if(!warehouses?.ozonWarehouseId) result.ozon={status:'missing_warehouse'};
+
+  return result;
+}
