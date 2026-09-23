@@ -73,7 +73,7 @@ async function ozonAttributeItems(productIds:(string|number)[]){
   if(!productIds.length)return [];
   const ids=productIds.map(Number).filter(Number.isFinite);
   const d=await fetchJson('https://api-seller.ozon.ru/v4/product/info/attributes',{method:'POST',headers:ozonHeaders(),body:JSON.stringify({filter:{product_id:ids},limit:Math.min(1000,Math.max(1,ids.length))})});
-  return d?.result?.items||d?.items||[];
+  return (Array.isArray(d?.result)?d.result:(d?.result?.items||d?.items||[]));
 }
 async function ozonInfo(offerId:string){
   try{
