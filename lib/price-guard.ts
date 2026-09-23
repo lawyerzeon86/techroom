@@ -303,7 +303,7 @@ async function guardOzon(rule:PriceGuardRule,promoFloor=false){
       if(!initialPromoMin)initialPromoMin=promoMin;
       if(!sellerPrice)return {marketplace:'ozon',sku:rule.sku,status:'unknown_price',attempts:attempt-1};
 
-      if(sellerPrice>=rule.minPrice&&promoMin>=rule.minPrice){
+      if(sellerPrice>=rule.minPrice&&promoMin===rule.minPrice){
         if(changed){
           await delay(retryDelayMs);
           const confirm=await ozonInfo(rule);
@@ -312,7 +312,7 @@ async function guardOzon(rule:PriceGuardRule,promoFloor=false){
           if(!confirmItem)return {marketplace:'ozon',sku:rule.sku,status:'not_found',attempts:writes};
           const confirmSeller=Math.round(Number(confirmItem.price??confirmItem.marketing_price??confirmItem.min_ozon_price??0));
           const confirmPromo=Math.round(Number(confirmItem.min_price??confirmItem.min_ozon_price??0));
-          if(confirmSeller>=rule.minPrice&&confirmPromo>=rule.minPrice){
+          if(confirmSeller>=rule.minPrice&&confirmPromo===rule.minPrice){
             return {marketplace:'ozon',sku:rule.sku,status:'raised',from:initialSellerPrice,to:confirmSeller,fromPromoMin:initialPromoMin,toPromoMin:confirmPromo,minPromoPrice:rule.minPrice,mode:'promo_floor',verified:true,attempts:writes};
           }
           console.warn('[price-guard] Ozon promo floor changed after update',JSON.stringify({sku:rule.sku,attempt,sellerPrice:confirmSeller,promoMin:confirmPromo,target:rule.minPrice}));
@@ -322,7 +322,7 @@ async function guardOzon(rule:PriceGuardRule,promoFloor=false){
         return {marketplace:'ozon',sku:rule.sku,status:'ok',price:sellerPrice,promoMinPrice:promoMin,minPromoPrice:rule.minPrice,mode:'promo_floor',verified:true,attempts:0};
       }
 
-      const targetSellerPrice=Math.max(sellerPrice,rule.minPrice);
+      const targetSellerPrice=sellerPrice===promoMin&&sellerPrice>rule.minPrice?rule.minPrice:Math.max(sellerPrice,rule.minPrice);
       console.warn('[price-guard] Ozon promo floor retry',JSON.stringify({sku:rule.sku,attempt,sellerPrice,promoMin,targetSellerPrice,targetPromoMin:rule.minPrice}));
 
       const data=await fetchJson('https://api-seller.ozon.ru/v1/product/import/prices',{
