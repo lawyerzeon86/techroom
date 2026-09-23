@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getOzonAccrualsByDay, getOzonAccrualTypes, isOzonConfigured } from "../../../../lib/ozon";\nimport { ensureSchema, getPool } from "../../../../lib/db";
+import { getOzonAccrualsByDay, getOzonAccrualTypes, isOzonConfigured } from "../../../../lib/ozon";
+import { ensureSchema, getPool } from "../../../../lib/db";
 export const runtime="nodejs"; export const dynamic="force-dynamic";
 const num=(v:any)=>Number(v?.amount??v??0)||0;
 async function day(date:string){let last="";const out:any[]=[];for(let i=0;i<100;i++){const r=await getOzonAccrualsByDay(date,last);out.push(...(r?.accruals??[]));const next=String(r?.last_id??"");if(!next||next===last)break;last=next;}return out;}
