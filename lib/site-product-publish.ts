@@ -42,6 +42,20 @@ function parseSpecs(specs:string|null){
   }
   return out;
 }
+function parsePackageSpec(specs:string|null){
+  const s=parseSpecs(specs);
+  const raw=String(s['размер упаковки']||'');
+  const nums=(raw.match(/[\d.,]+/g)||[]).map((v:string)=>Number(v.replace(',','.'))).filter((n:number)=>Number.isFinite(n)&&n>0);
+  const weightRaw=String(s['вес']||'');
+  const wm=weightRaw.match(/[\d.,]+/);
+  const weightG=wm?Number(wm[0].replace(',','.')):50;
+  return {
+    length:nums[0]||5,
+    width:nums[1]||4,
+    height:nums[2]||4,
+    weightG:weightG>0?weightG:50
+  };
+}
 async function loadProduct(sku:string):Promise<SiteProduct>{
   await ensureSchema(); const pool=getPool();
   const r=await pool.query(`SELECT id,sku,title,description,price,stock,image_url "imageUrl",specs FROM products WHERE sku=$1 LIMIT 1`,[sku]);
@@ -53,7 +67,7 @@ async function findWbTemplate(p:SiteProduct){
   const d=await json('https://content-api.wildberries.ru/content/v2/get/cards/list',{method:'POST',headers:wbHeaders(),body:JSON.stringify({settings:{cursor:{limit:100},filter:{withPhoto:-1},sort:{ascending:false}}})});
   const cards=Array.isArray(d?.cards)?d.cards:[];
   if(!cards.length)return null;
-  const q=`${p.title} ${p.description||''} ASA фигурка декор 3D печать`;
+  const q=`${p.title} ${p.description||''} ASA аксессуар декор 3D печать`;
   return cards.map((c:any)=>({c,s:score(q,`${c.title||''} ${c.subjectName||''} ${c.description||''}`)})).sort((a:any,b:any)=>b.s-a.s)[0]?.c||cards[0];
 }
 async function publishWb(p:SiteProduct){
@@ -63,7 +77,8 @@ async function publishWb(p:SiteProduct){
 
   const tpl=await findWbTemplate(p); if(!tpl)throw new Error('WB_TEMPLATE_NOT_FOUND');
   const specs=parseSpecs(p.specs);
-  const dims={length:5,width:4,height:4,weightBrutto:Number(process.env.DSKGOTHTOY1_WEIGHT_KG||0.05)};
+  const pack=parsePackageSpec(p.specs);
+  const dims={length:pack.length,width:pack.width,height:pack.height,weightBrutto:pack.weightG/1000};
   const characteristics=(Array.isArray(tpl.characteristics)?tpl.characteristics:[]).map((x:any)=>({...x}));
   const payload=[{
     subjectID:Number(tpl.subjectID||0),
@@ -116,7 +131,7 @@ async function getOzonTemplate(p:SiteProduct){
   const ids=items.map((x:any)=>Number(x.product_id||x.id)).filter((x:number)=>x>0);
   const attrs=await json('https://api-seller.ozon.ru/v4/product/info/attributes',{method:'POST',headers:ozonHeaders(),body:JSON.stringify({filter:{product_id:ids},limit:Math.min(1000,ids.length)})});
   const ai=(Array.isArray(attrs?.result)?attrs.result:(attrs?.result?.items||attrs?.items||[]));
-  const q=`${p.title} ${p.description||''} ASA фигурка декор 3D печать`;
+  const q=`${p.title} ${p.description||''} ASA аксессуар декор 3D печать`;
   const best=ai.map((a:any)=>({a,s:score(q,`${a.name||''} ${JSON.stringify(a.attributes||[])}`)})).sort((x:any,y:any)=>y.s-x.s)[0]?.a;
   if(!best)return null;
   const source=items.find((x:any)=>Number(x.product_id||x.id)===Number(best.id));
@@ -149,6 +164,7 @@ async function publishOzon(p:SiteProduct){
   attrs=updateAttr(attrs,/описан/i,p.description);
 
   const image=absImage(p.imageUrl);
+  const pack=parsePackageSpec(p.specs);
   const item:any={
     attributes:attrs,
     barcode:'',
@@ -157,10 +173,10 @@ async function publishOzon(p:SiteProduct){
     color_image:'',
     complex_attributes:Array.isArray(a.complex_attributes)?a.complex_attributes:[],
     currency_code:'RUB',
-    depth:50,
+    depth:Math.round(pack.length*10),
     dimension_unit:'mm',
-    height:40,
-    width:40,
+    height:Math.round(pack.height*10),
+    width:Math.round(pack.width*10),
     images:image?[image]:[],
     name:p.title.slice(0,500),
     offer_id:p.sku,
@@ -168,7 +184,7 @@ async function publishOzon(p:SiteProduct){
     price:String(p.price),
     primary_image:image||'',
     vat:'0',
-    weight:Number(process.env.DSKGOTHTOY1_WEIGHT_G||50),
+    weight:Math.round(pack.weightG),
     weight_unit:'g'
   };
   if(!item.description_category_id||!item.type_id)throw new Error('OZON_TEMPLATE_CATEGORY_MISSING');
