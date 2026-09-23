@@ -19,11 +19,11 @@ async function discoverOzonWarehouseId(){
     const res=await fetch('https://api-seller.ozon.ru/v2/warehouse/list',{
       method:'POST',
       headers:{'Client-Id':clientId,'Api-Key':apiKey,'Content-Type':'application/json'},
-      body:'{}',
+      body:JSON.stringify({limit:100}),
       cache:'no-store'
     });
     const data=await res.json().catch(()=>({}));
-    const rows=Array.isArray(data?.result)?data.result:[];
+    const rows=Array.isArray(data?.warehouses)?data.warehouses:(Array.isArray(data?.result)?data.result:[]);
     if(!res.ok||!rows.length)return null;
     const preferred=rows.find((w:any)=>String(w?.status||'').toLowerCase().includes('active')&&!w?.is_rfbs)
       ||rows.find((w:any)=>!w?.is_rfbs)
