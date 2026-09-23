@@ -7,7 +7,9 @@ type FinanceSummary = {
   netTransactionAmount:number;
   accrualsForSale:number;
   services:number;
-  byType:Array<{type:string;count:number;amount:number}>;\n  ozonPoints:number;\n  skuEconomics:Array<{sku:string;title:string;qty:number;sales:number;fees:number;net:number;techroomPrice:number|null}>;
+  byType:Array<{type:string;count:number;amount:number}>;
+  ozonPoints:number;
+  skuEconomics:Array<{sku:string;title:string;qty:number;sales:number;fees:number;net:number;techroomPrice:number|null}>;
   breakdown:Array<{type:string;count:number;amount:number}>;
   totalPositive:number; totalExpenses:number; takeRate:number;
   recommendations:Array<{level:string;title:string;text:string}>;
@@ -62,7 +64,8 @@ export default function OzonFinanceDashboard(){
       <div className="finance-kpi"><span>Итог операций</span><strong>{money(data?.summary?.netTransactionAmount??0)}</strong><small>после начислений и удержаний Ozon</small></div>
       <div className="finance-kpi"><span>Начислено за продажи</span><strong>{money(data?.summary?.accrualsForSale??0)}</strong><small>accruals_for_sale</small></div>
       <div className="finance-kpi"><span>Услуги Ozon</span><strong>{money(data?.summary?.services??0)}</strong><small>логистика и сервисные операции</small></div>
-      <div className="finance-kpi"><span>Баллы Ozon / скидки</span><strong>{money(data?.summary?.ozonPoints??0)}</strong><small>операции, связанные с баллами и скидками</small></div>\n      <div className="finance-kpi"><span>Операций</span><strong>{data?.summary?.transactionCount??0}</strong><small>за выбранный период</small></div>
+      <div className="finance-kpi"><span>Баллы Ozon / скидки</span><strong>{money(data?.summary?.ozonPoints??0)}</strong><small>операции, связанные с баллами и скидками</small></div>
+      <div className="finance-kpi"><span>Операций</span><strong>{data?.summary?.transactionCount??0}</strong><small>за выбранный период</small></div>
     </section>
 
     <section className="admin-card finance-overview">
