@@ -1,6 +1,6 @@
 import { runPriceGuard } from './lib/price-guard';
 import { syncHubCatalogToSite } from './lib/product-hub';
-import { pushPricesAndStocks } from './lib/auto-sync';
+import { pushPricesAndStocks, pushStockForSku } from './lib/auto-sync';
 import { syncTechRoomPricesFromWildberries } from './lib/wb-price-source';
 import { publishSiteProductToMarketplaces } from './lib/site-product-publish';
 import { getWarehouseSettings } from './lib/marketplace-settings';
@@ -72,8 +72,7 @@ async function syncRingStockOnce(){
     const settings=await getWarehouseSettings();
     if(settings.wbWarehouseId)process.env.WB_WAREHOUSE_ID=settings.wbWarehouseId;
     if(settings.ozonWarehouseId)process.env.OZON_WAREHOUSE_ID=settings.ozonWarehouseId;
-    process.env.SYNC_MARKETPLACE_STOCKS='1';
-    const result=await pushPricesAndStocks();
+    const result=await pushStockForSku('dskgothring1',5,settings);
     console.log('[ring-stock-sync:dskgothring1]',JSON.stringify(result));
   }catch(e:any){
     console.error('[ring-stock-sync:dskgothring1]',String(e?.message||e));
