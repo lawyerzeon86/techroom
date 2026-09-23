@@ -8,7 +8,11 @@
   },
   "weight_g": 20,
   "material": "ASA пластик",
-  "package_cm": null,
+  "package_cm": {
+    "length": 8,
+    "width": 13,
+    "height": 3
+  },
   "category_hint": "Бижутерия / кольца / готические украшения",
   "ozon": {
     "title": "Готическое кольцо с черной розой, кольцо в готическом стиле",
