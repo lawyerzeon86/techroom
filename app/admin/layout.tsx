@@ -9,7 +9,7 @@ export default function AdminLayout({children}:{children:ReactNode}){
         <a href="/admin/prices" style={{color:'#ffd27a',textDecoration:'none',whiteSpace:'nowrap'}}>Лист цен</a>
         <a href="/admin/orders" style={{color:'#fff',textDecoration:'none',whiteSpace:'nowrap'}}>Заказы</a>
         <a href="/admin/communications" style={{color:'#fff',textDecoration:'none',whiteSpace:'nowrap'}}>Отзывы и вопросы</a>
-        <a href="/admin/marketplaces" style={{color:'#ffb07a',textDecoration:'none',whiteSpace:'nowrap'}}>AI Маркетплейсы</a>
+        <a href="/admin/marketplaces" style={{color:'#ffb07a',textDecoration:'none',whiteSpace:'nowrap'}}>AI Маркетплейсы</a>\n        <a href="/admin/ozon-finance" style={{color:'#ffd27a',textDecoration:'none',whiteSpace:'nowrap'}}>Ozon Финансы</a>
         <a href="/admin/integrations" style={{color:'#fff',textDecoration:'none',whiteSpace:'nowrap'}}>Интеграции</a>
         <a href="/" style={{color:'#ff9a55',textDecoration:'none',marginLeft:'auto',whiteSpace:'nowrap'}}>На сайт →</a>
       </div>
