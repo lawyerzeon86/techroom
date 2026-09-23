@@ -2,13 +2,13 @@ export type PriceGuardRule={sku:string;minPrice:number};
 
 const OZON_PROMO_FLOOR_SKUS=new Set(['R8W0821653','8W0821653','DAK8T54A53A','FenderAudiA4B8front']);
 const OZON_KNOWN_AUTO_SKUS=new Set(['R8W0821653','DAK8T54A53A','FenderAudiA4B8front']);
-const OZON_AUTO_PROMO_FLOOR=3500;
+const OZON_AUTO_PROMO_FLOOR=2990;
 
 const RULES:PriceGuardRule[]=[
-  {sku:'R8W0821653',minPrice:3500},
-  {sku:'8W0821653',minPrice:3500},
-  {sku:'DAK8T54A53A',minPrice:3500},
-  {sku:'FenderAudiA4B8front',minPrice:3500},
+  {sku:'R8W0821653',minPrice:2990},
+  {sku:'8W0821653',minPrice:2990},
+  {sku:'DAK8T54A53A',minPrice:2990},
+  {sku:'FenderAudiA4B8front',minPrice:2990},
   {sku:'DAK123456',minPrice:5000},
   {sku:'DAK-VASE-SHELL-ASA-WH-001',minPrice:5000},
 ];
