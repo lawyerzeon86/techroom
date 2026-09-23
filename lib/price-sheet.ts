@@ -18,7 +18,8 @@ export async function ensurePriceSheetSchema(){
       product_id INTEGER REFERENCES products(id) ON DELETE SET NULL,
       title TEXT NOT NULL DEFAULT '',
       price INTEGER NOT NULL DEFAULT 0,
-      min_price INTEGER NOT NULL DEFAULT 0,\n      cost_price INTEGER NOT NULL DEFAULT 0,
+      min_price INTEGER NOT NULL DEFAULT 0,
+      cost_price INTEGER NOT NULL DEFAULT 0,
       sync_ozon BOOLEAN NOT NULL DEFAULT TRUE,
       sync_wb BOOLEAN NOT NULL DEFAULT TRUE,
       sync_yandex BOOLEAN NOT NULL DEFAULT TRUE,
@@ -32,7 +33,8 @@ export async function ensurePriceSheetSchema(){
   await pool.query(`ALTER TABLE price_sheet ADD COLUMN IF NOT EXISTS sync_yandex BOOLEAN NOT NULL DEFAULT TRUE`);
   await pool.query(`ALTER TABLE price_sheet ADD COLUMN IF NOT EXISTS sync_avito BOOLEAN NOT NULL DEFAULT TRUE`);
   await pool.query(`ALTER TABLE price_sheet ADD COLUMN IF NOT EXISTS avito_item_id BIGINT`);
-  await pool.query(`ALTER TABLE price_sheet ADD COLUMN IF NOT EXISTS min_price INTEGER NOT NULL DEFAULT 0`);\n  await pool.query(`ALTER TABLE price_sheet ADD COLUMN IF NOT EXISTS cost_price INTEGER NOT NULL DEFAULT 0`);
+  await pool.query(`ALTER TABLE price_sheet ADD COLUMN IF NOT EXISTS min_price INTEGER NOT NULL DEFAULT 0`);
+  await pool.query(`ALTER TABLE price_sheet ADD COLUMN IF NOT EXISTS cost_price INTEGER NOT NULL DEFAULT 0`);
   const seed=await pool.query(`
     SELECT DISTINCT ON (sku) id,sku,title,price
     FROM products
@@ -68,7 +70,8 @@ export async function listPriceSheet(){
     productId:r.product_id==null?null:Number(r.product_id),
     title:String(r.title||''),
     price:Number(r.price)||0,
-    minPrice:Number(r.min_price)||0,\n    costPrice:Number(r.cost_price)||0,
+    minPrice:Number(r.min_price)||0,
+    costPrice:Number(r.cost_price)||0,
     stock:Number(r.stock)||0,
     syncOzon:Boolean(r.sync_ozon),
     syncWb:Boolean(r.sync_wb),
@@ -96,7 +99,8 @@ export async function savePriceSheet(items:any[]){
       const sku=String(raw?.sku||'').trim();
       if(!sku||sku.length>255)throw new Error('VALIDATION');
       const minPrice=intPrice(raw?.minPrice);
-      const price=Math.max(intPrice(raw?.price),minPrice,DEFAULT_FLOORS[sku]||0);\n      const costPrice=intPrice(raw?.costPrice??0);
+      const price=Math.max(intPrice(raw?.price),minPrice,DEFAULT_FLOORS[sku]||0);
+      const costPrice=intPrice(raw?.costPrice??0);
       const syncOzon=raw?.syncOzon!==false;
       const syncWb=raw?.syncWb!==false;
       const syncYandex=raw?.syncYandex!==false;
