@@ -16,7 +16,7 @@ async function discoverOzonWarehouseId(){
   const clientId=process.env.OZON_CLIENT_ID?.trim(),apiKey=process.env.OZON_API_KEY?.trim();
   if(!clientId||!apiKey)return null;
   try{
-    const res=await fetch('https://api-seller.ozon.ru/v1/warehouse/list',{
+    const res=await fetch('https://api-seller.ozon.ru/v2/warehouse/list',{
       method:'POST',
       headers:{'Client-Id':clientId,'Api-Key':apiKey,'Content-Type':'application/json'},
       body:'{}',
