@@ -10,7 +10,7 @@ export async function GET(request:NextRequest){
  try{
   let types:any={};try{const tr=await getOzonAccrualTypes();for(const t of(tr?.types??tr?.accrual_types??[])){types[String(t.id??t.accrual_id??t.type_id)]=t.name??t.title??t.description;}}catch{}
   const all:any[]=[];for(let d=new Date(Date.UTC(from.getUTCFullYear(),from.getUTCMonth(),from.getUTCDate()));d<=to;d.setUTCDate(d.getUTCDate()+1)){all.push(...await day(d.toISOString().slice(0,10)));}
-  const by:Record<string,{count:number;amount:number}>={};let total=0,sales=0,services=0;
+  const by:Record<string,{count:number;amount:number}>={};const details:Record<string,{count:number;amount:number}>={};let total=0,sales=0,services=0; const add=(name:string,value:any)=>{const amount=num(value);if(!amount)return;details[name]??={count:0,amount:0};details[name].count++;details[name].amount+=amount;};
   for(const a of all){const amount=num(a.total_amount);total+=amount;const id=String(a.accrual_id??a.type_id??"other");const name=types[id]??a.accrued_category??("Начисление "+id);by[name]??={count:0,amount:0};by[name].count++;by[name].amount+=amount;
    const p=a?.posting?.products??[];for(const x of p){sales+=num(x?.sale?.seller_price??x?.seller_price);services+=num(x?.delivery?.total_accrued);for(const fg of(x?.item_fees?.fees??[]))for(const fee of(fg?.fees??[]))services+=num(fee?.accrued);}
    services+=num(a?.non_item_fee?.accrued);for(const cf of(a?.container_fees??[]))services+=num(cf?.accrued??cf?.total_amount);
