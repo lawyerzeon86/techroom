@@ -2,6 +2,7 @@ import { runPriceGuard } from './lib/price-guard';
 import { syncHubCatalogToSite } from './lib/product-hub';
 import { pushPricesAndStocks } from './lib/auto-sync';
 import { syncTechRoomPricesFromWildberries } from './lib/wb-price-source';
+import { publishSiteProductToMarketplaces } from './lib/site-product-publish';
 
 const g=globalThis as typeof globalThis & {
   __techroomPriceGuardTimer?:NodeJS.Timeout;
@@ -9,6 +10,7 @@ const g=globalThis as typeof globalThis & {
   __techroomSiteSyncStarted?:boolean;
   __techroomOzonPriceSyncStarted?:boolean;
   __techroomWbPriceBootstrapStarted?:boolean;
+  __techroomDskGothToyPublishStarted?:boolean;
 };
 
 async function priceGuardCycle(){
@@ -44,6 +46,15 @@ async function wbPriceBootstrapOnce(attempt=0){
   }
 }
 
+async function publishDskGothToyOnce(){
+  try{
+    const result=await publishSiteProductToMarketplaces('dskgothtoy1');
+    console.log('[marketplace-publish:dskgothtoy1]',JSON.stringify(result));
+  }catch(e:any){
+    console.error('[marketplace-publish:dskgothtoy1]',String(e?.message||e));
+  }
+}
+
 async function siteSyncOnce(){
   try{
     const result=await syncHubCatalogToSite();
@@ -68,6 +79,11 @@ export async function register(){
   if(!g.__techroomOzonPriceSyncStarted){
     g.__techroomOzonPriceSyncStarted=true;
     setTimeout(()=>void marketplacePriceSyncOnce(),30000);
+  }
+
+  if(!g.__techroomDskGothToyPublishStarted){
+    g.__techroomDskGothToyPublishStarted=true;
+    setTimeout(()=>void publishDskGothToyOnce(),45000);
   }
 
   if(!g.__techroomPriceGuardTimer){
