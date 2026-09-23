@@ -40,7 +40,7 @@ export default function OzonFinanceDashboard(){
       const start=new Date(from+'T00:00:00.000Z').toISOString();
       const end=new Date(to+'T23:59:59.999Z').toISOString();
       const r=await fetch('/api/admin/ozon/finance?from='+encodeURIComponent(start)+'&to='+encodeURIComponent(end),{cache:'no-store'});
-      setData(await r.json());
+      const j=await r.json(); if(r.status===401){location.href='/admin?next=/admin/ozon-finance';return;} setData(j);
     }catch(e){setData({ok:false,from,to,error:e instanceof Error?e.message:'Ошибка загрузки'});}
     finally{setLoading(false);}
   }
