@@ -133,6 +133,20 @@ export async function ensureSchema() {
         }
       }
 
+      const requiredRingSku = 'dskgothring1';
+      const requiredRingProduct = seedProducts.find(p => p.sku === requiredRingSku);
+      if (requiredRingProduct) {
+        const existingRing = await pool.query('SELECT id FROM products WHERE sku = $1 LIMIT 1', [requiredRingSku]);
+        if (existingRing.rowCount === 0) {
+          const p = requiredRingProduct;
+          await pool.query(
+            `INSERT INTO products (category,title,price,old_price,rating,reviews,badge,emoji,image_url,image_urls,sku,oem,stock,description,specs,is_active,sort_order)
+             VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10::jsonb,$11,$12,$13,$14,$15,$16,$17)`,
+            [p.category,p.title,p.price,p.oldPrice,p.rating,p.reviews,p.badge,p.emoji,p.imageUrl,JSON.stringify(p.imageUrls || []),p.sku,p.oem,p.stock,p.description,p.specs,p.isActive,p.sortOrder]
+          );
+        }
+      }
+
     })().catch(err => { globalForDb.schemaReady = undefined; throw err; });
   }
   await globalForDb.schemaReady;
