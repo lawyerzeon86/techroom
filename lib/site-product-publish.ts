@@ -113,7 +113,8 @@ async function publishWb(p:SiteProduct){
 }
 
 async function getOzonTemplate(p:SiteProduct){
-  const preferred=[process.env.OZON_PRODUCT_TEMPLATE_OFFER?.trim(),'DAK-VASE-SHELL-ASA-WH-001','DAK123456'].filter(Boolean) as string[];
+  const ringIntent=/кольц/i.test(`${p.title} ${p.description||''}`);
+  const preferred=ringIntent?[]:[process.env.OZON_PRODUCT_TEMPLATE_OFFER?.trim(),'DAK-VASE-SHELL-ASA-WH-001','DAK123456'].filter(Boolean) as string[];
   for(const offer of preferred){
     try{
       const info=await json('https://api-seller.ozon.ru/v3/product/info/list',{method:'POST',headers:ozonHeaders(),body:JSON.stringify({offer_id:[offer],product_id:[],sku:[]})});
@@ -132,8 +133,23 @@ async function getOzonTemplate(p:SiteProduct){
   const attrs=await json('https://api-seller.ozon.ru/v4/product/info/attributes',{method:'POST',headers:ozonHeaders(),body:JSON.stringify({filter:{product_id:ids},limit:Math.min(1000,ids.length)})});
   const ai=(Array.isArray(attrs?.result)?attrs.result:(attrs?.result?.items||attrs?.items||[]));
   const q=`${p.title} ${p.description||''} ASA аксессуар декор 3D печать`;
-  const best=ai.map((a:any)=>({a,s:score(q,`${a.name||''} ${JSON.stringify(a.attributes||[])}`)})).sort((x:any,y:any)=>y.s-x.s)[0]?.a;
-  if(!best)return null;
+  let ranked=ai.map((a:any)=>({a,s:score(q,`${a.name||''} ${JSON.stringify(a.attributes||[])}`)})).sort((x:any,y:any)=>y.s-x.s);
+  if(ringIntent){
+    const ringRanked=ranked.filter((x:any)=>/кольц|бижутер|украшен/i.test(`${x.a?.name||''} ${JSON.stringify(x.a?.attributes||[])}`));
+    if(ringRanked.length)ranked=ringRanked;
+  }
+  const best=ranked[0]?.a;
+  if(!best){
+    if(!ringIntent)return null;
+    const tree=await json('https://api-seller.ozon.ru/v1/description-category/tree',{method:'POST',headers:ozonHeaders(),body:JSON.stringify({language:'RU'})});
+    const flat:any[]=[];
+    const walk=(nodes:any[])=>{for(const n of (nodes||[])){if(Number(n?.description_category_id)>0&&Number(n?.type_id)>0)flat.push(n);if(Array.isArray(n?.children))walk(n.children)}};
+    walk(tree?.result||[]);
+    const candidates=flat.filter((n:any)=>/кольц/i.test(`${n?.category_name||''} ${n?.type_name||''}`));
+    const chosen=candidates.sort((x:any,y:any)=>score('кольца украшения бижутерия',`${y?.category_name||''} ${y?.type_name||''}`)-score('кольца украшения бижутерия',`${x?.category_name||''} ${x?.type_name||''}`))[0];
+    if(!chosen)return null;
+    return {a:{description_category_id:Number(chosen.description_category_id),type_id:Number(chosen.type_id),attributes:[],offer_id:null,name:`${chosen.category_name||''} ${chosen.type_name||''}`},pi:{}};
+  }
   const source=items.find((x:any)=>Number(x.product_id||x.id)===Number(best.id));
   const offer=String(best.offer_id||source?.offer_id||'');
   const info=offer?await json('https://api-seller.ozon.ru/v3/product/info/list',{method:'POST',headers:ozonHeaders(),body:JSON.stringify({offer_id:[offer],product_id:[],sku:[]})}):{};
@@ -151,7 +167,7 @@ function updateAttr(attrs:any[],nameRx:RegExp,value:string){
 async function publishOzon(p:SiteProduct){
   const exist=await json('https://api-seller.ozon.ru/v3/product/info/list',{method:'POST',headers:ozonHeaders(),body:JSON.stringify({offer_id:[p.sku],product_id:[],sku:[]})}).catch(()=>({}));
   const same=(exist?.items||exist?.result?.items||[])[0];
-  if(same)return {status:'exists',id:String(same.id||same.product_id||''),offerId:p.sku};
+  if(same && p.sku!=='dskgothring1')return {status:'exists',id:String(same.id||same.product_id||''),offerId:p.sku};
 
   const tpl=await getOzonTemplate(p); if(!tpl)throw new Error('OZON_TEMPLATE_NOT_FOUND');
   const a=tpl.a, pi=tpl.pi||{};
@@ -189,7 +205,24 @@ async function publishOzon(p:SiteProduct){
   };
   if(!item.description_category_id||!item.type_id)throw new Error('OZON_TEMPLATE_CATEGORY_MISSING');
   const r=await json('https://api-seller.ozon.ru/v3/product/import',{method:'POST',headers:ozonHeaders(),body:JSON.stringify({items:[item]})});
-  return {status:'submitted',offerId:p.sku,taskId:r?.result?.task_id||r?.task_id||null,templateOfferId:a.offer_id||null};
+  const taskId=Number(r?.result?.task_id||r?.task_id||0);
+  if(!taskId)return {status:'submitted',offerId:p.sku,taskId:null,templateOfferId:a.offer_id||null};
+  let info:any=null;
+  for(let i=0;i<6;i++){
+    await new Promise(resolve=>setTimeout(resolve,2500));
+    info=await json('https://api-seller.ozon.ru/v1/product/import/info',{method:'POST',headers:ozonHeaders(),body:JSON.stringify({task_id:taskId})});
+    const items=info?.result?.items||[];
+    const current=items.find((x:any)=>String(x?.offer_id||'')===p.sku)||items[0];
+    const errors=Array.isArray(current?.errors)?current.errors:[];
+    const status=String(current?.status||'').toLowerCase();
+    if(errors.length){
+      throw new Error('OZON_IMPORT_'+JSON.stringify({taskId,status,errors,category:item.description_category_id,typeId:item.type_id,template:a.offer_id||null}).slice(0,4000));
+    }
+    if(['imported','success','accepted','processed'].includes(status)){
+      return {status:'accepted',offerId:p.sku,taskId,productId:current?.product_id||null,templateOfferId:a.offer_id||null,category:item.description_category_id,typeId:item.type_id};
+    }
+  }
+  return {status:'submitted',offerId:p.sku,taskId,templateOfferId:a.offer_id||null,importInfo:info};
 }
 
 async function saveAttempt(sku:string,mp:string,status:string,result:any,error?:string){
@@ -204,7 +237,7 @@ export async function publishSiteProductToMarketplaces(sku:string){
   const p=await loadProduct(sku);
   const out:any={sku,wb:null,ozon:null};
   for(const mp of ['wb','ozon'] as const){
-    const already=await getPool().query(`SELECT 1 FROM marketplace_publish_attempts WHERE sku=$1 AND marketplace=$2 AND status IN ('submitted','exists') LIMIT 1`,[sku,mp]).catch(()=>({rows:[]}));
+    const already=await getPool().query(`SELECT 1 FROM marketplace_publish_attempts WHERE sku=$1 AND marketplace=$2 AND status IN ('exists','accepted','imported') LIMIT 1`,[sku,mp]).catch(()=>({rows:[]}));
     if((already as any).rows?.length){out[mp]={status:'already_done'};continue}
     try{
       const r=mp==='wb'?await publishWb(p):await publishOzon(p);
