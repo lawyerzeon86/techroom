@@ -18,7 +18,7 @@ async function ozonWarehouses(){
   const clientId=(process.env.OZON_CLIENT_ID||'').trim();
   const apiKey=(process.env.OZON_API_KEY||'').trim();
   if(!clientId||!apiKey) throw new Error('OZON_NOT_CONFIGURED');
-  const res=await fetch('https://api-seller.ozon.ru/v1/warehouse/list',{method:'POST',headers:{'Client-Id':clientId,'Api-Key':apiKey,'Content-Type':'application/json'},body:'{}',cache:'no-store'});
+  const res=await fetch('https://api-seller.ozon.ru/v2/warehouse/list',{method:'POST',headers:{'Client-Id':clientId,'Api-Key':apiKey,'Content-Type':'application/json'},body:'{}',cache:'no-store'});
   const data=await res.json().catch(()=>null);
   if(!res.ok) throw new Error(String(data?.message||data?.error||`OZON_HTTP_${res.status}`));
   const rows=Array.isArray(data?.result)?data.result:[];
