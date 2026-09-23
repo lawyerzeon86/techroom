@@ -7,7 +7,7 @@ type FinanceSummary = {
   netTransactionAmount:number;
   accrualsForSale:number;
   services:number;
-  byType:Array<{type:string;count:number;amount:number}>;
+  byType:Array<{type:string;count:number;amount:number}>;\n  breakdown:Array<{type:string;count:number;amount:number}>;\n  totalPositive:number; totalExpenses:number; takeRate:number;\n  recommendations:Array<{level:string;title:string;text:string}>;
 };
 type FinanceResponse = {ok:boolean;from:string;to:string;summary?:FinanceSummary;error?:string};
 
@@ -41,7 +41,7 @@ export default function OzonFinanceDashboard(){
   }
   useEffect(()=>{load();},[]);
 
-  const rows=useMemo(()=>data?.summary?.byType??[],[data]);
+  const rows=useMemo(()=>data?.summary?.byType??[],[data]);\n  const breakdown=useMemo(()=>data?.summary?.breakdown??[],[data]);
   const negative=rows.filter(x=>x.amount<0).reduce((s,x)=>s+x.amount,0);
   const positive=rows.filter(x=>x.amount>0).reduce((s,x)=>s+x.amount,0);
   const max=Math.max(1,...rows.slice(0,12).map(x=>Math.abs(x.amount)));
