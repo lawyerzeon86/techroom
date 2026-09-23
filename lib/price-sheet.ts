@@ -20,7 +20,7 @@ export async function ensurePriceSheetSchema(){
       price INTEGER NOT NULL DEFAULT 0,
       min_price INTEGER NOT NULL DEFAULT 0,
       cost_price INTEGER NOT NULL DEFAULT 0,
-      tax_rate NUMERIC(6,3) NOT NULL DEFAULT 0,
+      tax_rate NUMERIC(6,3) NOT NULL DEFAULT 7,
       variable_cost INTEGER NOT NULL DEFAULT 0,
       sync_ozon BOOLEAN NOT NULL DEFAULT TRUE,
       sync_wb BOOLEAN NOT NULL DEFAULT TRUE,
@@ -37,8 +37,10 @@ export async function ensurePriceSheetSchema(){
   await pool.query(`ALTER TABLE price_sheet ADD COLUMN IF NOT EXISTS avito_item_id BIGINT`);
   await pool.query(`ALTER TABLE price_sheet ADD COLUMN IF NOT EXISTS min_price INTEGER NOT NULL DEFAULT 0`);
   await pool.query(`ALTER TABLE price_sheet ADD COLUMN IF NOT EXISTS cost_price INTEGER NOT NULL DEFAULT 0`);
-  await pool.query(`ALTER TABLE price_sheet ADD COLUMN IF NOT EXISTS tax_rate NUMERIC(6,3) NOT NULL DEFAULT 0`);
+  await pool.query(`ALTER TABLE price_sheet ADD COLUMN IF NOT EXISTS tax_rate NUMERIC(6,3) NOT NULL DEFAULT 7`);
   await pool.query(`ALTER TABLE price_sheet ADD COLUMN IF NOT EXISTS variable_cost INTEGER NOT NULL DEFAULT 0`);
+  await pool.query(`ALTER TABLE price_sheet ALTER COLUMN tax_rate SET DEFAULT 7`);
+  await pool.query(`UPDATE price_sheet SET tax_rate=7 WHERE tax_rate IS NULL OR tax_rate=0`);
   const seed=await pool.query(`
     SELECT DISTINCT ON (sku) id,sku,title,price
     FROM products
