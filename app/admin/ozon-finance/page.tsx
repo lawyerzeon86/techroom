@@ -12,6 +12,14 @@ type FinanceSummary = {
 type FinanceResponse = {ok:boolean;from:string;to:string;summary?:FinanceSummary;error?:string};
 
 const money=(v:number)=>new Intl.NumberFormat('ru-RU',{style:'currency',currency:'RUB',maximumFractionDigits:0}).format(v||0);
+const ozonOperationName=(type:string)=>{
+  const names:Record<string,string>={
+    POSTING:'Заказы',
+    ITEM:'Товары',
+    NON_ITEM:'Услуги и прочие начисления'
+  };
+  return names[type]??type;
+};
 const dateInput=(d:Date)=>d.toISOString().slice(0,10);
 
 export default function OzonFinanceDashboard(){
@@ -60,13 +68,13 @@ export default function OzonFinanceDashboard(){
 
     <section className="admin-card finance-overview">
       <div className="finance-head"><div><h2>Операции по типам</h2><p>Крупнейшие статьи по абсолютной сумме</p></div></div>
-      <div className="finance-bars">{rows.slice(0,12).map((r,i)=><div className="finance-bar-row" key={r.type+i}><div className="finance-bar-label"><b>{r.type}</b><small>{r.count} операций</small></div><div className="finance-bar-track"><i style={{width:(Math.abs(r.amount)/max*100)+'%'}}/></div><strong>{money(r.amount)}</strong></div>)}</div>
+      <div className="finance-bars">{rows.slice(0,12).map((r,i)=><div className="finance-bar-row" key={r.type+i}><div className="finance-bar-label"><b>{ozonOperationName(r.type)}</b><small>{r.count} операций</small></div><div className="finance-bar-track"><i style={{width:(Math.abs(r.amount)/max*100)+'%'}}/></div><strong>{money(r.amount)}</strong></div>)}</div>
       {!loading && rows.length===0 && data?.ok && <div className="empty">За выбранный период финансовых операций нет.</div>}
     </section>
 
     <section className="admin-card finance-overview">
       <div className="finance-head"><div><h2>Детализация</h2><p>Все категории финансовых транзакций Ozon</p></div></div>
-      <div className="admin-table-wrap"><table className="admin-table"><thead><tr><th>Тип операции</th><th>Количество</th><th>Сумма</th><th>Доля от оборота операций</th></tr></thead><tbody>{rows.map((r,i)=><tr key={r.type+i}><td><b>{r.type}</b></td><td>{r.count}</td><td>{money(r.amount)}</td><td>{positive?((Math.abs(r.amount)/positive)*100).toFixed(1):'0.0'}%</td></tr>)}</tbody></table></div>
+      <div className="admin-table-wrap"><table className="admin-table"><thead><tr><th>Тип операции</th><th>Количество</th><th>Сумма</th><th>Доля от оборота операций</th></tr></thead><tbody>{rows.map((r,i)=><tr key={r.type+i}><td><b>{ozonOperationName(r.type)}</b></td><td>{r.count}</td><td>{money(r.amount)}</td><td>{positive?((Math.abs(r.amount)/positive)*100).toFixed(1):'0.0'}%</td></tr>)}</tbody></table></div>
     </section>
   </main>;
 }
