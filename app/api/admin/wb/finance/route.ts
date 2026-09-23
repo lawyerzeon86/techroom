@@ -91,7 +91,7 @@ export async function GET(request:Request){
 
     const rows:any[]=await response.json();
     const q=await getPool().query("SELECT sku,title,cost_price,tax_rate,variable_cost FROM price_sheet");
-    const costs:Record<string,{title:string;cost:number}>={};
+    const costs:Record<string,{title:string;cost:number;taxRate:number;variableCost:number}>={};
     for(const x of q.rows) costs[String(x.sku)]={title:String(x.title||x.sku),cost:Number(x.cost_price)||0,taxRate:Number(x.tax_rate)||0,variableCost:Number(x.variable_cost)||0};
 
     const map:Record<string,any>={};
