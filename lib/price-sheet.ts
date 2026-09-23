@@ -20,6 +20,8 @@ export async function ensurePriceSheetSchema(){
       price INTEGER NOT NULL DEFAULT 0,
       min_price INTEGER NOT NULL DEFAULT 0,
       cost_price INTEGER NOT NULL DEFAULT 0,
+      tax_rate NUMERIC(6,3) NOT NULL DEFAULT 0,
+      variable_cost INTEGER NOT NULL DEFAULT 0,
       sync_ozon BOOLEAN NOT NULL DEFAULT TRUE,
       sync_wb BOOLEAN NOT NULL DEFAULT TRUE,
       sync_yandex BOOLEAN NOT NULL DEFAULT TRUE,
@@ -35,6 +37,8 @@ export async function ensurePriceSheetSchema(){
   await pool.query(`ALTER TABLE price_sheet ADD COLUMN IF NOT EXISTS avito_item_id BIGINT`);
   await pool.query(`ALTER TABLE price_sheet ADD COLUMN IF NOT EXISTS min_price INTEGER NOT NULL DEFAULT 0`);
   await pool.query(`ALTER TABLE price_sheet ADD COLUMN IF NOT EXISTS cost_price INTEGER NOT NULL DEFAULT 0`);
+  await pool.query(`ALTER TABLE price_sheet ADD COLUMN IF NOT EXISTS tax_rate NUMERIC(6,3) NOT NULL DEFAULT 0`);
+  await pool.query(`ALTER TABLE price_sheet ADD COLUMN IF NOT EXISTS variable_cost INTEGER NOT NULL DEFAULT 0`);
   const seed=await pool.query(`
     SELECT DISTINCT ON (sku) id,sku,title,price
     FROM products
@@ -59,7 +63,7 @@ export async function listPriceSheet(){
   await ensurePriceSheetSchema();
   const pool=getPool();
   const {rows}=await pool.query(`
-    SELECT ps.sku,ps.product_id,ps.title,ps.price,ps.min_price,ps.cost_price,ps.sync_ozon,ps.sync_wb,ps.sync_yandex,ps.sync_avito,ps.avito_item_id,ps.updated_at,
+    SELECT ps.sku,ps.product_id,ps.title,ps.price,ps.min_price,ps.cost_price,ps.tax_rate,ps.variable_cost,ps.sync_ozon,ps.sync_wb,ps.sync_yandex,ps.sync_avito,ps.avito_item_id,ps.updated_at,
            COALESCE(p.stock,0) AS stock
     FROM price_sheet ps
     LEFT JOIN products p ON p.id=ps.product_id
@@ -72,6 +76,8 @@ export async function listPriceSheet(){
     price:Number(r.price)||0,
     minPrice:Number(r.min_price)||0,
     costPrice:Number(r.cost_price)||0,
+    taxRate:Number(r.tax_rate)||0,
+    variableCost:Number(r.variable_cost)||0,
     stock:Number(r.stock)||0,
     syncOzon:Boolean(r.sync_ozon),
     syncWb:Boolean(r.sync_wb),
@@ -80,6 +86,12 @@ export async function listPriceSheet(){
     avitoItemId:r.avito_item_id==null?null:Number(r.avito_item_id),
     updatedAt:r.updated_at,
   }));
+}
+
+function percent(value:any){
+  const n=Number(value);
+  if(!Number.isFinite(n)||n<0||n>100)throw new Error('VALIDATION');
+  return Math.round(n*1000)/1000;
 }
 
 function intPrice(value:any){
@@ -101,6 +113,8 @@ export async function savePriceSheet(items:any[]){
       const minPrice=intPrice(raw?.minPrice);
       const price=Math.max(intPrice(raw?.price),minPrice,DEFAULT_FLOORS[sku]||0);
       const costPrice=intPrice(raw?.costPrice??0);
+      const taxRate=percent(raw?.taxRate??0);
+      const variableCost=intPrice(raw?.variableCost??0);
       const syncOzon=raw?.syncOzon!==false;
       const syncWb=raw?.syncWb!==false;
       const syncYandex=raw?.syncYandex!==false;
@@ -108,10 +122,10 @@ export async function savePriceSheet(items:any[]){
       const avitoItemId=raw?.avitoItemId===null||raw?.avitoItemId===''||raw?.avitoItemId===undefined?null:Number(raw.avitoItemId);
       if(avitoItemId!==null&&(!Number.isSafeInteger(avitoItemId)||avitoItemId<=0))throw new Error('VALIDATION');
       const updated=await client.query(`
-        UPDATE price_sheet SET price=$2,min_price=$3,cost_price=$4,sync_ozon=$5,sync_wb=$6,sync_yandex=$7,sync_avito=$8,avito_item_id=$9,updated_at=NOW()
+        UPDATE price_sheet SET price=$2,min_price=$3,cost_price=$4,tax_rate=$5,variable_cost=$6,sync_ozon=$7,sync_wb=$8,sync_yandex=$9,sync_avito=$10,avito_item_id=$11,updated_at=NOW()
         WHERE sku=$1
         RETURNING product_id
-      `,[sku,price,minPrice,costPrice,syncOzon,syncWb,syncYandex,syncAvito,avitoItemId]);
+      `,[sku,price,minPrice,costPrice,taxRate,variableCost,syncOzon,syncWb,syncYandex,syncAvito,avitoItemId]);
       if(!updated.rows[0])throw new Error('SKU_NOT_FOUND');
       await client.query(`UPDATE products SET price=$2,updated_at=NOW() WHERE sku=$1`,[sku,price]);
     }
