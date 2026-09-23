@@ -11,6 +11,7 @@ const g=globalThis as typeof globalThis & {
   __techroomOzonPriceSyncStarted?:boolean;
   __techroomWbPriceBootstrapStarted?:boolean;
   __techroomDskGothToyPublishStarted?:boolean;
+  __techroomDskGothRingPublishStarted?:boolean;
 };
 
 async function priceGuardCycle(){
@@ -55,6 +56,15 @@ async function publishDskGothToyOnce(){
   }
 }
 
+async function publishDskGothRingOnce(){
+  try{
+    const result=await publishSiteProductToMarketplaces('dskgothring1');
+    console.log('[marketplace-publish:dskgothring1]',JSON.stringify(result));
+  }catch(e:any){
+    console.error('[marketplace-publish:dskgothring1]',String(e?.message||e));
+  }
+}
+
 async function siteSyncOnce(){
   try{
     const result=await syncHubCatalogToSite();
@@ -84,6 +94,11 @@ export async function register(){
   if(!g.__techroomDskGothToyPublishStarted){
     g.__techroomDskGothToyPublishStarted=true;
     setTimeout(()=>void publishDskGothToyOnce(),45000);
+  }
+
+  if(!g.__techroomDskGothRingPublishStarted){
+    g.__techroomDskGothRingPublishStarted=true;
+    setTimeout(()=>void publishDskGothRingOnce(),55000);
   }
 
   if(!g.__techroomPriceGuardTimer){
