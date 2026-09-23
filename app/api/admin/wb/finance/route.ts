@@ -90,9 +90,9 @@ export async function GET(request:Request){
     }
 
     const rows:any[]=await response.json();
-    const q=await getPool().query("SELECT sku,title,cost_price FROM price_sheet");
+    const q=await getPool().query("SELECT sku,title,cost_price,tax_rate,variable_cost FROM price_sheet");
     const costs:Record<string,{title:string;cost:number}>={};
-    for(const x of q.rows) costs[String(x.sku)]={title:String(x.title||x.sku),cost:Number(x.cost_price)||0};
+    for(const x of q.rows) costs[String(x.sku)]={title:String(x.title||x.sku),cost:Number(x.cost_price)||0,taxRate:Number(x.tax_rate)||0,variableCost:Number(x.variable_cost)||0};
 
     const map:Record<string,any>={};
     let sales=0,commission=0,logistics=0,storage=0,penalties=0,acquiring=0,acceptance=0,deductions=0,payout=0,returns=0;
@@ -130,12 +130,12 @@ export async function GET(request:Request){
     }
 
     const skuEconomics=Object.values(map).map((x:any)=>{
-      const cost=(costs[x.sku]?.cost||0)*x.qty;
-      const profit=x.payout-cost;
-      return {...x,sales:round(x.sales),expenses:round(x.expenses),payout:round(x.payout),returns:round(x.returns),costPrice:costs[x.sku]?.cost||0,profit:round(profit),margin:x.sales?round(profit/x.sales*100):0};
+      const costPrice=costs[x.sku]?.cost||0,taxRate=costs[x.sku]?.taxRate||0,variableCost=costs[x.sku]?.variableCost||0,cost=costPrice*x.qty,tax=x.sales*taxRate/100,variable=variableCost*x.qty,profit=x.payout-cost-tax-variable;
+      return {...x,sales:round(x.sales),expenses:round(x.expenses),payout:round(x.payout),returns:round(x.returns),costPrice,taxRate,variableCost,cogs:round(cost),tax:round(tax),variableExpenses:round(variable),profit:round(profit),margin:x.sales?round(profit/x.sales*100):0};
     }).sort((a:any,b:any)=>b.sales-a.sales);
 
     const totalExpenses=commission+logistics+storage+penalties+acquiring+acceptance+deductions;
+    const totalCogs=skuEconomics.reduce((s:any,x:any)=>s+x.cogs,0),totalTax=skuEconomics.reduce((s:any,x:any)=>s+x.tax,0),totalVariable=skuEconomics.reduce((s:any,x:any)=>s+x.variableExpenses,0),totalProfit=skuEconomics.reduce((s:any,x:any)=>s+x.profit,0);
     const burden=sales?Math.abs(totalExpenses)/Math.abs(sales)*100:0;
     const recommendations:any[]=[];
     if(burden>30) recommendations.push({level:"high",title:"Высокие расходы Wildberries",text:"Совокупные удержания составляют "+round(burden)+"% продаж. В первую очередь проверьте комиссию и логистику."});
@@ -144,7 +144,7 @@ export async function GET(request:Request){
     for(const x of skuEconomics.filter((x:any)=>x.costPrice>0&&x.profit<0).slice(0,5)) recommendations.push({level:"high",title:"Убыточный SKU "+x.sku,text:"Расчётная прибыль "+x.profit+" ₽ при заданной себестоимости."});
     if(!skuEconomics.some((x:any)=>x.costPrice>0)) recommendations.push({level:"medium",title:"Заполните себестоимость",text:"Без себестоимости нельзя корректно оценить чистую прибыль по SKU."});
 
-    const payload={ok:true,from,to,source:"finance-api-v1",partial:rows.length>=100000,summary:{sales:round(sales),commission:round(commission),logistics:round(logistics),storage:round(storage),penalties:round(penalties),acquiring:round(acquiring),acceptance:round(acceptance),deductions:round(deductions),returns:round(returns),payout:round(payout),takeRate:round(burden),operations:rows.length,skuEconomics,recommendations}};
+    const payload={ok:true,from,to,source:"finance-api-v1",partial:rows.length>=100000,summary:{sales:round(sales),commission:round(commission),logistics:round(logistics),storage:round(storage),penalties:round(penalties),acquiring:round(acquiring),acceptance:round(acceptance),deductions:round(deductions),returns:round(returns),payout:round(payout),totalCogs:round(totalCogs),totalTax:round(totalTax),totalVariable:round(totalVariable),totalProfit:round(totalProfit),takeRate:round(burden),operations:rows.length,skuEconomics,recommendations}};
     await saveCached(key,payload);
     return NextResponse.json(payload,{headers:{"Cache-Control":"no-store"}});
   }catch(e){
