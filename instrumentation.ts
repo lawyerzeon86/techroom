@@ -3,6 +3,7 @@ import { syncHubCatalogToSite } from './lib/product-hub';
 import { pushPricesAndStocks } from './lib/auto-sync';
 import { syncTechRoomPricesFromWildberries } from './lib/wb-price-source';
 import { publishSiteProductToMarketplaces } from './lib/site-product-publish';
+import { getWarehouseSettings } from './lib/marketplace-settings';
 
 const g=globalThis as typeof globalThis & {
   __techroomPriceGuardTimer?:NodeJS.Timeout;
@@ -12,6 +13,7 @@ const g=globalThis as typeof globalThis & {
   __techroomWbPriceBootstrapStarted?:boolean;
   __techroomDskGothToyPublishStarted?:boolean;
   __techroomDskGothRingPublishStarted?:boolean;
+  __techroomRingStockSyncStarted?:boolean;
 };
 
 async function priceGuardCycle(){
@@ -65,6 +67,19 @@ async function publishDskGothRingOnce(){
   }
 }
 
+async function syncRingStockOnce(){
+  try{
+    const settings=await getWarehouseSettings();
+    if(settings.wbWarehouseId)process.env.WB_WAREHOUSE_ID=settings.wbWarehouseId;
+    if(settings.ozonWarehouseId)process.env.OZON_WAREHOUSE_ID=settings.ozonWarehouseId;
+    process.env.SYNC_MARKETPLACE_STOCKS='1';
+    const result=await pushPricesAndStocks();
+    console.log('[ring-stock-sync:dskgothring1]',JSON.stringify(result));
+  }catch(e:any){
+    console.error('[ring-stock-sync:dskgothring1]',String(e?.message||e));
+  }
+}
+
 async function siteSyncOnce(){
   try{
     const result=await syncHubCatalogToSite();
@@ -99,6 +114,11 @@ export async function register(){
   if(!g.__techroomDskGothRingPublishStarted){
     g.__techroomDskGothRingPublishStarted=true;
     setTimeout(()=>void publishDskGothRingOnce(),55000);
+  }
+
+  if(!g.__techroomRingStockSyncStarted){
+    g.__techroomRingStockSyncStarted=true;
+    setTimeout(()=>void syncRingStockOnce(),75000);
   }
 
   if(!g.__techroomPriceGuardTimer){
