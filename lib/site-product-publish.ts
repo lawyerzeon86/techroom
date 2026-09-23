@@ -106,7 +106,7 @@ async function getOzonTemplate(p:SiteProduct){
       const productId=Number(pi?.id||pi?.product_id||0);
       if(!productId)continue;
       const attrs=await json('https://api-seller.ozon.ru/v4/product/info/attributes',{method:'POST',headers:ozonHeaders(),body:JSON.stringify({filter:{product_id:[productId]},limit:10})});
-      const a=(attrs?.result?.items||attrs?.items||[])[0];
+      const a=((Array.isArray(attrs?.result)?attrs.result:(attrs?.result?.items||attrs?.items||[])))[0];
       if(a)return {a:{...a,offer_id:offer},pi};
     }catch{}
   }
@@ -115,7 +115,7 @@ async function getOzonTemplate(p:SiteProduct){
   const items=list?.result?.items||list?.items||[]; if(!items.length)return null;
   const ids=items.map((x:any)=>Number(x.product_id||x.id)).filter((x:number)=>x>0);
   const attrs=await json('https://api-seller.ozon.ru/v4/product/info/attributes',{method:'POST',headers:ozonHeaders(),body:JSON.stringify({filter:{product_id:ids},limit:Math.min(1000,ids.length)})});
-  const ai=attrs?.result?.items||attrs?.items||[];
+  const ai=(Array.isArray(attrs?.result)?attrs.result:(attrs?.result?.items||attrs?.items||[]));
   const q=`${p.title} ${p.description||''} ASA фигурка декор 3D печать`;
   const best=ai.map((a:any)=>({a,s:score(q,`${a.name||''} ${JSON.stringify(a.attributes||[])}`)})).sort((x:any,y:any)=>y.s-x.s)[0]?.a;
   if(!best)return null;
