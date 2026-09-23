@@ -9,7 +9,7 @@ function targetPrice(p:{sku:string;price:number;minPrice:number}){
   return Math.max(1,Math.round(p.price),Math.round(p.minPrice||0),hardFloorForSku(p.sku));
 }
 
-const OZON_AUTO_FLOOR=3500;
+const OZON_AUTO_FLOOR=2990;
 const OZON_AUTO_PATTERN=/(audi|bmw|mercedes|porsche|авто|автомоб|порог|наклад|датчик|кожух|запчаст|fender|8w0821653|a4\s*b9|a4\s*b8)/i;
 function ozonAutoFloor(p:{sku:string;title?:string}){return OZON_AUTO_PATTERN.test(`${p.title||''} ${p.sku||''}`)?OZON_AUTO_FLOOR:0}
 
