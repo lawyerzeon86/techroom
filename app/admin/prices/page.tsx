@@ -3,7 +3,7 @@
 import { useEffect,useMemo,useState } from 'react';
 
 type PriceRow={
-  sku:string;productId:number|null;title:string;price:number;minPrice:number;stock:number;
+  sku:string;productId:number|null;title:string;price:number;minPrice:number;costPrice:number;stock:number;
   syncOzon:boolean;syncWb:boolean;syncYandex:boolean;syncAvito:boolean;avitoItemId:number|null;updatedAt:string;
 };
 
@@ -33,7 +33,7 @@ export default function PricesPage(){
   const save=async(syncAfter=false)=>{
     setBusy(true);setStatus('Сохраняю лист цен…');
     const r=await fetch('/api/admin/prices',{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify({items:items.map(x=>({
-      sku:x.sku,price:Number(x.price)||0,minPrice:Number(x.minPrice)||0,syncOzon:x.syncOzon,syncWb:x.syncWb,syncYandex:x.syncYandex,syncAvito:x.syncAvito,avitoItemId:x.avitoItemId
+      sku:x.sku,price:Number(x.price)||0,minPrice:Number(x.minPrice)||0,costPrice:Number(x.costPrice)||0,syncOzon:x.syncOzon,syncWb:x.syncWb,syncYandex:x.syncYandex,syncAvito:x.syncAvito,avitoItemId:x.avitoItemId
     }))})});
     const j=await r.json().catch(()=>({}));
     if(!r.ok){setStatus(j.error||'Ошибка сохранения');setBusy(false);return}
@@ -89,13 +89,13 @@ export default function PricesPage(){
       </div>
       <div className="admin-table-wrap">
         <table className="admin-table" style={{minWidth:1250}}>
-          <thead><tr><th>SKU</th><th>Товар</th><th>Цена TechRoom</th><th>Минимальная</th><th>Остаток</th><th>Ozon</th><th>WB</th><th>Яндекс</th><th>Avito</th><th>Avito ID</th><th>Обновлено</th></tr></thead>
+          <thead><tr><th>SKU</th><th>Товар</th><th>Цена TechRoom</th><th>Минимальная</th><th>Себестоимость</th><th>Остаток</th><th>Ozon</th><th>WB</th><th>Яндекс</th><th>Avito</th><th>Avito ID</th><th>Обновлено</th></tr></thead>
           <tbody>
             {filtered.map(x=><tr key={x.sku}>
               <td><b>{x.sku}</b></td>
               <td><b>{x.title||'Без названия'}</b></td>
               <td><input aria-label={'Цена '+x.sku} type="number" min="0" value={x.price} onChange={e=>patch(x.sku,{price:Number(e.target.value)})} style={{width:120,padding:'9px 10px',border:'1px solid #ded4ca',borderRadius:9}}/> ₽</td>
-              <td><input aria-label={'Минимальная цена '+x.sku} type="number" min="0" value={x.minPrice} onChange={e=>patch(x.sku,{minPrice:Number(e.target.value)})} style={{width:120,padding:'9px 10px',border:'1px solid #ded4ca',borderRadius:9}}/> ₽</td>
+              <td><input aria-label={'Минимальная цена '+x.sku} type="number" min="0" value={x.minPrice} onChange={e=>patch(x.sku,{minPrice:Number(e.target.value)})} style={{width:120,padding:'9px 10px',border:'1px solid #ded4ca',borderRadius:9}}/> ₽</td>\n              <td><input aria-label={'Себестоимость '+x.sku} type="number" min="0" value={x.costPrice} onChange={e=>patch(x.sku,{costPrice:Number(e.target.value)})} style={{width:120,padding:'9px 10px',border:'1px solid #ded4ca',borderRadius:9}}/> ₽</td>
               <td>{x.stock}</td>
               <td><input type="checkbox" checked={x.syncOzon} disabled={!marketplaces.ozon} onChange={e=>patch(x.sku,{syncOzon:e.target.checked})}/></td>
               <td><input type="checkbox" checked={x.syncWb} disabled={!marketplaces.wb} onChange={e=>patch(x.sku,{syncWb:e.target.checked})}/></td>
