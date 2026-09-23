@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getOzonFinanceTransactions, isOzonConfigured } from "@/lib/ozon";
+import { getOzonFinanceTransactions, isOzonConfigured } from "../../../../lib/ozon";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
