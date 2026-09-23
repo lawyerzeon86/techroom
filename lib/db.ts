@@ -119,6 +119,20 @@ export async function ensureSchema() {
           );
         }
       }
+      const requiredSku = 'dskgothtoy1';
+      const requiredProduct = seedProducts.find(p => p.sku === requiredSku);
+      if (requiredProduct) {
+        const existing = await pool.query('SELECT id FROM products WHERE sku = $1 LIMIT 1', [requiredSku]);
+        if (existing.rowCount === 0) {
+          const p = requiredProduct;
+          await pool.query(
+            `INSERT INTO products (category,title,price,old_price,rating,reviews,badge,emoji,image_url,image_urls,sku,oem,stock,description,specs,is_active,sort_order)
+             VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10::jsonb,$11,$12,$13,$14,$15,$16,$17)`,
+            [p.category,p.title,p.price,p.oldPrice,p.rating,p.reviews,p.badge,p.emoji,p.imageUrl,JSON.stringify(p.imageUrls || []),p.sku,p.oem,p.stock,p.description,p.specs,p.isActive,p.sortOrder]
+          );
+        }
+      }
+
     })().catch(err => { globalForDb.schemaReady = undefined; throw err; });
   }
   await globalForDb.schemaReady;
