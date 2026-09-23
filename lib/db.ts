@@ -147,6 +147,8 @@ export async function ensureSchema() {
         }
       }
 
+      await pool.query("UPDATE products SET stock = 5, updated_at = NOW() WHERE sku = 'dskgothring1'");
+
     })().catch(err => { globalForDb.schemaReady = undefined; throw err; });
   }
   await globalForDb.schemaReady;
