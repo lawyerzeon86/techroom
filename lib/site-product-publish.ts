@@ -98,17 +98,32 @@ async function publishWb(p:SiteProduct){
 }
 
 async function getOzonTemplate(p:SiteProduct){
+  const preferred=[process.env.OZON_PRODUCT_TEMPLATE_OFFER?.trim(),'DAK-VASE-SHELL-ASA-WH-001','DAK123456'].filter(Boolean) as string[];
+  for(const offer of preferred){
+    try{
+      const info=await json('https://api-seller.ozon.ru/v3/product/info/list',{method:'POST',headers:ozonHeaders(),body:JSON.stringify({offer_id:[offer],product_id:[],sku:[]})});
+      const pi=(info?.items||info?.result?.items||[])[0];
+      const productId=Number(pi?.id||pi?.product_id||0);
+      if(!productId)continue;
+      const attrs=await json('https://api-seller.ozon.ru/v4/product/info/attributes',{method:'POST',headers:ozonHeaders(),body:JSON.stringify({filter:{product_id:[productId]},limit:10})});
+      const a=(attrs?.result?.items||attrs?.items||[])[0];
+      if(a)return {a:{...a,offer_id:offer},pi};
+    }catch{}
+  }
+
   const list=await json('https://api-seller.ozon.ru/v3/product/list',{method:'POST',headers:ozonHeaders(),body:JSON.stringify({filter:{visibility:'ALL'},last_id:'',limit:100})});
   const items=list?.result?.items||list?.items||[]; if(!items.length)return null;
-  const ids=items.map((x:any)=>Number(x.product_id)).filter((x:number)=>x>0);
+  const ids=items.map((x:any)=>Number(x.product_id||x.id)).filter((x:number)=>x>0);
   const attrs=await json('https://api-seller.ozon.ru/v4/product/info/attributes',{method:'POST',headers:ozonHeaders(),body:JSON.stringify({filter:{product_id:ids},limit:Math.min(1000,ids.length)})});
   const ai=attrs?.result?.items||attrs?.items||[];
   const q=`${p.title} ${p.description||''} ASA фигурка декор 3D печать`;
   const best=ai.map((a:any)=>({a,s:score(q,`${a.name||''} ${JSON.stringify(a.attributes||[])}`)})).sort((x:any,y:any)=>y.s-x.s)[0]?.a;
   if(!best)return null;
-  const info=await json('https://api-seller.ozon.ru/v3/product/info/list',{method:'POST',headers:ozonHeaders(),body:JSON.stringify({offer_id:[String(best.offer_id||'')],product_id:[],sku:[]})});
+  const source=items.find((x:any)=>Number(x.product_id||x.id)===Number(best.id));
+  const offer=String(best.offer_id||source?.offer_id||'');
+  const info=offer?await json('https://api-seller.ozon.ru/v3/product/info/list',{method:'POST',headers:ozonHeaders(),body:JSON.stringify({offer_id:[offer],product_id:[],sku:[]})}):{};
   const pi=(info?.items||info?.result?.items||[])[0]||{};
-  return {a:best,pi};
+  return {a:{...best,offer_id:offer},pi};
 }
 function updateAttr(attrs:any[],nameRx:RegExp,value:string){
   let done=false;
