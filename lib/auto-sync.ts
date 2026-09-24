@@ -13,6 +13,40 @@ const OZON_AUTO_FLOOR=2990;
 const OZON_AUTO_PATTERN=/(audi|bmw|mercedes|porsche|авто|автомоб|порог|наклад|датчик|кожух|запчаст|fender|8w0821653|a4\s*b9|a4\s*b8)/i;
 function ozonAutoFloor(p:{sku:string;title?:string}){return OZON_AUTO_PATTERN.test(`${p.title||''} ${p.sku||''}`)?OZON_AUTO_FLOOR:0}
 
+function sleep(ms:number){return new Promise(resolve=>setTimeout(resolve,ms))}
+function retryDelayMs(response:Response,attempt:number){
+  const raw=response.headers.get('x-ratelimit-retry')||response.headers.get('retry-after')||'';
+  const n=Number(raw);
+  if(Number.isFinite(n)&&n>0){
+    if(n>1e12)return Math.max(1000,n-Date.now());
+    if(n>1e9)return Math.max(1000,n*1000-Date.now());
+    return Math.max(1000,n*1000);
+  }
+  const parsed=Date.parse(raw);
+  if(Number.isFinite(parsed))return Math.max(1000,parsed-Date.now());
+  return Math.min(15000,1000*Math.pow(2,attempt));
+}
+async function wbFetchWithRetry(url:string,init:RequestInit,maxAttempts=4){
+  let last:Response|null=null;
+  for(let attempt=0;attempt<maxAttempts;attempt++){
+    const response=await fetch(url,{...init,cache:'no-store'});
+    last=response;
+    if(response.ok||response.status===208)return response;
+    if(response.status!==429&&response.status!==502&&response.status!==503&&response.status!==504)return response;
+    if(attempt<maxAttempts-1)await sleep(retryDelayMs(response,attempt));
+  }
+  return last!;
+}
+async function responseError(prefix:string,response:Response){
+  const text=await response.text().catch(()=>'');
+  let detail=text;
+  try{
+    const data=text?JSON.parse(text):{};
+    detail=String(data?.message||data?.errorText||data?.error||data?.detail||text||'').trim();
+  }catch{}
+  return new Error(prefix+'_'+response.status+(detail?': '+detail.slice(0,1000):''));
+}
+
 async function ensureAutoSyncSchema(){
   await ensureSchema();
   const pool=getPool();
@@ -85,21 +119,21 @@ export async function pushPricesAndStocks(options:{onlyOzonPrices?:boolean;onlyP
       const prices:any[]=[];const stocks:any[]=[];
       for(const c of cards){
         const p=local.get(String(c.vendorCode||''));if(!p) continue;
-        if(c.nmID) prices.push({nmID:Number(c.nmID),price:targetPrice(p),discount:0});
+        if(c.nmID) prices.push({nmID:Number(c.nmID),price:targetPrice(p)});
         for(const s of Array.isArray(c.sizes)?c.sizes:[]) for(const barcode of Array.isArray(s.skus)?s.skus:[]) stocks.push({sku:String(barcode),amount:Math.max(0,Math.round(p.stock))});
       }
       if(prices.length && (process.env.SYNC_WB_PRICES==='1'||process.env.SYNC_MARKETPLACE_PRICES==='1')){
-        const r=await fetch('https://discounts-prices-api.wildberries.ru/api/v2/upload/task',{method:'POST',headers:{Authorization:token,'Content-Type':'application/json'},body:JSON.stringify({data:prices}),cache:'no-store'});
+        const r=await wbFetchWithRetry('https://discounts-prices-api.wildberries.ru/api/v2/upload/task',{method:'POST',headers:{Authorization:token,'Content-Type':'application/json'},body:JSON.stringify({data:prices})});
         if(r.status===429){
           result.wb.prices={status:'rate_limited',retryAfter:r.headers.get('x-ratelimit-retry')||r.headers.get('retry-after')||null};
         }else if(!r.ok){
-          throw new Error(`WB_PRICE_${r.status}`);
+          throw await responseError('WB_PRICE',r);
         }else result.wb.prices=prices.length;
       }
       const warehouseId=process.env.WB_WAREHOUSE_ID?.trim();
       if(!options.onlyPrices && stocks.length && warehouseId && process.env.SYNC_MARKETPLACE_STOCKS==='1'){
-        const r=await fetch(`https://marketplace-api.wildberries.ru/api/v3/stocks/${encodeURIComponent(warehouseId)}`,{method:'PUT',headers:{Authorization:token,'Content-Type':'application/json'},body:JSON.stringify({stocks}),cache:'no-store'});
-        if(!r.ok) throw new Error(`WB_STOCK_${r.status}`);result.wb.stocks=stocks.length;
+        const r=await wbFetchWithRetry(`https://marketplace-api.wildberries.ru/api/v3/stocks/${encodeURIComponent(warehouseId)}`,{method:'PUT',headers:{Authorization:token,'Content-Type':'application/json'},body:JSON.stringify({stocks})});
+        if(!r.ok) throw await responseError('WB_STOCK',r);result.wb.stocks=stocks.length;
       } else if(!warehouseId) result.wb.stocks='needs_WB_WAREHOUSE_ID';
     }catch(e:any){result.wb.error=String(e?.message||e)}
   }
@@ -217,11 +251,10 @@ export async function pushStockForSku(sku:string,stock:number,warehouses?:{wbWar
       for(const s of Array.isArray(card?.sizes)?card.sizes:[])for(const b of Array.isArray(s?.skus)?s.skus:[])if(b)barcodes.push(String(b));
       if(!barcodes.length)throw new Error('WB_BARCODE_NOT_FOUND');
       const stocks=barcodes.map(b=>({sku:b,amount}));
-      const rr=await fetch(`https://marketplace-api.wildberries.ru/api/v3/stocks/${encodeURIComponent(String(warehouses.wbWarehouseId))}`,{
-        method:'PUT',headers:{Authorization:token,'Content-Type':'application/json'},body:JSON.stringify({stocks}),cache:'no-store'
+      const rr=await wbFetchWithRetry(`https://marketplace-api.wildberries.ru/api/v3/stocks/${encodeURIComponent(String(warehouses.wbWarehouseId))}`,{
+        method:'PUT',headers:{Authorization:token,'Content-Type':'application/json'},body:JSON.stringify({stocks})
       });
-      const data=await rr.json().catch(()=>({}));
-      if(!rr.ok)throw new Error(String(data?.message||data?.error||`WB_STOCK_${rr.status}`));
+      if(!rr.ok)throw await responseError('WB_STOCK',rr);
       result.wb={status:'updated',warehouseId:String(warehouses.wbWarehouseId),barcodes:barcodes.length};
     }catch(e:any){result.wb={status:'error',error:String(e?.message||e)}}
   } else if(!warehouses?.wbWarehouseId) result.wb={status:'missing_warehouse'};
