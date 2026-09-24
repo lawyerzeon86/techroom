@@ -84,6 +84,8 @@ type WbLoadState={goods:WbGood[];rateLimitedUntil?:string;error?:string};
 
 const wbNmIdCache=new Map<string,number|null>();
 let wbBlockedUntil=0;
+let wbNextCheckAt=0;
+const WB_DEFAULT_CHECK_INTERVAL_MS=16*60*1000;
 
 function parseRetryMs(response:Response){
   const raw=response.headers.get('x-ratelimit-retry')||response.headers.get('retry-after')||'';
@@ -392,9 +394,19 @@ export async function runPriceGuard(){
   }
 
   const wbToken=env('WB_API_TOKEN');
-  const wbState=wbToken?await loadWbGoods(wbToken):{goods:[] as WbGood[]};
-  for(const rule of RULES){
-    try{results.push(await guardWb(rule,wbToken,wbState))}catch(e:any){results.push({marketplace:'wb',sku:rule.sku,status:'error',error:String(e?.message||e)})}
+  const wbInterval=Math.max(60*1000,Number(process.env.PRICE_GUARD_WB_INTERVAL_MS||WB_DEFAULT_CHECK_INTERVAL_MS));
+  if(!wbToken){
+    for(const rule of RULES)results.push({marketplace:'wb',sku:rule.sku,status:'skipped',reason:'WB_API_TOKEN_NOT_CONFIGURED'});
+  }else if(Date.now()<Math.max(wbBlockedUntil,wbNextCheckAt)){
+    const retryAt=Math.max(wbBlockedUntil,wbNextCheckAt);
+    for(const rule of RULES)results.push({marketplace:'wb',sku:rule.sku,status:'cooldown',retryAt:new Date(retryAt).toISOString()});
+  }else{
+    const wbState=await loadWbGoods(wbToken);
+    const parsedRetry=wbState.rateLimitedUntil?Date.parse(wbState.rateLimitedUntil):0;
+    wbNextCheckAt=Math.max(Date.now()+wbInterval,Number.isFinite(parsedRetry)?parsedRetry:0);
+    for(const rule of RULES){
+      try{results.push(await guardWb(rule,wbToken,wbState))}catch(e:any){results.push({marketplace:'wb',sku:rule.sku,status:'error',error:String(e?.message||e)})}
+    }
   }
 
   const raised=results.filter(r=>r.status==='raised');
