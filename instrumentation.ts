@@ -1,6 +1,6 @@
 import { runPriceGuard } from './lib/price-guard';
 import { syncHubCatalogToSite } from './lib/product-hub';
-import { pushPricesAndStocks, pushStockForSku } from './lib/auto-sync';
+import { pushPricesAndStocks, pushStockForSku, setAllOzonStock } from './lib/auto-sync';
 import { syncTechRoomPricesFromWildberries } from './lib/wb-price-source';
 import { publishSiteProductToMarketplaces } from './lib/site-product-publish';
 import { getWarehouseSettings } from './lib/marketplace-settings';
