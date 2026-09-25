@@ -11,6 +11,7 @@ const g=globalThis as typeof globalThis & {
   __techroomSiteSyncStarted?:boolean;
   __techroomOzonPriceSyncStarted?:boolean;
   __techroomWbPriceBootstrapStarted?:boolean;
+  __techroomOzonStockTenStarted?:boolean;
   __techroomDskGothToyPublishStarted?:boolean;
   __techroomDskGothRingPublishStarted?:boolean;
   __techroomRingStockSyncStarted?:boolean;
@@ -94,6 +95,16 @@ export async function register(){
 
 
   if(!g.__techroomWbPriceBootstrapStarted){g.__techroomWbPriceBootstrapStarted=true;setTimeout(()=>void wbPriceBootstrapOnce(),5000);}
+
+  if(!g.__techroomOzonStockTenStarted){
+    g.__techroomOzonStockTenStarted=true;
+    setTimeout(async()=>{
+      try{console.log('[ozon-stock-10] completed',JSON.stringify(await setAllOzonStock(10)));}
+      catch(e:any){console.error('[ozon-stock-10]',String(e?.message||e));}
+    },7000);
+  }
+
+
 
   if(!g.__techroomSiteSyncStarted){
     g.__techroomSiteSyncStarted=true;
