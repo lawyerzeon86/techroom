@@ -73,7 +73,7 @@ async function syncRingStockOnce(){
     const settings=await getWarehouseSettings();
     if(settings.wbWarehouseId)process.env.WB_WAREHOUSE_ID=settings.wbWarehouseId;
     if(settings.ozonWarehouseId)process.env.OZON_WAREHOUSE_ID=settings.ozonWarehouseId;
-    const result=await pushStockForSku('dskgothring1',5,settings);
+    const result=await pushStockForSku('dskgothring1',10,settings);
     console.log('[ring-stock-sync:dskgothring1]',JSON.stringify(result));
   }catch(e:any){
     console.error('[ring-stock-sync:dskgothring1]',String(e?.message||e));
@@ -99,8 +99,11 @@ export async function register(){
   if(!g.__techroomOzonStockTenStarted){
     g.__techroomOzonStockTenStarted=true;
     setTimeout(async()=>{
-      try{console.log('[ozon-stock-10] completed',JSON.stringify(await setAllOzonStock(10)));}
-      catch(e:any){console.error('[ozon-stock-10]',String(e?.message||e));}
+      try{
+        const settings=await getWarehouseSettings();
+        if(settings.ozonWarehouseId)process.env.OZON_WAREHOUSE_ID=settings.ozonWarehouseId;
+        console.log('[ozon-stock-10] completed',JSON.stringify(await setAllOzonStock(10)));
+      }catch(e:any){console.error('[ozon-stock-10]',String(e?.message||e));}
     },7000);
   }
 
