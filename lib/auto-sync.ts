@@ -4,6 +4,7 @@ import { listCommunications, type CommunicationType } from './communications';
 import { importMarketplaceProducts, runAutoProductTransfers } from './product-hub';
 import { hardFloorForSku, listPriceSheet } from './price-sheet';
 import { pushAvitoPrices } from './avito';
+import { getProducts } from './marketplace-content';
 
 function targetPrice(p:{sku:string;price:number;minPrice:number}){
   return Math.max(1,Math.round(p.price),Math.round(p.minPrice||0),hardFloorForSku(p.sku));
@@ -166,7 +167,11 @@ export async function pushPricesAndStocks(options:{onlyOzonPrices?:boolean;onlyP
       }
       const warehouseId=process.env.OZON_WAREHOUSE_ID?.trim();
       if(!options.onlyOzonPrices && !options.onlyPrices && warehouseId && process.env.SYNC_MARKETPLACE_STOCKS==='1'){
-        const stocks=products.filter((p:any)=>p.syncOzon&&p.sku).map((p:any)=>({offer_id:p.sku,stock:10,warehouse_id:Number(warehouseId)}));
+        const liveOzon=await getProducts('ozon','',100);
+        const stocks=liveOzon
+          .map((p:any)=>String(p.offerId||p.sku||'').trim())
+          .filter(Boolean)
+          .map((offerId:string)=>({offer_id:offerId,stock:10,warehouse_id:Number(warehouseId)}));
         const r=await fetch('https://api-seller.ozon.ru/v2/products/stocks',{method:'POST',headers,body:JSON.stringify({stocks}),cache:'no-store'});
         if(!r.ok) throw new Error(`OZON_STOCK_${r.status}`);result.ozon.stocks=stocks.length;
       } else if(!options.onlyOzonPrices && !options.onlyPrices && !warehouseId) result.ozon.stocks='needs_OZON_WAREHOUSE_ID';
@@ -206,12 +211,15 @@ export async function setAllOzonStock(stock=10){
   await ensureAutoSyncSchema();
   const pool=getPool();
   await pool.query(`UPDATE products SET stock=$1,updated_at=NOW() WHERE sku IN (SELECT sku FROM price_sheet WHERE sync_ozon=TRUE)`,[amount]);
-  const products=(await listPriceSheet()).filter((p:any)=>p.syncOzon&&p.sku);
   const clientId=process.env.OZON_CLIENT_ID?.trim(),apiKey=process.env.OZON_API_KEY?.trim(),warehouseId=process.env.OZON_WAREHOUSE_ID?.trim();
   if(!clientId||!apiKey)throw new Error('OZON_NOT_CONFIGURED');
   if(!warehouseId)throw new Error('OZON_WAREHOUSE_ID_NOT_CONFIGURED');
   const headers={'Client-Id':clientId,'Api-Key':apiKey,'Content-Type':'application/json'};
-  const stocks=products.map((p:any)=>({offer_id:String(p.sku),stock:amount,warehouse_id:Number(warehouseId)}));
+  const liveOzon=await getProducts('ozon','',100);
+  const stocks=liveOzon
+    .map((p:any)=>String(p.offerId||p.sku||'').trim())
+    .filter(Boolean)
+    .map((offerId:string)=>({offer_id:offerId,stock:amount,warehouse_id:Number(warehouseId)}));
   if(!stocks.length)return {requested:0,updated:0,stock:amount,errors:[]};
   const res=await fetch('https://api-seller.ozon.ru/v2/products/stocks',{method:'POST',headers,body:JSON.stringify({stocks}),cache:'no-store'});
   const data=await res.json().catch(()=>({}));
