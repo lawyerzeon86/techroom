@@ -166,7 +166,7 @@ export async function pushPricesAndStocks(options:{onlyOzonPrices?:boolean;onlyP
       }
       const warehouseId=process.env.OZON_WAREHOUSE_ID?.trim();
       if(!options.onlyOzonPrices && !options.onlyPrices && warehouseId && process.env.SYNC_MARKETPLACE_STOCKS==='1'){
-        const stocks=products.map((p:any)=>({offer_id:p.sku,stock:Math.max(0,Math.round(p.stock)),warehouse_id:Number(warehouseId)}));
+        const stocks=products.filter((p:any)=>p.syncOzon&&p.sku).map((p:any)=>({offer_id:p.sku,stock:10,warehouse_id:Number(warehouseId)}));
         const r=await fetch('https://api-seller.ozon.ru/v2/products/stocks',{method:'POST',headers,body:JSON.stringify({stocks}),cache:'no-store'});
         if(!r.ok) throw new Error(`OZON_STOCK_${r.status}`);result.ozon.stocks=stocks.length;
       } else if(!options.onlyOzonPrices && !options.onlyPrices && !warehouseId) result.ozon.stocks='needs_OZON_WAREHOUSE_ID';
