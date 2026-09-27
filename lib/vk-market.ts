@@ -1,4 +1,5 @@
 import { getProducts } from './marketplace-content';
+import { ensureSchema, getPool } from './db';
 
 const VK_API='https://api.vk.com/method';
 const VK_VERSION=process.env.VK_API_VERSION?.trim()||'5.199';
@@ -102,4 +103,35 @@ export async function syncOzonToVk(limit=100){
     }catch(e:any){failed++;errors.push({id:String((p as any)?.id||''),error:String(e?.message||e)})}
   }
   return {ok:true,total:ozon.length,created,updated,failed,errors:errors.slice(0,20)};
+}
+
+export async function syncVkOrdersToTechRoom(){
+  if(!vkConfigured())throw new Error('VK_NOT_CONFIGURED');
+  await ensureSchema();
+  const pool=getPool();
+  const response=await vk('market.getOrders',{group_id:groupId(),count:100,extended:1});
+  const orders=Array.isArray(response?.items)?response.items:[];
+  let synced=0;
+  for(const o of orders){
+    const products=Array.isArray(o.items)?o.items:[];
+    const items=products.map((x:any)=>({
+      sku:skuFromVk(x.item||x),
+      name:x.item?.title||x.title||'Товар VK',
+      quantity:Number(x.quantity)||1,
+      price:Math.round(Number(x.item?.price?.amount||x.price?.amount||0)/100)||0,
+      vkItemId:x.item?.id||x.item_id||null,
+    }));
+    const total=items.reduce((s:number,x:any)=>s+(Number(x.price)||0)*(Number(x.quantity)||1),0);
+    await pool.query(`
+      INSERT INTO marketplace_orders(source,external_id,order_number,status,total_amount,customer_name,phone,items,raw_payload,external_created_at,synced_at,updated_at)
+      VALUES('vk',$1,$2,$3,$4,$5,$6,$7::jsonb,$8::jsonb,$9,NOW(),NOW())
+      ON CONFLICT(source,external_id) DO UPDATE SET
+        order_number=EXCLUDED.order_number,status=EXCLUDED.status,total_amount=EXCLUDED.total_amount,
+        customer_name=EXCLUDED.customer_name,phone=EXCLUDED.phone,items=EXCLUDED.items,
+        raw_payload=EXCLUDED.raw_payload,external_created_at=COALESCE(EXCLUDED.external_created_at,marketplace_orders.external_created_at),
+        synced_at=NOW(),updated_at=NOW()
+    `,[String(o.id),String(o.display_order_id||o.id),String(o.status||'new'),total,o.recipient?.name||null,o.recipient?.phone||null,JSON.stringify(items),JSON.stringify(o),o.date?new Date(Number(o.date)*1000).toISOString():null]);
+    synced++;
+  }
+  return {synced};
 }
