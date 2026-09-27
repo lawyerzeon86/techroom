@@ -102,7 +102,8 @@ export async function POST(request:Request){
     const warehouses:any=await safeStage('WAREHOUSE_SETTINGS',15000,()=>getWarehouseSettings());
     result.stages.warehouses=warehouses;
     if(!warehouses?.error){
-      if(warehouses.wbWarehouseId)process.env.WB_WAREHOUSE_ID=warehouses.wbWarehouseId;
+      process.env.WB_WAREHOUSE_ID='';
+      result.stages.wbSellerWarehouseStocks='disabled';
       if(warehouses.ozonWarehouseId)process.env.OZON_WAREHOUSE_ID=warehouses.ozonWarehouseId;
     }
 
