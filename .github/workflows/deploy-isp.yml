@@ -2,8 +2,6 @@ name: Deploy to ISPmanager
 
 on:
   workflow_dispatch:
-  push:
-    branches: [main]
 
 concurrency:
   group: deploy-isp-production
@@ -13,6 +11,9 @@ jobs:
   deploy:
     runs-on: ubuntu-24.04
     steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
       - name: Deploy over SSH
         env:
           ISP_HOST: ${{ secrets.ISP_HOST }}
@@ -31,6 +32,8 @@ jobs:
           chmod 600 ~/.ssh/id_ed25519
           PORT="${ISP_PORT:-22}"
           ssh-keyscan -p "$PORT" "$ISP_HOST" >> ~/.ssh/known_hosts
+          REMOTE_DIR="$ISP_APP_DIR"
+          if [ -z "$REMOTE_DIR" ]; then REMOTE_DIR='~/www/duisun.ru/app'; fi
           ssh -p "$PORT" "$ISP_USER@$ISP_HOST" \
-            "APP_DIR='${ISP_APP_DIR:-$HOME/www/duisun.ru/app}' BRANCH='main' bash -s" \
+            "APP_DIR='$REMOTE_DIR' BRANCH='main' bash -s" \
             < scripts/deploy-isp.sh
