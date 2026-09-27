@@ -15,6 +15,7 @@ const g=globalThis as typeof globalThis & {
   __techroomDskGothToyPublishStarted?:boolean;
   __techroomDskGothRingPublishStarted?:boolean;
   __techroomRingStockSyncStarted?:boolean;
+  __techroomWbSellerStockClearStarted?:boolean;
 };
 
 async function priceGuardCycle(){
@@ -50,6 +51,54 @@ async function wbPriceBootstrapOnce(attempt=0){
   }
 }
 
+async function clearWbSellerStocksOnce(attempt=0){
+  try{
+    const settings=await getWarehouseSettings();
+    const warehouseId=settings.wbWarehouseId;
+    const token=process.env.WB_API_TOKEN?.trim();
+    process.env.WB_WAREHOUSE_ID='';
+    if(!token||!warehouseId){
+      console.log('[wb-seller-stock-clear] skipped',JSON.stringify({configured:Boolean(token),warehouseId:Boolean(warehouseId)}));
+      return;
+    }
+    const cardsRes=await fetch('https://content-api.wildberries.ru/content/v2/get/cards/list',{
+      method:'POST',
+      headers:{Authorization:token,'Content-Type':'application/json'},
+      body:JSON.stringify({settings:{cursor:{limit:100},filter:{withPhoto:-1},sort:{ascending:false}}}),
+      cache:'no-store',
+      signal:AbortSignal.timeout(15000)
+    });
+    const cardsJson=await cardsRes.json().catch(()=>({}));
+    if(!cardsRes.ok)throw new Error(String(cardsJson?.message||`WB_CARDS_${cardsRes.status}`));
+    const barcodes=[...new Set((Array.isArray(cardsJson?.cards)?cardsJson.cards:[]).flatMap((card:any)=>(Array.isArray(card?.sizes)?card.sizes:[]).flatMap((size:any)=>Array.isArray(size?.skus)?size.skus:[])).filter(Boolean).map(String))];
+    if(!barcodes.length){
+      console.log('[wb-seller-stock-clear] completed',JSON.stringify({warehouseId,barcodes:0,stock:0}));
+      return;
+    }
+    const stocks=barcodes.map(sku=>({sku,amount:0}));
+    const rr=await fetch(`https://marketplace-api.wildberries.ru/api/v3/stocks/${encodeURIComponent(String(warehouseId))}`,{
+      method:'PUT',
+      headers:{Authorization:token,'Content-Type':'application/json'},
+      body:JSON.stringify({stocks}),
+      cache:'no-store',
+      signal:AbortSignal.timeout(15000)
+    });
+    if(rr.status===429){
+      console.warn('[wb-seller-stock-clear] rate_limited',JSON.stringify({warehouseId,barcodes:stocks.length,attempt,retryAfter:rr.headers.get('x-ratelimit-retry')||rr.headers.get('retry-after')||null}));
+      if(attempt<5)setTimeout(()=>void clearWbSellerStocksOnce(attempt+1),15*60*1000);
+      return;
+    }
+    if(!rr.ok){
+      const text=await rr.text().catch(()=>'');
+      throw new Error(`WB_STOCK_CLEAR_${rr.status}${text?': '+text.slice(0,500):''}`);
+    }
+    console.log('[wb-seller-stock-clear] completed',JSON.stringify({warehouseId,barcodes:stocks.length,stock:0}));
+  }catch(e:any){
+    console.error('[wb-seller-stock-clear]',String(e?.message||e));
+    if(attempt<5)setTimeout(()=>void clearWbSellerStocksOnce(attempt+1),15*60*1000);
+  }
+}
+
 async function publishDskGothToyOnce(){
   try{
     const result=await publishSiteProductToMarketplaces('dskgothtoy1');
@@ -71,9 +120,9 @@ async function publishDskGothRingOnce(){
 async function syncRingStockOnce(){
   try{
     const settings=await getWarehouseSettings();
-    if(settings.wbWarehouseId)process.env.WB_WAREHOUSE_ID=settings.wbWarehouseId;
+    process.env.WB_WAREHOUSE_ID='';
     if(settings.ozonWarehouseId)process.env.OZON_WAREHOUSE_ID=settings.ozonWarehouseId;
-    const result=await pushStockForSku('dskgothring1',10,settings);
+    const result=await pushStockForSku('dskgothring1',10,{wbWarehouseId:null,ozonWarehouseId:settings.ozonWarehouseId});
     console.log('[ring-stock-sync:dskgothring1]',JSON.stringify(result));
   }catch(e:any){
     console.error('[ring-stock-sync:dskgothring1]',String(e?.message||e));
@@ -92,7 +141,7 @@ async function siteSyncOnce(){
 export async function register(){
   if(process.env.NEXT_RUNTIME!=='nodejs')return;
 
-
+  process.env.WB_WAREHOUSE_ID='';
 
   if(!g.__techroomWbPriceBootstrapStarted){g.__techroomWbPriceBootstrapStarted=true;setTimeout(()=>void wbPriceBootstrapOnce(),5000);}
 
@@ -107,7 +156,10 @@ export async function register(){
     },7000);
   }
 
-
+  if(!g.__techroomWbSellerStockClearStarted){
+    g.__techroomWbSellerStockClearStarted=true;
+    setTimeout(()=>void clearWbSellerStocksOnce(),9000);
+  }
 
   if(!g.__techroomSiteSyncStarted){
     g.__techroomSiteSyncStarted=true;
