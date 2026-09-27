@@ -1,0 +1,36 @@
+name: Deploy to ISPmanager
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+
+concurrency:
+  group: deploy-isp-production
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Deploy over SSH
+        env:
+          ISP_HOST: ${{ secrets.ISP_HOST }}
+          ISP_PORT: ${{ secrets.ISP_PORT }}
+          ISP_USER: ${{ secrets.ISP_USER }}
+          ISP_SSH_KEY: ${{ secrets.ISP_SSH_KEY }}
+          ISP_APP_DIR: ${{ secrets.ISP_APP_DIR }}
+        run: |
+          set -euo pipefail
+          test -n "$ISP_HOST"
+          test -n "$ISP_USER"
+          test -n "$ISP_SSH_KEY"
+          mkdir -p ~/.ssh
+          chmod 700 ~/.ssh
+          printf '%s\n' "$ISP_SSH_KEY" > ~/.ssh/id_ed25519
+          chmod 600 ~/.ssh/id_ed25519
+          PORT="${ISP_PORT:-22}"
+          ssh-keyscan -p "$PORT" "$ISP_HOST" >> ~/.ssh/known_hosts
+          ssh -p "$PORT" "$ISP_USER@$ISP_HOST" \
+            "APP_DIR='${ISP_APP_DIR:-$HOME/www/duisun.ru/app}' BRANCH='main' bash -s" \
+            < scripts/deploy-isp.sh
