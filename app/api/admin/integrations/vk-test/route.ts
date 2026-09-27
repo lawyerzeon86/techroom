@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
-import { isAdminSession } from '../../../../../../lib/security';
-import { testVk } from '../../../../../../lib/vk-market';
+import { isAdminSession } from '../../../../../lib/security';
+import { testVk } from '../../../../../lib/vk-market';
 
 export const runtime='nodejs';
 export const dynamic='force-dynamic';
