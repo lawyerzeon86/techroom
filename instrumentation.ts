@@ -4,6 +4,7 @@ import { pushPricesAndStocks, pushStockForSku, setAllOzonStock } from './lib/aut
 import { syncTechRoomPricesFromWildberries } from './lib/wb-price-source';
 import { publishSiteProductToMarketplaces } from './lib/site-product-publish';
 import { getWarehouseSettings } from './lib/marketplace-settings';
+import { ensureSchema, getPool } from './lib/db';
 
 const g=globalThis as typeof globalThis & {
   __techroomPriceGuardTimer?:NodeJS.Timeout;
@@ -61,6 +62,12 @@ async function clearWbSellerStocksOnce(attempt=0){
       console.log('[wb-seller-stock-clear] skipped',JSON.stringify({configured:Boolean(token),warehouseId:Boolean(warehouseId)}));
       return;
     }
+
+    await ensureSchema();
+    const pool=getPool();
+    const threeDRows=await pool.query(`SELECT sku FROM products WHERE sku IS NOT NULL AND BTRIM(sku)<>'' AND category='3D-печать'`);
+    const threeDSkus=new Set(threeDRows.rows.map((r:any)=>String(r.sku||'').trim()).filter(Boolean));
+
     const cardsRes=await fetch('https://content-api.wildberries.ru/content/v2/get/cards/list',{
       method:'POST',
       headers:{Authorization:token,'Content-Type':'application/json'},
@@ -70,12 +77,27 @@ async function clearWbSellerStocksOnce(attempt=0){
     });
     const cardsJson=await cardsRes.json().catch(()=>({}));
     if(!cardsRes.ok)throw new Error(String(cardsJson?.message||`WB_CARDS_${cardsRes.status}`));
-    const barcodes=[...new Set((Array.isArray(cardsJson?.cards)?cardsJson.cards:[]).flatMap((card:any)=>(Array.isArray(card?.sizes)?card.sizes:[]).flatMap((size:any)=>Array.isArray(size?.skus)?size.skus:[])).filter(Boolean).map(String))];
-    if(!barcodes.length){
-      console.log('[wb-seller-stock-clear] completed',JSON.stringify({warehouseId,barcodes:0,stock:0}));
+
+    const stocks:any[]=[];
+    let threeDBarcodes=0;
+    let zeroBarcodes=0;
+    for(const card of Array.isArray(cardsJson?.cards)?cardsJson.cards:[]){
+      const vendorCode=String(card?.vendorCode||'').trim();
+      const amount=threeDSkus.has(vendorCode)?5:0;
+      for(const size of Array.isArray(card?.sizes)?card.sizes:[]){
+        for(const barcode of Array.isArray(size?.skus)?size.skus:[]){
+          if(!barcode)continue;
+          stocks.push({sku:String(barcode),amount});
+          if(amount===5)threeDBarcodes++;else zeroBarcodes++;
+        }
+      }
+    }
+
+    if(!stocks.length){
+      console.log('[wb-seller-stock-clear] completed',JSON.stringify({warehouseId,barcodes:0,threeDBarcodes:0,stock3d:5,stockOther:0}));
       return;
     }
-    const stocks=barcodes.map(sku=>({sku,amount:0}));
+
     const rr=await fetch(`https://marketplace-api.wildberries.ru/api/v3/stocks/${encodeURIComponent(String(warehouseId))}`,{
       method:'PUT',
       headers:{Authorization:token,'Content-Type':'application/json'},
@@ -84,7 +106,7 @@ async function clearWbSellerStocksOnce(attempt=0){
       signal:AbortSignal.timeout(15000)
     });
     if(rr.status===429){
-      console.warn('[wb-seller-stock-clear] rate_limited',JSON.stringify({warehouseId,barcodes:stocks.length,attempt,retryAfter:rr.headers.get('x-ratelimit-retry')||rr.headers.get('retry-after')||null}));
+      console.warn('[wb-seller-stock-clear] rate_limited',JSON.stringify({warehouseId,barcodes:stocks.length,threeDBarcodes,zeroBarcodes,attempt,retryAfter:rr.headers.get('x-ratelimit-retry')||rr.headers.get('retry-after')||null}));
       if(attempt<5)setTimeout(()=>void clearWbSellerStocksOnce(attempt+1),15*60*1000);
       return;
     }
@@ -92,7 +114,7 @@ async function clearWbSellerStocksOnce(attempt=0){
       const text=await rr.text().catch(()=>'');
       throw new Error(`WB_STOCK_CLEAR_${rr.status}${text?': '+text.slice(0,500):''}`);
     }
-    console.log('[wb-seller-stock-clear] completed',JSON.stringify({warehouseId,barcodes:stocks.length,stock:0}));
+    console.log('[wb-seller-stock-clear] completed',JSON.stringify({warehouseId,barcodes:stocks.length,threeDBarcodes,zeroBarcodes,stock3d:5,stockOther:0}));
   }catch(e:any){
     console.error('[wb-seller-stock-clear]',String(e?.message||e));
     if(attempt<5)setTimeout(()=>void clearWbSellerStocksOnce(attempt+1),15*60*1000);
