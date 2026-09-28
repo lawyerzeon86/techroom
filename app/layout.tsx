@@ -3,8 +3,8 @@ import '../lib/vk-auto-sync';
 import type { Metadata } from 'next';
 
 export const metadata: Metadata = {
-  title: 'TechRoom — техника, запчасти, гаджеты и 3D-печать',
-  description: 'Интернет-магазин TechRoom: автозапчасти, электроника, гаджеты и товары 3D-печати.',
+  title: 'Duisun — техника, запчасти, гаджеты и 3D-печать',
+  description: 'Интернет-магазин Duisun: автозапчасти, электроника, гаджеты и товары 3D-печати.',
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
