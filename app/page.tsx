@@ -42,7 +42,7 @@ export default function Home(){
   {notice&&<div className="toast">✓ {notice}</div>}
   <header className="header">
    <div className="topbar wrap">
-    <div className="brand" onClick={()=>scroll('home')}><div className="logo">⌂</div><div><b>Tech<span>Room</span></b><small>Техника. Запчасти. Идеи.</small></div></div>
+    <div className="brand" onClick={()=>scroll('home')}><div className="logo">⌂</div><div><b>Duisun</b><small>Техника. Запчасти. Идеи.</small></div></div>
     <div className="search"><input value={q} onChange={e=>setQ(e.target.value)} placeholder="Поиск товаров, брендов, категорий..."/><Icon name="search"/></div>
     <div className="actions"><button><Icon name="heart"/> Избранное</button><button onClick={()=>router.push('/cart')}><Icon name="cart"/> Корзина <i>{cartItems}</i></button><button><Icon name="user"/> Войти / Регистрация</button></div>
    </div>
@@ -50,7 +50,7 @@ export default function Home(){
   </header>
 
   <section id="home" className="hero wrap">
-   <div className="hero-title"><h1>Добро пожаловать в <span>TechRoom!</span></h1><p>Выбери свою комнату и найди то, что нужно</p></div>
+   <div className="hero-title"><h1>Добро пожаловать в <span>Duisun!</span></h1><p>Выбери свою комнату и найди то, что нужно</p></div>
    <div className="rooms">{rooms.map(r=><div key={r.id} className={'room '+r.cls} onClick={()=>{setActive(r.title);scroll('products')}}><div className="room-icon">{r.icon}</div><div className="room-title">{r.title}</div><div className="room-sub">{r.sub}</div><button>Перейти →</button></div>)}</div>
   </section>
 
@@ -66,6 +66,6 @@ export default function Home(){
 
   <section id="cart" className="cart-band"><div className="wrap cart-row"><div><b>Корзина</b><span>{cartItems?` ${cartItems} товар(ов) добавлено`:' пока пуста'}</span></div><button onClick={()=>router.push('/cart')}>{cartItems?'Перейти к оформлению →':'Открыть корзину →'}</button></div></section>
 
-  <footer><div className="wrap footer-grid"><div className="brand"><div className="logo">⌂</div><div><b>Tech<span>Room</span></b><small>Техника. Запчасти. Идеи.</small></div></div><div><h4>Каталог</h4><a>Автозапчасти</a><a>Электроника</a><a>Гаджеты</a><a>3D-печать</a></div><div><h4>Информация</h4><a>О магазине</a><a>Доставка и оплата</a><a>Гарантия</a><a>Контакты</a></div><div><h4>Мы в соцсетях</h4><div className="social">VK　TG　▶　◎</div></div><div><h4>Будьте в курсе новинок и акций</h4><div className="subscribe"><input placeholder="Ваш email"/><button>Подписаться</button></div></div></div><div className="wrap copyright">© 2026 TechRoom. Все права защищены. <span>Политика конфиденциальности　 Пользовательское соглашение</span></div></footer>
+  <footer><div className="wrap footer-grid"><div className="brand"><div className="logo">⌂</div><div><b>Duisun</b><small>Техника. Запчасти. Идеи.</small></div></div><div><h4>Каталог</h4><a>Автозапчасти</a><a>Электроника</a><a>Гаджеты</a><a>3D-печать</a></div><div><h4>Информация</h4><a>О магазине</a><a>Доставка и оплата</a><a>Гарантия</a><a>Контакты</a></div><div><h4>Мы в соцсетях</h4><div className="social">VK　TG　▶　◎</div></div><div><h4>Будьте в курсе новинок и акций</h4><div className="subscribe"><input placeholder="Ваш email"/><button>Подписаться</button></div></div></div><div className="wrap copyright">© 2026 Duisun. Все права защищены. <span>Политика конфиденциальности　 Пользовательское соглашение</span></div></footer>
  </main>
 }
