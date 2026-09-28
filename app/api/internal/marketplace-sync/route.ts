@@ -99,19 +99,18 @@ async function syncWbFbsThreeDStock(warehouseId:string){
 
   const stocks:any[]=[];
   let threeDBarcodes=0;
-  let otherBarcodes=0;
   for(const card of Array.isArray(cardsJson?.cards)?cardsJson.cards:[]){
     const vendorCode=String(card?.vendorCode||'').trim();
-    const amount=threeDSkus.has(vendorCode)?5:0;
+    if(!threeDSkus.has(vendorCode))continue;
     for(const size of Array.isArray(card?.sizes)?card.sizes:[]){
       for(const barcode of Array.isArray(size?.skus)?size.skus:[]){
         if(!barcode)continue;
-        stocks.push({sku:String(barcode),amount});
-        if(amount===5)threeDBarcodes++;else otherBarcodes++;
+        stocks.push({sku:String(barcode),amount:5});
+        threeDBarcodes++;
       }
     }
   }
-  if(!stocks.length)return {warehouseId,barcodes:0,threeDBarcodes:0,otherBarcodes:0,stock3d:5,stockOther:0};
+  if(!stocks.length)return {warehouseId,barcodes:0,threeDBarcodes:0,stock3d:5,otherProducts:'unchanged'};
 
   const response=await fetch(`https://marketplace-api.wildberries.ru/api/v3/stocks/${encodeURIComponent(warehouseId)}`,{
     method:'PUT',
@@ -125,7 +124,7 @@ async function syncWbFbsThreeDStock(warehouseId:string){
     const text=await response.text().catch(()=>'');
     throw new Error(`WB_FBS_STOCK_${response.status}${text?': '+text.slice(0,500):''}`);
   }
-  return {warehouseId,barcodes:stocks.length,threeDBarcodes,otherBarcodes,stock3d:5,stockOther:0};
+  return {warehouseId,barcodes:stocks.length,threeDBarcodes,stock3d:5,otherProducts:'unchanged'};
 }
 
 function collectErrors(value:any,path='result',out:string[]=[]){
