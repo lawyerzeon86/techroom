@@ -32,6 +32,6 @@ else
   exit 3
 fi
 
-curl --fail --silent --show-error --max-time 20 http://127.0.0.1:3000/ >/dev/null
+curl --fail --silent --show-error --max-time 20 http://127.0.0.1:3000/api/health >/dev/null
 
 echo "TechRoom deploy completed successfully"

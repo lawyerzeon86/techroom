@@ -10,7 +10,7 @@ type Product = {
   sku?:string|null; stock:number; isActive:boolean;
 };
 
-type OrderResult = { orderNumber:string; totalAmount:number; paymentMethod:string };
+type OrderResult = { orderNumber:string; totalAmount:number; paymentMethod:string; paymentUrl?:string; paymentToken?:string; paymentStatus?:string };
 const money=(n:number)=>new Intl.NumberFormat('ru-RU').format(n)+' ₽';
 
 export default function CartPage(){
@@ -21,7 +21,8 @@ export default function CartPage(){
   const [busy,setBusy]=useState(false);
   const [message,setMessage]=useState('');
   const [order,setOrder]=useState<OrderResult|null>(null);
-  const [form,setForm]=useState({customerName:'',phone:'',email:'',deliveryMethod:'courier',address:'',paymentMethod:'qr',comment:''});
+  const [sbpAvailable,setSbpAvailable]=useState(false);
+  const [form,setForm]=useState({customerName:'',phone:'',email:'',deliveryMethod:'courier',address:'',paymentMethod:'cash',comment:''});
 
   useEffect(()=>{
     setCart(loadCart());
@@ -30,6 +31,10 @@ export default function CartPage(){
       .then(setProducts)
       .catch(()=>setMessage('Не удалось загрузить товары.'))
       .finally(()=>setLoading(false));
+    fetch('/api/payments/config',{cache:'no-store'})
+      .then(r=>r.ok?r.json():Promise.reject())
+      .then(j=>{if(j.sbpAvailable){setSbpAvailable(true);setForm(current=>({...current,paymentMethod:'qr'}));}})
+      .catch(()=>setSbpAvailable(false));
   },[]);
 
   const lines=useMemo(()=>cart.map(entry=>{
@@ -69,7 +74,10 @@ export default function CartPage(){
       <h2>Заказ оформлен ✓</h2>
       <div className={styles.orderNo}>{order.orderNumber}</div>
       <p>Сумма заказа: <b>{money(order.totalAmount)}</b></p>
-      {order.paymentMethod==='qr' && <div className={styles.qrHint}>Вы выбрали оплату по QR / СБП. Пока платёжный провайдер не подключён, заказ сохранён как новый — QR для оплаты добавим следующим этапом.</div>}
+      {order.paymentMethod==='qr' && order.paymentUrl && <>
+        <div className={styles.qrHint}>Заказ зарезервирован. Нажмите кнопку ниже: на телефоне откроется приложение банка, на компьютере — страница с QR-кодом СБП.</div>
+        <a className={styles.payButton} href={order.paymentUrl}>Оплатить через СБП</a>
+      </>}
       <button className={styles.submit} onClick={()=>router.push('/')}>Вернуться в каталог</button>
     </div>
   </div></main>;
@@ -107,7 +115,7 @@ export default function CartPage(){
             </div></div>
             {form.deliveryMethod==='courier'&&<label className={`${styles.field} ${styles.wide}`}><span>Адрес доставки *</span><input value={form.address} onChange={e=>setForm({...form,address:e.target.value})}/></label>}
             <div className={`${styles.field} ${styles.wide}`}><span>Оплата</span><div className={styles.radioGroup}>
-              <label className={styles.radio}><input type="radio" checked={form.paymentMethod==='qr'} onChange={()=>setForm({...form,paymentMethod:'qr'})}/><span><b>QR / СБП</b><br/>После подключения платёжного провайдера QR появится автоматически</span></label>
+              <label className={`${styles.radio} ${!sbpAvailable?styles.disabled:''}`}><input type="radio" disabled={!sbpAvailable} checked={form.paymentMethod==='qr'} onChange={()=>setForm({...form,paymentMethod:'qr'})}/><span><b>QR / СБП</b><br/>{sbpAvailable?'Мгновенная оплата через приложение банка':'Временно недоступно'}</span></label>
               <label className={styles.radio}><input type="radio" checked={form.paymentMethod==='cash'} onChange={()=>setForm({...form,paymentMethod:'cash'})}/><span><b>При получении</b><br/>Если доступно для выбранного способа доставки</span></label>
             </div></div>
             <label className={`${styles.field} ${styles.wide}`}><span>Комментарий</span><textarea value={form.comment} onChange={e=>setForm({...form,comment:e.target.value})}/></label>

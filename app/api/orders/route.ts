@@ -1,6 +1,8 @@
 import { NextResponse } from 'next/server';
+import { randomBytes } from 'node:crypto';
 import { ensureSchema, getPool } from '../../../lib/db';
 import { rateLimit, readJsonBody } from '../../../lib/security';
+import { createSbpPayment, yooKassaConfigured } from '../../../lib/yookassa';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -47,6 +49,7 @@ export async function POST(request: Request) {
     const deliveryMethod = body?.deliveryMethod === 'pickup' ? 'pickup' : body?.deliveryMethod === 'courier' ? 'courier' : null;
     const paymentMethod = body?.paymentMethod === 'qr' ? 'qr' : body?.paymentMethod === 'cash' ? 'cash' : null;
     if (!deliveryMethod || !paymentMethod) throw new Error('VALIDATION');
+    if (paymentMethod === 'qr' && !yooKassaConfigured()) throw new Error('PAYMENT_NOT_CONFIGURED');
     const address = deliveryMethod === 'courier' ? text(body?.address, 500, true) : text(body?.address, 500);
     const comment = text(body?.comment, 2000);
 
@@ -83,13 +86,15 @@ export async function POST(request: Request) {
       if (total <= 0 || total > 500_000_000) throw new Error('VALIDATION');
 
       let number = orderNumber();
+      const paymentToken = paymentMethod === 'qr' ? randomBytes(32).toString('base64url') : null;
+      const initialStatus = paymentMethod === 'qr' ? 'awaiting_payment' : 'new';
       let orderResult;
       for (let attempt=0; attempt<3; attempt++) {
         try {
           orderResult = await client.query(
-            `INSERT INTO orders (order_number,customer_name,phone,email,delivery_method,address,payment_method,comment,total_amount,status)
-             VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,'new') RETURNING id,order_number,total_amount,status,created_at`,
-            [number,customerName,phone,email,deliveryMethod,address,paymentMethod,comment,total]
+            `INSERT INTO orders (order_number,customer_name,phone,email,delivery_method,address,payment_method,comment,total_amount,status,payment_provider,payment_status,payment_token)
+             VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13) RETURNING id,order_number,total_amount,status,created_at`,
+            [number,customerName,phone,email,deliveryMethod,address,paymentMethod,comment,total,initialStatus,paymentMethod==='qr'?'yookassa':null,paymentMethod==='qr'?'creating':null,paymentToken]
           );
           break;
         } catch (err:any) {
@@ -109,6 +114,37 @@ export async function POST(request: Request) {
       }
 
       await client.query('COMMIT');
+      if (paymentMethod === 'qr') {
+        try {
+          const baseReturnUrl = process.env.YOOKASSA_RETURN_URL?.trim() || 'https://techroom-main.onrender.com/payment/return';
+          const returnUrl = new URL(baseReturnUrl);
+          returnUrl.searchParams.set('order', order.order_number);
+          returnUrl.searchParams.set('token', paymentToken!);
+          const payment = await createSbpPayment({
+            orderId: order.id,
+            orderNumber: order.order_number,
+            totalAmount: Number(order.total_amount),
+            returnUrl: returnUrl.toString(),
+          });
+          const paymentUrl = payment.confirmation?.confirmation_url;
+          if (!paymentUrl || !/^https:\/\//.test(paymentUrl)) throw new Error('YOOKASSA_CONFIRMATION_MISSING');
+          await getPool().query(
+            `UPDATE orders SET payment_id=$1,payment_status=$2,payment_url=$3,payment_updated_at=NOW(),updated_at=NOW() WHERE id=$4`,
+            [payment.id,payment.status,paymentUrl,order.id]
+          );
+          return NextResponse.json({
+            ok:true, orderNumber:order.order_number, totalAmount:Number(order.total_amount),
+            status:'awaiting_payment', paymentMethod, paymentStatus:payment.status,
+            paymentUrl, paymentToken,
+          },{status:201,headers:{'Cache-Control':'no-store'}});
+        } catch (paymentError:any) {
+          await getPool().query(
+            `UPDATE orders SET status='payment_failed',payment_status='failed',payment_error=$1,payment_updated_at=NOW(),updated_at=NOW() WHERE id=$2`,
+            [String(paymentError?.message||paymentError).slice(0,1000),order.id]
+          );
+          return NextResponse.json({error:'Заказ сохранён, но платёж не создан. Менеджер свяжется с вами.',orderNumber:order.order_number},{status:502});
+        }
+      }
       return NextResponse.json({
         ok:true,
         orderNumber:order.order_number,
@@ -126,6 +162,7 @@ export async function POST(request: Request) {
     const code = error?.message;
     if (code === 'OUT_OF_STOCK') return NextResponse.json({error:'Некоторых товаров уже нет в нужном количестве. Обновите корзину.'},{status:409});
     if (code === 'PRODUCT_NOT_FOUND') return NextResponse.json({error:'Один из товаров больше недоступен.'},{status:409});
+    if (code === 'PAYMENT_NOT_CONFIGURED') return NextResponse.json({error:'Оплата по СБП временно недоступна. Выберите оплату при получении.'},{status:503});
     if (code === 'PAYLOAD_TOO_LARGE') return NextResponse.json({error:'Слишком большой запрос.'},{status:413});
     if (code === 'VALIDATION' || code === 'INVALID_JSON') return NextResponse.json({error:'Проверьте данные заказа.'},{status:400});
     return NextResponse.json({error:'Не удалось оформить заказ. Попробуйте ещё раз.'},{status:500});

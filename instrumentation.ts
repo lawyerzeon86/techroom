@@ -162,6 +162,9 @@ async function siteSyncOnce(){
 
 export async function register(){
   if(process.env.NEXT_RUNTIME!=='nodejs')return;
+  // Production marketplace jobs run through the authenticated scheduled route.
+  // Opt-in is retained only for local/temporary recovery runs.
+  if(process.env.ENABLE_STARTUP_MARKETPLACE_TASKS!=='1')return;
 
   process.env.WB_WAREHOUSE_ID='';
 

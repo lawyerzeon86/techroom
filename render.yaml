@@ -5,7 +5,7 @@ services:
     plan: free
     buildCommand: npm ci && npm run build
     startCommand: npm start
-    healthCheckPath: /api/products
+    healthCheckPath: /api/health
     envVars:
       - key: NODE_VERSION
         value: 22.14.0
@@ -47,3 +47,15 @@ services:
         value: v23.0
       - key: WHATSAPP_STORE_URL
         value: https://techroom-main.onrender.com/
+      - key: YOOKASSA_SHOP_ID
+        sync: false
+      - key: YOOKASSA_SECRET_KEY
+        sync: false
+      - key: YOOKASSA_RETURN_URL
+        value: https://techroom-main.onrender.com/payment/return
+      - key: CRON_SYNC_SECRET
+        generateValue: true
+      - key: GITHUB_SYNC_REPOSITORY
+        value: lawyerzeon86/techroom
+      - key: ENABLE_STARTUP_MARKETPLACE_TASKS
+        value: "0"

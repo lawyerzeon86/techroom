@@ -13,15 +13,23 @@ jobs:
   sync:
     runs-on: ubuntu-latest
     timeout-minutes: 10
+    permissions:
+      contents: read
+      id-token: write
     steps:
       - name: Trigger TechRoom marketplace sync
         shell: bash
         run: |
           set -euo pipefail
           response_file="$(mktemp)"
+          oidc_token="$(curl --silent --show-error --fail \
+            --header "Authorization: Bearer $ACTIONS_ID_TOKEN_REQUEST_TOKEN" \
+            "${ACTIONS_ID_TOKEN_REQUEST_URL}&audience=techroom-marketplace-sync" | jq -r '.value')"
+          test -n "$oidc_token"
           status="$(curl --silent --show-error --location \
             --connect-timeout 20 \
             --max-time 540 \
+            --header "Authorization: Bearer $oidc_token" \
             --output "$response_file" \
             --write-out '%{http_code}' \
             --request POST \

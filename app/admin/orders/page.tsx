@@ -5,10 +5,12 @@ import { useEffect, useMemo, useState } from 'react';
 type Order={
   id:string; source:string; orderNumber:string; status:string; totalAmount:number;
   customerName?:string|null; phone?:string|null; email?:string|null; deliveryMethod?:string|null; address?:string|null;
-  paymentMethod?:string|null; comment?:string|null; items:any[]; createdAt:string; syncedAt?:string|null;
+  paymentMethod?:string|null; paymentProvider?:string|null; paymentStatus?:string|null; paymentId?:string|null; paidAt?:string|null;
+  comment?:string|null; items:any[]; createdAt:string; syncedAt?:string|null;
 };
 
-const labels:Record<string,string>={new:'Новый',confirmed:'Подтверждён',shipped:'Отправлен',completed:'Завершён',cancelled:'Отменён'};
+const labels:Record<string,string>={new:'Новый',awaiting_payment:'Ожидает оплату',paid:'Оплачен',payment_failed:'Ошибка оплаты',payment_canceled:'Оплата отменена',confirmed:'Подтверждён',shipped:'Отправлен',completed:'Завершён',cancelled:'Отменён'};
+const paymentLabels:Record<string,string>={creating:'Создаётся',pending:'Ожидается',waiting_for_capture:'Ожидает подтверждения',succeeded:'Оплачено',canceled:'Отменено',failed:'Ошибка'};
 const sourceLabels:Record<string,string>={
   site:'TechRoom',wildberries:'Wildberries',ozon:'Ozon',yandex_market:'Яндекс Маркет',avito:'Avito',
   megamarket:'Мегамаркет',aliexpress:'AliExpress',other:'Другой маркетплейс'
@@ -65,13 +67,14 @@ export default function OrdersPage(){
       </div>
       {loading&&<p>Загрузка…</p>}
       {error&&<p>{error} {error.includes('войти')&&<a href="/admin">Войти</a>}</p>}
-      {!loading&&!error&&<div className="admin-table-wrap"><table className="admin-table"><thead><tr><th>Источник</th><th>Заказ</th><th>Клиент</th><th>Товары</th><th>Сумма</th><th>Статус</th><th>Дата</th></tr></thead><tbody>
+      {!loading&&!error&&<div className="admin-table-wrap"><table className="admin-table"><thead><tr><th>Источник</th><th>Заказ</th><th>Клиент</th><th>Товары</th><th>Сумма</th><th>Оплата</th><th>Статус</th><th>Дата</th></tr></thead><tbody>
         {filtered.map(o=><tr key={`${o.source}-${o.id}`}>
           <td><b>{sourceLabels[o.source]||o.source}</b></td>
           <td><b>{o.orderNumber||'—'}</b>{o.source==='site'&&<small style={{display:'block'}}>#{o.id}</small>}</td>
           <td><div>{o.customerName||'—'}</div><small>{o.phone||''}{o.email?<><br/>{o.email}</>:null}</small>{o.address&&<small style={{display:'block',maxWidth:260}}>{o.address}</small>}</td>
           <td><details><summary>{o.items?.length||0} поз.</summary><div style={{minWidth:260,paddingTop:8}}>{(o.items||[]).map((x:any,i:number)=><div key={i} style={{marginBottom:7}}><b>{x.title||x.name||x.offerId||x.article||'Товар'}</b><br/><small>{x.sku||''} · {x.quantity||1} шт.{x.price!=null?` · ${money(Number(x.price))}`:''}</small></div>)}</div></details></td>
           <td><b>{money(o.totalAmount||0)}</b></td>
+          <td>{o.source==='site'?<><div>{o.paymentMethod==='qr'?'СБП / QR':'При получении'}</div>{o.paymentStatus&&<small>{paymentLabels[o.paymentStatus]||o.paymentStatus}</small>}</>:<span>—</span>}</td>
           <td>{o.source==='site'?<select disabled={busy===o.id} value={o.status} onChange={e=>setStatus(o,e.target.value)} style={{padding:'7px 8px',borderRadius:8,border:'1px solid #ddd'}}>{Object.entries(labels).map(([k,v])=><option key={k} value={k}>{v}</option>)}</select>:<span>{o.status}</span>}</td>
           <td><small>{new Date(o.createdAt).toLocaleString('ru-RU')}</small>{o.syncedAt&&<small style={{display:'block'}}>sync: {new Date(o.syncedAt).toLocaleString('ru-RU')}</small>}</td>
         </tr>)}

@@ -5,7 +5,7 @@ import { isAdminSession, readJsonBody } from '../../../../../lib/security';
 export const runtime='nodejs';
 export const dynamic='force-dynamic';
 
-const ALLOWED=['new','confirmed','shipped','completed','cancelled'];
+const ALLOWED=['new','awaiting_payment','paid','payment_failed','payment_canceled','confirmed','shipped','completed','cancelled'];
 
 export async function POST(request:Request){
   if(!isAdminSession(request)) return NextResponse.json({error:'Требуется вход администратора'},{status:401});

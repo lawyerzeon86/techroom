@@ -6,6 +6,8 @@ import { pushPricesAndStocks } from '../../../../lib/auto-sync';
 import { syncMarketplace, type MarketplaceName } from '../../../../lib/marketplaces';
 import { listCommunications, type CommunicationType } from '../../../../lib/communications';
 import { importMarketplaceProducts, runAutoProductTransfers, syncHubCatalogToSite } from '../../../../lib/product-hub';
+import { runPriceGuard } from '../../../../lib/price-guard';
+import { verifyGitHubActionsToken } from '../../../../lib/github-oidc';
 
 export const runtime='nodejs';
 export const dynamic='force-dynamic';
@@ -36,7 +38,14 @@ async function safeStage<T>(label:string,timeoutMs:number,fn:()=>Promise<T>):Pro
 }
 
 async function saveCommunications(source:MarketplaceName,kind:CommunicationType){
-  const data=await listCommunications(source,kind);
+  let data;
+  try{data=await listCommunications(source,kind)}catch(error:any){
+    const message=String(error?.message||error);
+    if(source!=='wildberries'||!/(429|rate.?limit|too many)/i.test(message))throw error;
+    const seconds=Math.min(20,Math.max(5,Number(message.match(/(?:retry|повтор)[^\d]*(\d+)/i)?.[1]||10)));
+    await new Promise(resolve=>setTimeout(resolve,seconds*1000));
+    data=await listCommunications(source,kind);
+  }
   const pool=getPool();
   for(const item of data.items||[]){
     await pool.query(`
@@ -61,6 +70,11 @@ async function saveCommunications(source:MarketplaceName,kind:CommunicationType)
 async function syncMarketplaceBundle(source:MarketplaceName){
   const result:any={};
   result.orders=await safeStage(`${source.toUpperCase()}_ORDERS`,20000,()=>syncMarketplace(source));
+  if(source==='ozon'){
+    result.reviews={skipped:'requires_premium_plus'};
+    result.questions={skipped:'requires_premium_plus'};
+    return result;
+  }
   result.reviews=await safeStage(`${source.toUpperCase()}_REVIEWS`,20000,()=>saveCommunications(source,'reviews'));
   result.questions=await safeStage(`${source.toUpperCase()}_QUESTIONS`,20000,()=>saveCommunications(source,'questions'));
   return result;
@@ -79,7 +93,9 @@ function collectErrors(value:any,path='result',out:string[]=[]){
 export async function POST(request:Request){
   const configured=process.env.CRON_SYNC_SECRET?.trim();
   const provided=request.headers.get('x-cron-secret')?.trim()||'';
-  if(configured && (!provided||!safeEqual(configured,provided))){
+  const bearer=request.headers.get('authorization')?.match(/^Bearer\s+(.+)$/i)?.[1]||'';
+  const authorized=Boolean(configured&&provided&&safeEqual(configured,provided))||(bearer?await verifyGitHubActionsToken(bearer).catch(()=>false):false);
+  if(!authorized){
     return NextResponse.json({error:'Unauthorized'},{status:401});
   }
 
@@ -114,12 +130,12 @@ export async function POST(request:Request){
     result.stages.wildberries=wb;
     result.stages.ozon=ozon;
 
-    result.stages.catalog=await safeStage('CATALOG_SYNC',45000,()=>pushPricesAndStocks());
+    result.stages.catalog=await safeStage('CATALOG_SYNC',120000,()=>pushPricesAndStocks());
+    result.stages.priceGuard=await safeStage('PRICE_GUARD',120000,()=>runPriceGuard());
 
-    const [wbImport,ozonImport]=await Promise.all([
-      process.env.WB_API_TOKEN?.trim()?safeStage('WB_PRODUCT_IMPORT',30000,()=>importMarketplaceProducts('wb',100)):Promise.resolve({skipped:'not_configured'}),
-      process.env.OZON_CLIENT_ID?.trim()&&process.env.OZON_API_KEY?.trim()?safeStage('OZON_PRODUCT_IMPORT',30000,()=>importMarketplaceProducts('ozon',100)):Promise.resolve({skipped:'not_configured'})
-    ]);
+    if(process.env.WB_API_TOKEN?.trim())await new Promise(resolve=>setTimeout(resolve,10000));
+    const wbImport=process.env.WB_API_TOKEN?.trim()?await safeStage('WB_PRODUCT_IMPORT',60000,()=>importMarketplaceProducts('wb',100)):{skipped:'not_configured'};
+    const ozonImport=process.env.OZON_CLIENT_ID?.trim()&&process.env.OZON_API_KEY?.trim()?await safeStage('OZON_PRODUCT_IMPORT',60000,()=>importMarketplaceProducts('ozon',100)):{skipped:'not_configured'};
     result.productHub.imports.wb=wbImport;
     result.productHub.imports.ozon=ozonImport;
 

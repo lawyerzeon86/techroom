@@ -81,9 +81,19 @@ export async function ensureSchema() {
       await pool.query(`ALTER TABLE orders ADD COLUMN IF NOT EXISTS max_user_id BIGINT`);
       await pool.query(`ALTER TABLE orders ADD COLUMN IF NOT EXISTS max_username TEXT`);
       await pool.query(`ALTER TABLE orders ADD COLUMN IF NOT EXISTS whatsapp_phone TEXT`);
+      await pool.query(`ALTER TABLE orders ADD COLUMN IF NOT EXISTS payment_provider TEXT`);
+      await pool.query(`ALTER TABLE orders ADD COLUMN IF NOT EXISTS payment_id TEXT`);
+      await pool.query(`ALTER TABLE orders ADD COLUMN IF NOT EXISTS payment_status TEXT`);
+      await pool.query(`ALTER TABLE orders ADD COLUMN IF NOT EXISTS payment_url TEXT`);
+      await pool.query(`ALTER TABLE orders ADD COLUMN IF NOT EXISTS payment_token TEXT`);
+      await pool.query(`ALTER TABLE orders ADD COLUMN IF NOT EXISTS payment_error TEXT`);
+      await pool.query(`ALTER TABLE orders ADD COLUMN IF NOT EXISTS paid_at TIMESTAMPTZ`);
+      await pool.query(`ALTER TABLE orders ADD COLUMN IF NOT EXISTS payment_updated_at TIMESTAMPTZ`);
       await pool.query(`CREATE INDEX IF NOT EXISTS idx_orders_telegram_user ON orders(telegram_user_id, created_at DESC)`);
       await pool.query(`CREATE INDEX IF NOT EXISTS idx_orders_max_user ON orders(max_user_id, created_at DESC)`);
       await pool.query(`CREATE INDEX IF NOT EXISTS idx_orders_whatsapp_phone ON orders(whatsapp_phone, created_at DESC)`);
+      await pool.query(`CREATE UNIQUE INDEX IF NOT EXISTS idx_orders_payment_id ON orders(payment_id) WHERE payment_id IS NOT NULL`);
+      await pool.query(`CREATE UNIQUE INDEX IF NOT EXISTS idx_orders_payment_token ON orders(payment_token) WHERE payment_token IS NOT NULL`);
 
       await pool.query(`
         CREATE TABLE IF NOT EXISTS marketplace_orders (
