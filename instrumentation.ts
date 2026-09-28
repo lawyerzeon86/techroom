@@ -59,7 +59,7 @@ async function clearWbSellerStocksOnce(attempt=0){
     const token=process.env.WB_API_TOKEN?.trim();
     process.env.WB_WAREHOUSE_ID='';
     if(!token||!warehouseId){
-      console.log('[wb-seller-stock-clear] skipped',JSON.stringify({configured:Boolean(token),warehouseId:Boolean(warehouseId)}));
+      console.log('[wb-3d-stock-sync] skipped',JSON.stringify({configured:Boolean(token),warehouseId:Boolean(warehouseId)}));
       return;
     }
 
@@ -80,21 +80,20 @@ async function clearWbSellerStocksOnce(attempt=0){
 
     const stocks:any[]=[];
     let threeDBarcodes=0;
-    let zeroBarcodes=0;
     for(const card of Array.isArray(cardsJson?.cards)?cardsJson.cards:[]){
       const vendorCode=String(card?.vendorCode||'').trim();
-      const amount=threeDSkus.has(vendorCode)?5:0;
+      if(!threeDSkus.has(vendorCode))continue;
       for(const size of Array.isArray(card?.sizes)?card.sizes:[]){
         for(const barcode of Array.isArray(size?.skus)?size.skus:[]){
           if(!barcode)continue;
-          stocks.push({sku:String(barcode),amount});
-          if(amount===5)threeDBarcodes++;else zeroBarcodes++;
+          stocks.push({sku:String(barcode),amount:5});
+          threeDBarcodes++;
         }
       }
     }
 
     if(!stocks.length){
-      console.log('[wb-seller-stock-clear] completed',JSON.stringify({warehouseId,barcodes:0,threeDBarcodes:0,stock3d:5,stockOther:0}));
+      console.log('[wb-3d-stock-sync] completed',JSON.stringify({warehouseId,barcodes:0,threeDBarcodes:0,stock3d:5,otherProducts:'unchanged'}));
       return;
     }
 
@@ -106,17 +105,17 @@ async function clearWbSellerStocksOnce(attempt=0){
       signal:AbortSignal.timeout(15000)
     });
     if(rr.status===429){
-      console.warn('[wb-seller-stock-clear] rate_limited',JSON.stringify({warehouseId,barcodes:stocks.length,threeDBarcodes,zeroBarcodes,attempt,retryAfter:rr.headers.get('x-ratelimit-retry')||rr.headers.get('retry-after')||null}));
+      console.warn('[wb-3d-stock-sync] rate_limited',JSON.stringify({warehouseId,barcodes:stocks.length,threeDBarcodes,attempt,retryAfter:rr.headers.get('x-ratelimit-retry')||rr.headers.get('retry-after')||null}));
       if(attempt<5)setTimeout(()=>void clearWbSellerStocksOnce(attempt+1),15*60*1000);
       return;
     }
     if(!rr.ok){
       const text=await rr.text().catch(()=>'');
-      throw new Error(`WB_STOCK_CLEAR_${rr.status}${text?': '+text.slice(0,500):''}`);
+      throw new Error(`WB_3D_STOCK_${rr.status}${text?': '+text.slice(0,500):''}`);
     }
-    console.log('[wb-seller-stock-clear] completed',JSON.stringify({warehouseId,barcodes:stocks.length,threeDBarcodes,zeroBarcodes,stock3d:5,stockOther:0}));
+    console.log('[wb-3d-stock-sync] completed',JSON.stringify({warehouseId,barcodes:stocks.length,threeDBarcodes,stock3d:5,otherProducts:'unchanged'}));
   }catch(e:any){
-    console.error('[wb-seller-stock-clear]',String(e?.message||e));
+    console.error('[wb-3d-stock-sync]',String(e?.message||e));
     if(attempt<5)setTimeout(()=>void clearWbSellerStocksOnce(attempt+1),15*60*1000);
   }
 }
