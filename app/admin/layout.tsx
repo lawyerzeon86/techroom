@@ -4,7 +4,7 @@ export default function AdminLayout({children}:{children:ReactNode}){
   return <>
     <div style={{position:'sticky',top:0,zIndex:60,background:'#231f1b',color:'#fff',borderBottom:'1px solid #3b342e'}}>
       <div style={{width:'min(1280px,calc(100% - 32px))',margin:'0 auto',height:50,display:'flex',alignItems:'center',gap:18,overflowX:'auto'}}>
-        <b style={{whiteSpace:'nowrap'}}>TechRoom Admin</b>
+        <b style={{whiteSpace:'nowrap'}}>Duisun Admin</b>
         <a href="/admin" style={{color:'#fff',textDecoration:'none',whiteSpace:'nowrap'}}>Товары</a>
         <a href="/admin/prices" style={{color:'#ffd27a',textDecoration:'none',whiteSpace:'nowrap'}}>Лист цен</a>
         <a href="/admin/orders" style={{color:'#fff',textDecoration:'none',whiteSpace:'nowrap'}}>Заказы</a>
