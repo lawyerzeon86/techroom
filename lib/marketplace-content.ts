@@ -57,8 +57,9 @@ async function wbPriceMap(nmIds:(string|number)[]){
       });
       const goods=d?.data?.listGoods||d?.listGoods||[];
       for(const g of goods){const id=String(g?.nmID||'');const price=wbGoodPrice(g);if(id&&price>0)out.set(id,price)}
-    }catch(e:any){
-      if(Number(e?.status)===429)throw e;
+    }catch{
+      // Price enrichment is optional for catalog imports. The dedicated price
+      // sync/guard handles its own rate limits, so keep the cards on a 429.
     }
     if(i+100<ids.length)await new Promise(resolve=>setTimeout(resolve,700));
   }

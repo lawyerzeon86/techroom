@@ -128,7 +128,10 @@ export async function pushPricesAndStocks(options:{onlyOzonPrices?:boolean;onlyP
         if(r.status===429){
           result.wb.prices={status:'rate_limited',retryAfter:r.headers.get('x-ratelimit-retry')||r.headers.get('retry-after')||null};
         }else if(!r.ok){
-          throw await responseError('WB_PRICE',r);
+          const error=await responseError('WB_PRICE',r);
+          if(r.status===400&&/prices and discounts are already set/i.test(error.message)){
+            result.wb.prices={status:'unchanged',count:prices.length};
+          }else throw error;
         }else result.wb.prices=prices.length;
       }
       const warehouseId=process.env.WB_WAREHOUSE_ID?.trim();

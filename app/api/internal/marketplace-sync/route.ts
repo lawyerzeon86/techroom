@@ -75,8 +75,8 @@ async function syncMarketplaceBundle(source:MarketplaceName){
     result.questions={skipped:'requires_premium_plus'};
     return result;
   }
-  result.reviews=await safeStage(`${source.toUpperCase()}_REVIEWS`,20000,()=>saveCommunications(source,'reviews'));
-  result.questions=await safeStage(`${source.toUpperCase()}_QUESTIONS`,20000,()=>saveCommunications(source,'questions'));
+  result.reviews=await safeStage(`${source.toUpperCase()}_REVIEWS`,60000,()=>saveCommunications(source,'reviews'));
+  result.questions=await safeStage(`${source.toUpperCase()}_QUESTIONS`,60000,()=>saveCommunications(source,'questions'));
   return result;
 }
 
