@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
-import { ensureSchema, getPool } from '../../../../../lib/db';
-import { importMarketplaceProducts, syncHubCatalogToSite } from '../../../../../lib/product-hub';
+import { ensureSchema, getPool } from '../../../../lib/db';
+import { importMarketplaceProducts, syncHubCatalogToSite } from '../../../../lib/product-hub';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
