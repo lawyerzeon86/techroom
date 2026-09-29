@@ -84,6 +84,7 @@ export async function resolveAvitoItemIdsBySku(skus:string[]){
 }
 
 export async function pushAvitoPrices(){
+  if(process.env.SYNC_AVITO_PRICES!=='1')return {status:'skipped',reason:'SYNC_AVITO_PRICES_DISABLED',mapped:0,updated:0,errors:[] as any[]};
   if(!avitoConfigured())return {status:'skipped',reason:'AVITO_NOT_CONFIGURED',mapped:0,updated:0,errors:[] as any[]};
   const items=await listPriceSheet();
   const enabled=items.filter((x:any)=>x.syncAvito&&x.price>0);
