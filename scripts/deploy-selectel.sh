@@ -193,6 +193,15 @@ else
   echo "SSL skipped: point duisun.ru A record to 135.106.196.81 first."
 fi
 
+# Certbot's generic two-host configuration can route www through Next.js and leak :3000
+# in its canonical redirect. Once a certificate exists, restore our explicit canonical
+# nginx configuration so www always redirects directly to https://duisun.ru/.
+if [ -f /etc/letsencrypt/live/duisun.ru/fullchain.pem ] && [ -f "$APP_DIR/scripts/nginx-duisun-ssl.conf" ]; then
+  cp "$APP_DIR/scripts/nginx-duisun-ssl.conf" /etc/nginx/sites-available/duisun
+  nginx -t
+  systemctl reload nginx
+fi
+
 echo "DUISUN DEPLOYED"
 echo "Marketplace core pull: 15m; communications: 2h; cross-marketplace transfer: 6h."
 echo "Only Ozon/WB marketplace products are eligible for the storefront; no demo product seeding."
