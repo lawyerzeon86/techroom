@@ -55,9 +55,14 @@ async function saveCommunications(source:MarketplaceName,kind:CommunicationType)
   return Number(data.total||data.items?.length||0);
 }
 
-async function syncMarketplaceBundle(source:MarketplaceName){
+async function syncMarketplaceBundle(source:MarketplaceName,includeCommunications:boolean){
   const result:any={};
   result.orders=await safeStage(`${source.toUpperCase()}_ORDERS`,20000,()=>syncMarketplace(source));
+  if(!includeCommunications){
+    result.reviews={skipped:'scheduled_separately'};
+    result.questions={skipped:'scheduled_separately'};
+    return result;
+  }
   if(source==='ozon'){
     result.reviews={skipped:'requires_premium_plus'};
     result.questions={skipped:'requires_premium_plus'};
@@ -92,22 +97,25 @@ export async function POST(request:Request){
     await pool.query(`CREATE TABLE IF NOT EXISTS marketplace_sync_runs (id BIGSERIAL PRIMARY KEY,started_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),finished_at TIMESTAMPTZ,ok BOOLEAN,result JSONB NOT NULL DEFAULT '{}'::jsonb,error TEXT)`);
     await pool.query(`CREATE TABLE IF NOT EXISTS marketplace_communications (id BIGSERIAL PRIMARY KEY,source TEXT NOT NULL,kind TEXT NOT NULL,external_id TEXT NOT NULL,product_name TEXT,sku TEXT,article TEXT,rating INTEGER,text TEXT,answer TEXT,external_created_at TIMESTAMPTZ,raw_payload JSONB NOT NULL DEFAULT '{}'::jsonb,synced_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),UNIQUE(source,kind,external_id))`);
 
-    const force=cronAuthorized&&new URL(request.url).searchParams.get('force')==='1';
+    const url=new URL(request.url);
+    const force=cronAuthorized&&url.searchParams.get('force')==='1';
+    const includeCommunications=cronAuthorized&&url.searchParams.get('communications')==='1';
+    const includeTransfers=cronAuthorized&&url.searchParams.get('transfers')==='1';
     const last=await pool.query(`SELECT started_at FROM marketplace_sync_runs ORDER BY id DESC LIMIT 1`);
     const lastAt=last.rows[0]?.started_at?new Date(last.rows[0].started_at).getTime():0;
     if(!force&&lastAt&&Date.now()-lastAt<10*60*1000)return NextResponse.json({ok:true,skipped:true,reason:'recent_sync'},{status:202});
 
     const run=await pool.query(`INSERT INTO marketplace_sync_runs DEFAULT VALUES RETURNING id`);
     const runId=Number(run.rows[0].id);
-    const result:any={ok:true,runId,forced:force,stages:{},productHub:{imports:{},site:null,facts:null,prune:null,transfer:null}};
+    const result:any={ok:true,runId,forced:force,communications:includeCommunications,transfers:includeTransfers,stages:{},productHub:{imports:{},site:null,facts:null,prune:null,transfer:null}};
 
     const warehouses:any=await safeStage('WAREHOUSE_SETTINGS',15000,()=>getWarehouseSettings());
     result.stages.warehouses=warehouses;
     if(!warehouses?.error&&warehouses.ozonWarehouseId)process.env.OZON_WAREHOUSE_ID=warehouses.ozonWarehouseId;
 
     const [wb,ozon]=await Promise.all([
-      process.env.WB_API_TOKEN?.trim()?syncMarketplaceBundle('wildberries'):Promise.resolve({skipped:'not_configured'}),
-      process.env.OZON_CLIENT_ID?.trim()&&process.env.OZON_API_KEY?.trim()?syncMarketplaceBundle('ozon'):Promise.resolve({skipped:'not_configured'})
+      process.env.WB_API_TOKEN?.trim()?syncMarketplaceBundle('wildberries',includeCommunications):Promise.resolve({skipped:'not_configured'}),
+      process.env.OZON_CLIENT_ID?.trim()&&process.env.OZON_API_KEY?.trim()?syncMarketplaceBundle('ozon',includeCommunications):Promise.resolve({skipped:'not_configured'})
     ]);
     result.stages.wildberries=wb;
     result.stages.ozon=ozon;
@@ -142,7 +150,9 @@ export async function POST(request:Request){
     }
 
     result.productHub.facts=await safeStage('SITE_CATALOG_FACTS',90000,()=>refreshSiteCatalogFacts());
-    result.productHub.transfer=await safeStage('AUTO_PRODUCT_TRANSFER',20000,()=>runAutoProductTransfers());
+    result.productHub.transfer=includeTransfers
+      ? await safeStage('AUTO_PRODUCT_TRANSFER',120000,()=>runAutoProductTransfers())
+      : {skipped:'scheduled_separately'};
 
     const partialErrors=collectErrors(result);
     if(partialErrors.length){result.partial=true;result.partialErrors=partialErrors}
