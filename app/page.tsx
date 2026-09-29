@@ -4,13 +4,7 @@ import { useRouter } from 'next/navigation';
 import { addToCart, cartCount, CART_EVENT, loadCart } from '../lib/cart-client';
 
 type Product = { id:number; category:string; title:string; price:number; oldPrice?:number|null; rating:number; reviews:number; badge?:string|null; emoji?:string|null; imageUrl?:string|null; sku?:string|null; oem?:string|null; stock:number; description?:string|null; specs?:string|null; isActive:boolean; sortOrder:number };
-const fallbackProducts: Product[] = [
-  {id:1,category:'Автозапчасти',title:'Тормозные диски и колодки Brembo (комплект)',price:12990,rating:4.8,reviews:124,badge:'Хит',emoji:'◉',stock:8,isActive:true,sortOrder:10},
-  {id:2,category:'Электроника',title:'Беспроводные наушники Apple AirPods Pro 2',price:24990,rating:4.9,reviews:312,emoji:'◌',stock:12,isActive:true,sortOrder:20},
-  {id:3,category:'Гаджеты',title:'Смарт-часы Xiaomi Watch S3',price:16990,rating:4.7,reviews:198,emoji:'⌚',stock:7,isActive:true,sortOrder:30},
-  {id:4,category:'3D-печать',title:'PETG пластик для 3D-принтера (1 кг, чёрный)',price:1990,rating:4.8,reviews:76,emoji:'◍',stock:25,isActive:true,sortOrder:40},
-  {id:5,category:'Автозапчасти',title:'Фара передняя LED для Audi A4 B9',price:45990,rating:4.6,reviews:42,badge:'Новинка',emoji:'▰',stock:3,isActive:true,sortOrder:50},
-];
+const fallbackProducts: Product[] = [];
 const rooms = [
   {id:'auto', title:'Автозапчасти', sub:'Для твоего автомобиля', icon:'🚗', cls:'auto'},
   {id:'electronics', title:'Электроника', sub:'Технологии рядом', icon:'⚡', cls:'electronics'},
