@@ -15,26 +15,26 @@ function ozonStock(payload:any){
   return rows.reduce((sum:number,row:any)=>sum+Math.max(0,Math.round(Number(row?.present||0))-Math.round(Number(row?.reserved||0))),0);
 }
 
-function wbBarcodes(payload:any){
+function wbBarcodes(payload:any):string[]{
   const result:string[]=[];
   for(const size of Array.isArray(payload?.raw?.sizes)?payload.raw.sizes:[]){
     for(const sku of Array.isArray(size?.skus)?size.skus:[]){
       if(sku)result.push(String(sku));
     }
   }
-  return [...new Set(result)];
+  return Array.from(new Set<string>(result));
 }
 
-async function wbWarehouseIds(){
+async function wbWarehouseIds():Promise<string[]>{
   const token=process.env.WB_API_TOKEN?.trim();
-  if(!token)return [] as string[];
+  if(!token)return [];
   try{
     const r=await fetch('https://marketplace-api.wildberries.ru/api/v3/warehouses',{headers:{Authorization:token},cache:'no-store',signal:AbortSignal.timeout(15000)});
     if(r.ok){
-      const j=await r.json();
-      const rows=Array.isArray(j)?j:Array.isArray(j?.warehouses)?j.warehouses:[];
-      const ids=rows.map((x:any)=>String(x?.id||x?.warehouseId||'')).filter(Boolean);
-      if(ids.length)return [...new Set(ids)];
+      const j:any=await r.json();
+      const rows:any[]=Array.isArray(j)?j:Array.isArray(j?.warehouses)?j.warehouses:[];
+      const ids:string[]=rows.map((x:any)=>String(x?.id||x?.warehouseId||'')).filter((x:string)=>Boolean(x));
+      if(ids.length)return Array.from(new Set<string>(ids));
     }
   }catch{}
   const settings=await getWarehouseSettings().catch(()=>({wbWarehouseId:null as string|null}));
@@ -46,7 +46,8 @@ async function wbStocks(products:any[]){
   const warehouses=await wbWarehouseIds();
   const totals=new Map<string,number>();
   if(!token||!warehouses.length)return {totals,warehouses};
-  const barcodes=[...new Set(products.flatMap((p:any)=>wbBarcodes(p.marketplace_payload)))];
+  const all:string[]=products.flatMap((p:any)=>wbBarcodes(p.marketplace_payload));
+  const barcodes:string[]=Array.from(new Set<string>(all));
   for(const warehouseId of warehouses){
     for(let i=0;i<barcodes.length;i+=1000){
       const part=barcodes.slice(i,i+1000);
@@ -56,7 +57,7 @@ async function wbStocks(products:any[]){
           method:'POST',headers:{Authorization:token,'Content-Type':'application/json'},body:JSON.stringify({skus:part}),cache:'no-store',signal:AbortSignal.timeout(20000)
         });
         if(!r.ok)continue;
-        const j=await r.json();
+        const j:any=await r.json();
         for(const row of Array.isArray(j?.stocks)?j.stocks:[]){
           const sku=String(row?.sku||'');
           if(!sku)continue;
@@ -84,7 +85,7 @@ export async function refreshSiteCatalogFacts(){
       price=positive(payload?.price,payload?.raw?.info?.price,payload?.raw?.info?.marketing_price);
     }else if(p.marketplace_source==='wb'){
       const codes=wbBarcodes(payload);
-      if(warehouses.length)stock=codes.reduce((sum,sku)=>sum+(wbMap.get(sku)||0),0);
+      if(warehouses.length)stock=codes.reduce((sum:number,sku:string)=>sum+(wbMap.get(sku)||0),0);
       price=positive(payload?.price);
     }
     const nextPrice=price>0?price:Number(p.price)||0;
