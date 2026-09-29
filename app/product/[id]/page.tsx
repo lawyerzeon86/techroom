@@ -120,8 +120,7 @@ export default function ProductPage(){
             <div className={styles.category}>{product.category}</div>
             <h1>{product.title}</h1>
             <div className={styles.meta}>
-              <span>★ {product.rating}</span>
-              <span>{product.reviews} отзывов</span>
+              {product.reviews>0 ? <><span>★ {product.rating}</span><span>{product.reviews} отзывов</span></> : <span>Без отзывов на сайте</span>}
             </div>
 
             <div className={styles.price}>
