@@ -1,5 +1,4 @@
 import { Pool } from 'pg';
-import { seedProducts } from './products';
 
 const globalForDb = globalThis as unknown as { techroomPool?: Pool; schemaReady?: Promise<void> };
 
@@ -27,7 +26,7 @@ export async function ensureSchema() {
           title TEXT NOT NULL,
           price INTEGER NOT NULL DEFAULT 0,
           old_price INTEGER,
-          rating NUMERIC(2,1) NOT NULL DEFAULT 5.0,
+          rating NUMERIC(2,1) NOT NULL DEFAULT 0,
           reviews INTEGER NOT NULL DEFAULT 0,
           badge TEXT,
           emoji TEXT,
@@ -42,10 +41,13 @@ export async function ensureSchema() {
           sort_order INTEGER NOT NULL DEFAULT 0,
           created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
           updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-        );
+        )
       `);
       await pool.query(`ALTER TABLE products ADD COLUMN IF NOT EXISTS image_urls JSONB NOT NULL DEFAULT '[]'::jsonb`);
-      await pool.query(`UPDATE products SET image_urls = jsonb_build_array(image_url) WHERE image_url IS NOT NULL AND image_url <> '' AND jsonb_array_length(image_urls)=0`);
+      await pool.query(`ALTER TABLE products ADD COLUMN IF NOT EXISTS marketplace_source TEXT`);
+      await pool.query(`ALTER TABLE products ADD COLUMN IF NOT EXISTS marketplace_product_id TEXT`);
+      await pool.query(`ALTER TABLE products ADD COLUMN IF NOT EXISTS marketplace_payload JSONB NOT NULL DEFAULT '{}'::jsonb`);
+      await pool.query(`UPDATE products SET image_urls=jsonb_build_array(image_url) WHERE image_url IS NOT NULL AND image_url<>'' AND jsonb_array_length(image_urls)=0`);
 
       await pool.query(`
         CREATE TABLE IF NOT EXISTS orders (
@@ -62,7 +64,7 @@ export async function ensureSchema() {
           status TEXT NOT NULL DEFAULT 'new',
           created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
           updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-        );
+        )
       `);
       await pool.query(`
         CREATE TABLE IF NOT EXISTS order_items (
@@ -74,8 +76,9 @@ export async function ensureSchema() {
           price INTEGER NOT NULL,
           quantity INTEGER NOT NULL,
           line_total INTEGER NOT NULL
-        );
+        )
       `);
+
       await pool.query(`ALTER TABLE orders ADD COLUMN IF NOT EXISTS telegram_user_id BIGINT`);
       await pool.query(`ALTER TABLE orders ADD COLUMN IF NOT EXISTS telegram_username TEXT`);
       await pool.query(`ALTER TABLE orders ADD COLUMN IF NOT EXISTS max_user_id BIGINT`);
@@ -89,11 +92,6 @@ export async function ensureSchema() {
       await pool.query(`ALTER TABLE orders ADD COLUMN IF NOT EXISTS payment_error TEXT`);
       await pool.query(`ALTER TABLE orders ADD COLUMN IF NOT EXISTS paid_at TIMESTAMPTZ`);
       await pool.query(`ALTER TABLE orders ADD COLUMN IF NOT EXISTS payment_updated_at TIMESTAMPTZ`);
-      await pool.query(`CREATE INDEX IF NOT EXISTS idx_orders_telegram_user ON orders(telegram_user_id, created_at DESC)`);
-      await pool.query(`CREATE INDEX IF NOT EXISTS idx_orders_max_user ON orders(max_user_id, created_at DESC)`);
-      await pool.query(`CREATE INDEX IF NOT EXISTS idx_orders_whatsapp_phone ON orders(whatsapp_phone, created_at DESC)`);
-      await pool.query(`CREATE UNIQUE INDEX IF NOT EXISTS idx_orders_payment_id ON orders(payment_id) WHERE payment_id IS NOT NULL`);
-      await pool.query(`CREATE UNIQUE INDEX IF NOT EXISTS idx_orders_payment_token ON orders(payment_token) WHERE payment_token IS NOT NULL`);
 
       await pool.query(`
         CREATE TABLE IF NOT EXISTS marketplace_orders (
@@ -111,54 +109,19 @@ export async function ensureSchema() {
           synced_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
           updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
           UNIQUE(source, external_id)
-        );
+        )
       `);
 
       await pool.query(`CREATE INDEX IF NOT EXISTS idx_orders_created_at ON orders(created_at DESC)`);
       await pool.query(`CREATE INDEX IF NOT EXISTS idx_order_items_order_id ON order_items(order_id)`);
       await pool.query(`CREATE INDEX IF NOT EXISTS idx_marketplace_orders_source ON marketplace_orders(source, synced_at DESC)`);
       await pool.query(`CREATE INDEX IF NOT EXISTS idx_marketplace_orders_created ON marketplace_orders(external_created_at DESC)`);
-
-      const count = await pool.query('SELECT COUNT(*)::int AS count FROM products');
-      if (count.rows[0].count === 0) {
-        for (const p of seedProducts) {
-          await pool.query(
-            `INSERT INTO products (category,title,price,old_price,rating,reviews,badge,emoji,image_url,image_urls,sku,oem,stock,description,specs,is_active,sort_order)
-             VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10::jsonb,$11,$12,$13,$14,$15,$16,$17)`,
-            [p.category,p.title,p.price,p.oldPrice,p.rating,p.reviews,p.badge,p.emoji,p.imageUrl,JSON.stringify(p.imageUrls || []),p.sku,p.oem,p.stock,p.description,p.specs,p.isActive,p.sortOrder]
-          );
-        }
-      }
-      const requiredSku = 'dskgothtoy1';
-      const requiredProduct = seedProducts.find(p => p.sku === requiredSku);
-      if (requiredProduct) {
-        const existing = await pool.query('SELECT id FROM products WHERE sku = $1 LIMIT 1', [requiredSku]);
-        if (existing.rowCount === 0) {
-          const p = requiredProduct;
-          await pool.query(
-            `INSERT INTO products (category,title,price,old_price,rating,reviews,badge,emoji,image_url,image_urls,sku,oem,stock,description,specs,is_active,sort_order)
-             VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10::jsonb,$11,$12,$13,$14,$15,$16,$17)`,
-            [p.category,p.title,p.price,p.oldPrice,p.rating,p.reviews,p.badge,p.emoji,p.imageUrl,JSON.stringify(p.imageUrls || []),p.sku,p.oem,p.stock,p.description,p.specs,p.isActive,p.sortOrder]
-          );
-        }
-      }
-
-      const requiredRingSku = 'dskgothring1';
-      const requiredRingProduct = seedProducts.find(p => p.sku === requiredRingSku);
-      if (requiredRingProduct) {
-        const existingRing = await pool.query('SELECT id FROM products WHERE sku = $1 LIMIT 1', [requiredRingSku]);
-        if (existingRing.rowCount === 0) {
-          const p = requiredRingProduct;
-          await pool.query(
-            `INSERT INTO products (category,title,price,old_price,rating,reviews,badge,emoji,image_url,image_urls,sku,oem,stock,description,specs,is_active,sort_order)
-             VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10::jsonb,$11,$12,$13,$14,$15,$16,$17)`,
-            [p.category,p.title,p.price,p.oldPrice,p.rating,p.reviews,p.badge,p.emoji,p.imageUrl,JSON.stringify(p.imageUrls || []),p.sku,p.oem,p.stock,p.description,p.specs,p.isActive,p.sortOrder]
-          );
-        }
-      }
-
-      await pool.query("UPDATE products SET stock = 5, updated_at = NOW() WHERE sku = 'dskgothring1'");
-
+      await pool.query(`CREATE INDEX IF NOT EXISTS idx_orders_telegram_user ON orders(telegram_user_id, created_at DESC)`);
+      await pool.query(`CREATE INDEX IF NOT EXISTS idx_orders_max_user ON orders(max_user_id, created_at DESC)`);
+      await pool.query(`CREATE INDEX IF NOT EXISTS idx_orders_whatsapp_phone ON orders(whatsapp_phone, created_at DESC)`);
+      await pool.query(`CREATE UNIQUE INDEX IF NOT EXISTS idx_orders_payment_id ON orders(payment_id) WHERE payment_id IS NOT NULL`);
+      await pool.query(`CREATE UNIQUE INDEX IF NOT EXISTS idx_orders_payment_token ON orders(payment_token) WHERE payment_token IS NOT NULL`);
+      await pool.query(`CREATE INDEX IF NOT EXISTS idx_products_marketplace_source ON products(marketplace_source)`);
     })().catch(err => { globalForDb.schemaReady = undefined; throw err; });
   }
   await globalForDb.schemaReady;
