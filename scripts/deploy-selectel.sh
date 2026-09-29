@@ -7,6 +7,7 @@ BRANCH=main
 ENV_FILE="$APP_DIR/.env.production"
 ROOT_DB_ENV=/root/duisun-db.env
 ROOT_ADMIN_ENV=/root/duisun-admin.env
+ROOT_INTEGRATIONS_ENV=/root/duisun-integrations.env
 
 if [ "$(id -u)" -ne 0 ]; then
   echo "Run as root"
@@ -15,11 +16,18 @@ fi
 
 mkdir -p "$APP_DIR"
 
+# Preserve any existing integration credentials before resetting the worktree.
+if [ -f "$ENV_FILE" ] && [ ! -f "$ROOT_INTEGRATIONS_ENV" ]; then
+  grep -E '^(WB_API_TOKEN|WB_WAREHOUSE_ID|OZON_CLIENT_ID|OZON_API_KEY|OZON_WAREHOUSE_ID|OZON_DESCRIPTION_ATTRIBUTE_ID|AVITO_ACCESS_TOKEN|AVITO_USER_ID|YANDEX_MARKET_API_KEY|YANDEX_MARKET_BUSINESS_ID|VK_ACCESS_TOKEN|VK_GROUP_ID|TELEGRAM_BOT_TOKEN|TELEGRAM_CHAT_ID|MAX_BOT_TOKEN|WHATSAPP_ACCESS_TOKEN|WHATSAPP_PHONE_NUMBER_ID|YOOKASSA_SHOP_ID|YOOKASSA_SECRET_KEY|OPENAI_API_KEY|OPENAI_MODEL)=' "$ENV_FILE" > "$ROOT_INTEGRATIONS_ENV" || true
+  chmod 600 "$ROOT_INTEGRATIONS_ENV"
+fi
+
 if [ ! -d "$APP_DIR/.git" ]; then
   rm -rf "$APP_DIR"/* "$APP_DIR"/.[!.]* "$APP_DIR"/..?* 2>/dev/null || true
   git clone --branch "$BRANCH" --single-branch "$REPO_URL" "$APP_DIR"
 else
   cd "$APP_DIR"
+  git config --global --add safe.directory "$APP_DIR" >/dev/null 2>&1 || true
   git fetch origin "$BRANCH"
   git reset --hard "origin/$BRANCH"
 fi
@@ -66,10 +74,16 @@ WHATSAPP_STORE_URL=https://duisun.ru/
 YOOKASSA_RETURN_URL=https://duisun.ru/payment/return
 GITHUB_SYNC_REPOSITORY=lawyerzeon86/techroom
 ENABLE_STARTUP_MARKETPLACE_TASKS=0
-SYNC_MARKETPLACE_STOCKS=1
-SYNC_MARKETPLACE_PRICES=1
-SYNC_OZON_PRICES=1
+SYNC_MARKETPLACE_STOCKS=0
+SYNC_MARKETPLACE_PRICES=0
+SYNC_WB_PRICES=0
+SYNC_OZON_PRICES=0
+SYNC_YANDEX_PRICES=0
 EOF
+
+if [ -s "$ROOT_INTEGRATIONS_ENV" ]; then
+  cat "$ROOT_INTEGRATIONS_ENV" >> "$ENV_FILE"
+fi
 chmod 600 "$ENV_FILE"
 
 npm ci
@@ -80,6 +94,50 @@ pm2 delete duisun >/dev/null 2>&1 || true
 pm2 start ecosystem.config.cjs
 pm2 save
 pm2 startup systemd -u root --hp /root >/tmp/duisun-pm2-startup.txt 2>&1 || true
+
+cat >/usr/local/bin/duisun-marketplace-sync <<'SYNC'
+#!/usr/bin/env bash
+set -euo pipefail
+cd /var/www/duisun
+set -a
+# shellcheck disable=SC1091
+source .env.production
+set +a
+curl -fsS --max-time 240 -X POST \
+  -H "x-cron-secret: ${CRON_SYNC_SECRET}" \
+  http://127.0.0.1:3000/api/internal/marketplace-sync \
+  > /var/log/duisun-marketplace-sync-last.json
+SYNC
+chmod 700 /usr/local/bin/duisun-marketplace-sync
+
+cat >/etc/systemd/system/duisun-marketplace-sync.service <<'UNIT'
+[Unit]
+Description=Duisun marketplace synchronization
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/bin/duisun-marketplace-sync
+User=root
+UNIT
+
+cat >/etc/systemd/system/duisun-marketplace-sync.timer <<'UNIT'
+[Unit]
+Description=Run Duisun marketplace synchronization every 15 minutes
+
+[Timer]
+OnBootSec=5min
+OnUnitActiveSec=15min
+RandomizedDelaySec=60
+Persistent=true
+
+[Install]
+WantedBy=timers.target
+UNIT
+
+systemctl daemon-reload
+systemctl enable --now duisun-marketplace-sync.timer
 
 cat >/etc/nginx/sites-available/duisun <<'NGINX'
 server {
@@ -119,6 +177,9 @@ sleep 3
 echo "=== PM2 ==="
 pm2 status
 
+echo "=== SYNC TIMER ==="
+systemctl status duisun-marketplace-sync.timer --no-pager || true
+
 echo "=== LOCAL HTTP ==="
 curl -I --max-time 15 http://127.0.0.1:3000/ || true
 
@@ -139,4 +200,5 @@ echo
 echo "DUISUN DEPLOYED"
 echo "Admin credentials are stored only in $ROOT_ADMIN_ENV"
 echo "Database credentials are stored only in $ROOT_DB_ENV"
-echo "Marketplace/payment/messenger secrets are intentionally not written to GitHub."
+echo "Integration credentials are stored only in $ROOT_INTEGRATIONS_ENV when configured."
+echo "Marketplace catalog pull runs every 15 minutes; marketplace price/stock pushes are disabled by default."
