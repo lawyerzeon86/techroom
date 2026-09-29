@@ -7,9 +7,9 @@ type Product = { id:number; category:string; title:string; price:number; oldPric
 const fallbackProducts: Product[] = [];
 const rooms = [
   {id:'auto', title:'Автозапчасти', sub:'Для твоего автомобиля', icon:'🚗', cls:'auto'},
-  {id:'electronics', title:'Электроника', sub:'Технологии рядом', icon:'⚡', cls:'electronics'},
-  {id:'gadgets', title:'Гаджеты', sub:'Удобство в деталях', icon:'🎧', cls:'gadgets'},
-  {id:'print', title:'3D-печать', sub:'Печатай свои идеи', icon:'🧊', cls:'print'},
+  {id:'electronics', title:'Электроника', sub:'Техника и аксессуары', icon:'⚡', cls:'electronics'},
+  {id:'gadgets', title:'Гаджеты', sub:'Полезные устройства', icon:'🎧', cls:'gadgets'},
+  {id:'print', title:'3D-печать', sub:'Товары собственного производства', icon:'🧊', cls:'print'},
 ];
 
 const money=(n:number)=>new Intl.NumberFormat('ru-RU').format(n)+' ₽';
@@ -40,26 +40,24 @@ export default function Home(){
     <div className="search"><input value={q} onChange={e=>setQ(e.target.value)} placeholder="Поиск товаров, брендов, категорий..."/><Icon name="search"/></div>
     <div className="actions"><button><Icon name="heart"/> Избранное</button><button onClick={()=>router.push('/cart')}><Icon name="cart"/> Корзина <i>{cartItems}</i></button><button><Icon name="user"/> Войти / Регистрация</button></div>
    </div>
-   <nav className="nav wrap"><a className="active" onClick={()=>scroll('home')}>Главная</a><a onClick={()=>setActive('Автозапчасти')}>Автозапчасти</a><a onClick={()=>setActive('Электроника')}>Электроника</a><a onClick={()=>setActive('Гаджеты')}>Гаджеты</a><a onClick={()=>setActive('3D-печать')}>3D-печать</a><a onClick={()=>scroll('offers')}>Акции</a><a>О магазине</a><a>Доставка и оплата</a><a>Контакты</a></nav>
+   <nav className="nav wrap"><a className="active" onClick={()=>scroll('home')}>Главная</a><a onClick={()=>setActive('Автозапчасти')}>Автозапчасти</a><a onClick={()=>setActive('Электроника')}>Электроника</a><a onClick={()=>setActive('Гаджеты')}>Гаджеты</a><a onClick={()=>setActive('3D-печать')}>3D-печать</a><a>О магазине</a><a>Доставка и оплата</a><a>Контакты</a></nav>
   </header>
 
   <section id="home" className="hero wrap">
-   <div className="hero-title"><h1>Добро пожаловать в <span>Duisun!</span></h1><p>Выбери свою комнату и найди то, что нужно</p></div>
+   <div className="hero-title"><h1>Добро пожаловать в <span>Duisun!</span></h1><p>Каталог товаров из подключённых маркетплейсов</p></div>
    <div className="rooms">{rooms.map(r=><div key={r.id} className={'room '+r.cls} onClick={()=>{setActive(r.title);scroll('products')}}><div className="room-icon">{r.icon}</div><div className="room-title">{r.title}</div><div className="room-sub">{r.sub}</div><button>Перейти →</button></div>)}</div>
   </section>
 
-  <section className="benefits"><div className="wrap benefit-grid">{[['truck','Быстрая доставка','по всей России'],['shield','Гарантия качества','на все товары'],['star','Оплата по QR','и все способы оплаты'],['heart','Поддержка 24/7','ответим на любые вопросы'],['star','Бонусы и скидки','для постоянных клиентов']].map((b,i)=><div className="benefit" key={i}><Icon name={b[0]}/><div><b>{b[1]}</b><small>{b[2]}</small></div></div>)}</div></section>
+  <section className="benefits"><div className="wrap benefit-grid">{[['shield','Реальные карточки','без демонстрационных товаров'],['truck','Ozon и Wildberries','единый каталог'],['star','Фото и описания','из карточек маркетплейсов'],['heart','Автосинхронизация','обновление по расписанию']].map((b,i)=><div className="benefit" key={i}><Icon name={b[0]}/><div><b>{b[1]}</b><small>{b[2]}</small></div></div>)}</div></section>
 
-  <section id="products" className="section wrap"><div className="section-head"><div><h2>Популярные товары</h2><p>Хиты продаж, которые выбирают наши клиенты</p></div><button className="link" onClick={()=>setActive('all')}>Смотреть все →</button></div>
+  <section id="products" className="section wrap"><div className="section-head"><div><h2>Каталог</h2><p>Товары, синхронизированные с Ozon и Wildberries</p></div><button className="link" onClick={()=>setActive('all')}>Смотреть все →</button></div>
    <div className="filters"><button className={active==='all'?'sel':''} onClick={()=>setActive('all')}>Все</button>{rooms.map(r=><button key={r.id} className={active===r.title?'sel':''} onClick={()=>setActive(r.title)}>{r.title}</button>)}</div>
-   <div className="products">{filtered.map(p=><article className="product" key={p.id} role="link" tabIndex={0} onClick={()=>router.push(`/product/${p.id}`)} onKeyDown={e=>{if(e.key==='Enter')router.push(`/product/${p.id}`)}}><div className="pic">{p.badge&&<span className="badge">{p.badge}</span>}<button className="fav" onClick={e=>e.stopPropagation()}><Icon name="heart"/></button>{p.imageUrl?<img className="product-image" src={p.imageUrl} alt={p.title}/>:<div className="product-art">{p.emoji||'📦'}</div>}</div><small>{p.category}</small><h3>{p.title}</h3><div className="rating"><span>★ {p.rating}</span> ({p.reviews}) <em>{p.stock>0?'● В наличии':'○ Нет в наличии'}</em></div><div className="price-row"><strong>{money(p.price)}</strong>{p.oldPrice&&p.oldPrice>p.price?<del>{money(p.oldPrice)}</del>:null}</div><button className="buy" disabled={p.stock<=0} onClick={e=>{e.stopPropagation();add(p.id)}}><Icon name="cart"/> {p.stock>0?'В корзину':'Нет в наличии'}</button></article>)}</div>
-   {!filtered.length&&<div className="empty">Ничего не нашли. Попробуйте изменить запрос или категорию.</div>}
+   <div className="products">{filtered.map(p=><article className="product" key={p.id} role="link" tabIndex={0} onClick={()=>router.push(`/product/${p.id}`)} onKeyDown={e=>{if(e.key==='Enter')router.push(`/product/${p.id}`)}}><div className="pic">{p.badge&&<span className="badge">{p.badge}</span>}<button className="fav" onClick={e=>e.stopPropagation()}><Icon name="heart"/></button>{p.imageUrl?<img className="product-image" src={p.imageUrl} alt={p.title}/>:<div className="product-art">{p.emoji||'📦'}</div>}</div><small>{p.category}</small><h3>{p.title}</h3><div className="rating">{p.reviews>0?<><span>★ {p.rating}</span> ({p.reviews}) </>:<span>Без отзывов на сайте </span>}<em>{p.stock>0?'● В наличии':'○ Нет в наличии'}</em></div><div className="price-row"><strong>{money(p.price)}</strong>{p.oldPrice&&p.oldPrice>p.price?<del>{money(p.oldPrice)}</del>:null}</div><button className="buy" disabled={p.stock<=0} onClick={e=>{e.stopPropagation();add(p.id)}}><Icon name="cart"/> {p.stock>0?'В корзину':'Нет в наличии'}</button></article>)}</div>
+   {!filtered.length&&<div className="empty">Каталог пока пуст или по выбранному фильтру ничего не найдено.</div>}
   </section>
-
-  <section id="offers" className="offers"><div className="wrap"><div className="section-head"><div><h2>Акции и спецпредложения</h2><p>Выгодные предложения в каждой комнате</p></div><button className="link">Все акции →</button></div><div className="offer-grid">{[['Автозапчасти','Скидки до 30%','На популярные запчасти','auto'],['Электроника','Скидки до 20%','На технику и аксессуары','electronics'],['Гаджеты','Лучшие цены на хиты','На популярные гаджеты','gadgets'],['3D-печать','Скидка 15% на пластик','На расходные материалы','print']].map((o,i)=><div className={'offer '+o[3]} key={i}><small>{o[0]}</small><b>{o[1]}</b><span>{o[2]}</span><button>Перейти →</button></div>)}</div></div></section>
 
   <section id="cart" className="cart-band"><div className="wrap cart-row"><div><b>Корзина</b><span>{cartItems?` ${cartItems} товар(ов) добавлено`:' пока пуста'}</span></div><button onClick={()=>router.push('/cart')}>{cartItems?'Перейти к оформлению →':'Открыть корзину →'}</button></div></section>
 
-  <footer><div className="wrap footer-grid"><div className="brand"><div className="logo">⌂</div><div><b>Duisun</b><small>Техника. Запчасти. Идеи.</small></div></div><div><h4>Каталог</h4><a>Автозапчасти</a><a>Электроника</a><a>Гаджеты</a><a>3D-печать</a></div><div><h4>Информация</h4><a>О магазине</a><a>Доставка и оплата</a><a>Гарантия</a><a>Контакты</a></div><div><h4>Мы в соцсетях</h4><div className="social">VK　TG　▶　◎</div></div><div><h4>Будьте в курсе новинок и акций</h4><div className="subscribe"><input placeholder="Ваш email"/><button>Подписаться</button></div></div></div><div className="wrap copyright">© 2026 Duisun. Все права защищены. <span>Политика конфиденциальности　 Пользовательское соглашение</span></div></footer>
+  <footer><div className="wrap footer-grid"><div className="brand"><div className="logo">⌂</div><div><b>Duisun</b><small>Техника. Запчасти. Идеи.</small></div></div><div><h4>Каталог</h4><a>Автозапчасти</a><a>Электроника</a><a>Гаджеты</a><a>3D-печать</a></div><div><h4>Информация</h4><a>О магазине</a><a>Доставка и оплата</a><a>Гарантия</a><a>Контакты</a></div><div><h4>Мы в соцсетях</h4><div className="social">VK　TG　▶　◎</div></div><div><h4>Обновления каталога</h4><p>Карточки товаров загружаются из подключённых маркетплейсов.</p></div></div><div className="wrap copyright">© 2026 Duisun. Все права защищены. <span>Политика конфиденциальности　 Пользовательское соглашение</span></div></footer>
  </main>
 }
