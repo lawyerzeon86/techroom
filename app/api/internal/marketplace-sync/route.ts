@@ -38,8 +38,9 @@ async function saveCommunications(source:MarketplaceName,kind:CommunicationType)
   try{data=await listCommunications(source,kind)}catch(error:any){
     const message=String(error?.message||error);
     if(source!=='wildberries'||!/(429|rate.?limit|too many)/i.test(message))throw error;
-    const seconds=Math.min(20,Math.max(5,Number(message.match(/(?:retry|повтор)[^\d]*(\d+)/i)?.[1]||10)));
-    await new Promise(resolve=>setTimeout(resolve,seconds*1000));
+    const retrySeconds=Math.max(1,Number(message.match(/(?:retry|повтор)[^\d]*(\d+)/i)?.[1]||10));
+    if(retrySeconds>30)throw error;
+    await new Promise(resolve=>setTimeout(resolve,retrySeconds*1000));
     data=await listCommunications(source,kind);
   }
   const pool=getPool();
@@ -98,7 +99,7 @@ export async function POST(request:Request){
 
     const run=await pool.query(`INSERT INTO marketplace_sync_runs DEFAULT VALUES RETURNING id`);
     const runId=Number(run.rows[0].id);
-    const result:any={ok:true,runId,forced:force,stages:{},productHub:{imports:{},site:null,facts:null,transfer:null}};
+    const result:any={ok:true,runId,forced:force,stages:{},productHub:{imports:{},site:null,facts:null,prune:null,transfer:null}};
 
     const warehouses:any=await safeStage('WAREHOUSE_SETTINGS',15000,()=>getWarehouseSettings());
     result.stages.warehouses=warehouses;
@@ -115,10 +116,31 @@ export async function POST(request:Request){
     result.stages.priceGuard=await safeStage('PRICE_GUARD',120000,()=>runPriceGuard());
 
     if(process.env.WB_API_TOKEN?.trim())await new Promise(resolve=>setTimeout(resolve,10000));
-    result.productHub.imports.wb=process.env.WB_API_TOKEN?.trim()?await safeStage('WB_PRODUCT_IMPORT',60000,()=>importMarketplaceProducts('wb',100)):{skipped:'not_configured'};
-    result.productHub.imports.ozon=process.env.OZON_CLIENT_ID?.trim()&&process.env.OZON_API_KEY?.trim()?await safeStage('OZON_PRODUCT_IMPORT',60000,()=>importMarketplaceProducts('ozon',100)):{skipped:'not_configured'};
+    const importStartedAt=new Date();
+    const wbImport:any=process.env.WB_API_TOKEN?.trim()?await safeStage('WB_PRODUCT_IMPORT',60000,()=>importMarketplaceProducts('wb',100)):{skipped:'not_configured'};
+    const ozonImport:any=process.env.OZON_CLIENT_ID?.trim()&&process.env.OZON_API_KEY?.trim()?await safeStage('OZON_PRODUCT_IMPORT',60000,()=>importMarketplaceProducts('ozon',100)):{skipped:'not_configured'};
+    result.productHub.imports.wb=wbImport;
+    result.productHub.imports.ozon=ozonImport;
 
     result.productHub.site=await safeStage('SITE_CATALOG_SYNC',30000,()=>syncHubCatalogToSite());
+
+    const bothImportsSucceeded=Number.isFinite(Number(wbImport?.imported))&&Number.isFinite(Number(ozonImport?.imported))&&!wbImport?.error&&!ozonImport?.error;
+    if(bothImportsSucceeded){
+      const fresh=await pool.query(`UPDATE products p SET is_active=TRUE,updated_at=NOW()
+        WHERE p.marketplace_source IN ('wb','ozon') AND EXISTS(
+          SELECT 1 FROM marketplace_product_hub h JOIN marketplace_product_links l ON l.hub_id=h.id
+          WHERE h.canonical_sku=p.sku AND l.marketplace IN ('wb','ozon') AND l.last_status='source' AND l.last_synced_at >= $1
+        )`,[importStartedAt]);
+      const stale=await pool.query(`UPDATE products p SET is_active=FALSE,updated_at=NOW()
+        WHERE p.marketplace_source IN ('wb','ozon') AND NOT EXISTS(
+          SELECT 1 FROM marketplace_product_hub h JOIN marketplace_product_links l ON l.hub_id=h.id
+          WHERE h.canonical_sku=p.sku AND l.marketplace IN ('wb','ozon') AND l.last_status='source' AND l.last_synced_at >= $1
+        )`,[importStartedAt]);
+      result.productHub.prune={fresh:Number(fresh.rowCount||0),deactivated:Number(stale.rowCount||0)};
+    }else{
+      result.productHub.prune={skipped:'imports_incomplete'};
+    }
+
     result.productHub.facts=await safeStage('SITE_CATALOG_FACTS',90000,()=>refreshSiteCatalogFacts());
     result.productHub.transfer=await safeStage('AUTO_PRODUCT_TRANSFER',20000,()=>runAutoProductTransfers());
 
