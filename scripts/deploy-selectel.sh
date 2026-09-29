@@ -9,14 +9,9 @@ ROOT_DB_ENV=/root/duisun-db.env
 ROOT_ADMIN_ENV=/root/duisun-admin.env
 ROOT_INTEGRATIONS_ENV=/root/duisun-integrations.env
 
-if [ "$(id -u)" -ne 0 ]; then
-  echo "Run as root"
-  exit 1
-fi
-
+if [ "$(id -u)" -ne 0 ]; then echo "Run as root"; exit 1; fi
 mkdir -p "$APP_DIR"
 
-# Preserve any existing integration credentials before resetting the worktree.
 if [ -f "$ENV_FILE" ] && [ ! -f "$ROOT_INTEGRATIONS_ENV" ]; then
   grep -E '^(WB_API_TOKEN|WB_WAREHOUSE_ID|OZON_CLIENT_ID|OZON_API_KEY|OZON_WAREHOUSE_ID|OZON_DESCRIPTION_ATTRIBUTE_ID|AVITO_CLIENT_ID|AVITO_CLIENT_SECRET|AVITO_USER_ID|YANDEX_MARKET_API_KEY|YANDEX_MARKET_BUSINESS_ID|VK_ACCESS_TOKEN|VK_GROUP_ID|TELEGRAM_BOT_TOKEN|TELEGRAM_WEBHOOK_SECRET|TELEGRAM_ADMIN_CHAT_ID|MAX_BOT_TOKEN|MAX_WEBHOOK_SECRET|MAX_ADMIN_USER_ID|WHATSAPP_ACCESS_TOKEN|WHATSAPP_PHONE_NUMBER_ID|WHATSAPP_APP_SECRET|WHATSAPP_VERIFY_TOKEN|WHATSAPP_GRAPH_VERSION|YOOKASSA_SHOP_ID|YOOKASSA_SECRET_KEY|OPENAI_API_KEY|OPENAI_MODEL)=' "$ENV_FILE" > "$ROOT_INTEGRATIONS_ENV" || true
   chmod 600 "$ROOT_INTEGRATIONS_ENV"
@@ -31,18 +26,10 @@ else
   git fetch origin "$BRANCH"
   git reset --hard "origin/$BRANCH"
 fi
-
 cd "$APP_DIR"
 
-if [ ! -f "$ROOT_DB_ENV" ]; then
-  echo "Missing $ROOT_DB_ENV"
-  exit 1
-fi
-
-set -a
-# shellcheck disable=SC1090
-source "$ROOT_DB_ENV"
-set +a
+[ -f "$ROOT_DB_ENV" ] || { echo "Missing $ROOT_DB_ENV"; exit 1; }
+set -a; source "$ROOT_DB_ENV"; set +a
 
 if [ ! -f "$ROOT_ADMIN_ENV" ]; then
   ADMIN_PASSWORD="$(openssl rand -base64 30 | tr -d '\n/=+' | head -c 24)"
@@ -55,11 +42,7 @@ CRON_SYNC_SECRET=$CRON_SYNC_SECRET
 EOF
   chmod 600 "$ROOT_ADMIN_ENV"
 fi
-
-set -a
-# shellcheck disable=SC1090
-source "$ROOT_ADMIN_ENV"
-set +a
+set -a; source "$ROOT_ADMIN_ENV"; set +a
 
 cat >"$ENV_FILE" <<EOF
 NODE_ENV=production
@@ -81,73 +64,99 @@ SYNC_OZON_PRICES=0
 SYNC_YANDEX_PRICES=0
 SYNC_AVITO_PRICES=0
 EOF
-
-if [ -s "$ROOT_INTEGRATIONS_ENV" ]; then
-  cat "$ROOT_INTEGRATIONS_ENV" >> "$ENV_FILE"
-fi
+if [ -s "$ROOT_INTEGRATIONS_ENV" ]; then cat "$ROOT_INTEGRATIONS_ENV" >> "$ENV_FILE"; fi
 chmod 600 "$ENV_FILE"
 
 npm ci
 npm run build
-
 pm2 delete techroom >/dev/null 2>&1 || true
 pm2 delete duisun >/dev/null 2>&1 || true
 pm2 start ecosystem.config.cjs
 pm2 save
 pm2 startup systemd -u root --hp /root >/tmp/duisun-pm2-startup.txt 2>&1 || true
 
-cat >/usr/local/bin/duisun-marketplace-sync <<'SYNC'
+cat >/usr/local/bin/duisun-sync-run <<'SYNC'
 #!/usr/bin/env bash
 set -euo pipefail
+MODE=${1:-core}
 cd /var/www/duisun
-set -a
-# shellcheck disable=SC1091
-source .env.production
-set +a
-curl -fsS --max-time 240 -X POST \
-  -H "x-cron-secret: ${CRON_SYNC_SECRET}" \
-  http://127.0.0.1:3000/api/internal/marketplace-sync \
-  > /var/log/duisun-marketplace-sync-last.json
+set -a; source .env.production; set +a
+case "$MODE" in
+  core) URL='http://127.0.0.1:3000/api/internal/marketplace-sync'; OUT=/var/log/duisun-sync-core-last.json; TIMEOUT=240 ;;
+  communications) URL='http://127.0.0.1:3000/api/internal/marketplace-sync?force=1&communications=1'; OUT=/var/log/duisun-sync-communications-last.json; TIMEOUT=240 ;;
+  transfers) URL='http://127.0.0.1:3000/api/internal/marketplace-sync?force=1&transfers=1'; OUT=/var/log/duisun-sync-transfers-last.json; TIMEOUT=300 ;;
+  *) exit 2 ;;
+esac
+CFG=$(mktemp /run/duisun-curl.XXXXXX)
+trap 'rm -f "$CFG"' EXIT
+chmod 600 "$CFG"
+printf 'header = "x-cron-secret: %s"\n' "$CRON_SYNC_SECRET" > "$CFG"
+flock -n /run/duisun-marketplace-sync.lock curl -fsS --max-time "$TIMEOUT" -X POST --config "$CFG" "$URL" > "$OUT" || true
 SYNC
-chmod 700 /usr/local/bin/duisun-marketplace-sync
+chmod 700 /usr/local/bin/duisun-sync-run
 
-cat >/etc/systemd/system/duisun-marketplace-sync.service <<'UNIT'
+for mode in core communications transfers; do
+cat >"/usr/local/bin/duisun-sync-$mode" <<EOF
+#!/usr/bin/env bash
+exec /usr/local/bin/duisun-sync-run $mode
+EOF
+chmod 700 "/usr/local/bin/duisun-sync-$mode"
+cat >"/etc/systemd/system/duisun-sync-$mode.service" <<EOF
 [Unit]
-Description=Duisun marketplace synchronization
+Description=Duisun $mode marketplace sync
 After=network-online.target
 Wants=network-online.target
-
 [Service]
 Type=oneshot
-ExecStart=/usr/local/bin/duisun-marketplace-sync
+ExecStart=/usr/local/bin/duisun-sync-$mode
 User=root
-UNIT
+EOF
+done
 
-cat >/etc/systemd/system/duisun-marketplace-sync.timer <<'UNIT'
+cat >/etc/systemd/system/duisun-sync-core.timer <<'UNIT'
 [Unit]
-Description=Run Duisun marketplace synchronization every 15 minutes
-
+Description=Duisun core marketplace sync every 15 minutes
 [Timer]
-OnBootSec=5min
+OnBootSec=2min
 OnUnitActiveSec=15min
-RandomizedDelaySec=60
+RandomizedDelaySec=45
 Persistent=true
-
+[Install]
+WantedBy=timers.target
+UNIT
+cat >/etc/systemd/system/duisun-sync-communications.timer <<'UNIT'
+[Unit]
+Description=Duisun reviews and questions sync every 2 hours
+[Timer]
+OnBootSec=10min
+OnUnitActiveSec=2h
+RandomizedDelaySec=5min
+Persistent=true
+[Install]
+WantedBy=timers.target
+UNIT
+cat >/etc/systemd/system/duisun-sync-transfers.timer <<'UNIT'
+[Unit]
+Description=Duisun cross-marketplace transfer sync every 6 hours
+[Timer]
+OnBootSec=30min
+OnUnitActiveSec=6h
+RandomizedDelaySec=15min
+Persistent=true
 [Install]
 WantedBy=timers.target
 UNIT
 
+systemctl disable --now duisun-marketplace-sync.timer 2>/dev/null || true
 systemctl daemon-reload
-systemctl enable --now duisun-marketplace-sync.timer
+systemctl enable --now duisun-sync-core.timer duisun-sync-communications.timer duisun-sync-transfers.timer
 
 cat >/etc/nginx/sites-available/duisun <<'NGINX'
 server {
     listen 80;
     listen [::]:80;
     server_name duisun.ru www.duisun.ru;
-
     client_max_body_size 50M;
-
     location / {
         proxy_pass http://127.0.0.1:3000;
         proxy_http_version 1.1;
@@ -159,7 +168,6 @@ server {
         proxy_set_header Connection "upgrade";
         proxy_read_timeout 120s;
     }
-
     location = /health {
         access_log off;
         proxy_pass http://127.0.0.1:3000/api/health;
@@ -167,39 +175,24 @@ server {
     }
 }
 NGINX
-
 ln -sf /etc/nginx/sites-available/duisun /etc/nginx/sites-enabled/duisun
 rm -f /etc/nginx/sites-enabled/default
 nginx -t
 systemctl reload nginx
-
 sleep 3
 
-echo "=== PM2 ==="
 pm2 status
-
-echo "=== SYNC TIMER ==="
-systemctl status duisun-marketplace-sync.timer --no-pager || true
-
-echo "=== LOCAL HTTP ==="
+systemctl list-timers --all --no-pager | grep 'duisun-sync-' || true
 curl -I --max-time 15 http://127.0.0.1:3000/ || true
-
-echo "=== NGINX HTTP ==="
 curl -I --max-time 15 -H 'Host: duisun.ru' http://127.0.0.1/ || true
-
-echo "=== DNS ==="
 DNS_IP="$(getent ahostsv4 duisun.ru 2>/dev/null | awk 'NR==1{print $1}')"
 echo "duisun.ru -> ${DNS_IP:-not-resolved}"
-
 if [ "${DNS_IP:-}" = "135.106.196.81" ]; then
   certbot --nginx -d duisun.ru -d www.duisun.ru --non-interactive --agree-tos --register-unsafely-without-email --redirect || true
 else
   echo "SSL skipped: point duisun.ru A record to 135.106.196.81 first."
 fi
 
-echo
 echo "DUISUN DEPLOYED"
-echo "Admin credentials are stored only in $ROOT_ADMIN_ENV"
-echo "Database credentials are stored only in $ROOT_DB_ENV"
-echo "Integration credentials are stored only in $ROOT_INTEGRATIONS_ENV when configured."
-echo "Marketplace catalog pull runs every 15 minutes; all outbound price/stock pushes are disabled by default."
+echo "Marketplace core pull: 15m; communications: 2h; cross-marketplace transfer: 6h."
+echo "Only Ozon/WB marketplace products are eligible for the storefront; no demo product seeding."
