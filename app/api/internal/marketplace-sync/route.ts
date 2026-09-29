@@ -6,6 +6,7 @@ import { pushPricesAndStocks } from '../../../../lib/auto-sync';
 import { syncMarketplace, type MarketplaceName } from '../../../../lib/marketplaces';
 import { listCommunications, type CommunicationType } from '../../../../lib/communications';
 import { importMarketplaceProducts, runAutoProductTransfers, syncHubCatalogToSite } from '../../../../lib/product-hub';
+import { refreshSiteCatalogFacts } from '../../../../lib/site-catalog-refresh';
 import { runPriceGuard } from '../../../../lib/price-guard';
 import { verifyGitHubActionsToken } from '../../../../lib/github-oidc';
 
@@ -23,18 +24,13 @@ async function withTimeout<T>(label:string,timeoutMs:number,fn:()=>Promise<T>):P
   try{
     return await Promise.race([
       fn(),
-      new Promise<T>((_,reject)=>{
-        timer=setTimeout(()=>reject(new Error(`${label}_TIMEOUT_${timeoutMs}MS`)),timeoutMs);
-      })
+      new Promise<T>((_,reject)=>{timer=setTimeout(()=>reject(new Error(`${label}_TIMEOUT_${timeoutMs}MS`)),timeoutMs);})
     ]);
-  }finally{
-    if(timer)clearTimeout(timer);
-  }
+  }finally{if(timer)clearTimeout(timer)}
 }
 
 async function safeStage<T>(label:string,timeoutMs:number,fn:()=>Promise<T>):Promise<T|{error:string}>{
-  try{return await withTimeout(label,timeoutMs,fn)}
-  catch(e:any){return {error:String(e?.message||e)}}
+  try{return await withTimeout(label,timeoutMs,fn)}catch(e:any){return {error:String(e?.message||e)}}
 }
 
 async function saveCommunications(source:MarketplaceName,kind:CommunicationType){
@@ -48,21 +44,12 @@ async function saveCommunications(source:MarketplaceName,kind:CommunicationType)
   }
   const pool=getPool();
   for(const item of data.items||[]){
-    await pool.query(`
-      INSERT INTO marketplace_communications
-        (source,kind,external_id,product_name,sku,article,rating,text,answer,external_created_at,raw_payload,synced_at)
+    await pool.query(`INSERT INTO marketplace_communications
+      (source,kind,external_id,product_name,sku,article,rating,text,answer,external_created_at,raw_payload,synced_at)
       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11::jsonb,NOW())
-      ON CONFLICT(source,kind,external_id) DO UPDATE SET
-        product_name=EXCLUDED.product_name,
-        sku=EXCLUDED.sku,
-        article=EXCLUDED.article,
-        rating=EXCLUDED.rating,
-        text=EXCLUDED.text,
-        answer=EXCLUDED.answer,
-        external_created_at=EXCLUDED.external_created_at,
-        raw_payload=EXCLUDED.raw_payload,
-        synced_at=NOW()
-    `,[source,kind,String(item.id),item.productName||null,item.sku||null,item.article||null,item.rating==null?null:Number(item.rating),item.text||null,typeof item.answer==='string'?item.answer:(item.answer?JSON.stringify(item.answer):null),item.createdAt||null,JSON.stringify(item.raw||{})]);
+      ON CONFLICT(source,kind,external_id) DO UPDATE SET product_name=EXCLUDED.product_name,sku=EXCLUDED.sku,article=EXCLUDED.article,
+      rating=EXCLUDED.rating,text=EXCLUDED.text,answer=EXCLUDED.answer,external_created_at=EXCLUDED.external_created_at,
+      raw_payload=EXCLUDED.raw_payload,synced_at=NOW()`,[source,kind,String(item.id),item.productName||null,item.sku||null,item.article||null,item.rating==null?null:Number(item.rating),item.text||null,typeof item.answer==='string'?item.answer:(item.answer?JSON.stringify(item.answer):null),item.createdAt||null,JSON.stringify(item.raw||{})]);
   }
   return Number(data.total||data.items?.length||0);
 }
@@ -96,10 +83,7 @@ export async function POST(request:Request){
   const bearer=request.headers.get('authorization')?.match(/^Bearer\s+(.+)$/i)?.[1]||'';
   const cronAuthorized=Boolean(configured&&provided&&safeEqual(configured,provided));
   const githubAuthorized=bearer?await verifyGitHubActionsToken(bearer).catch(()=>false):false;
-  const authorized=cronAuthorized||githubAuthorized;
-  if(!authorized){
-    return NextResponse.json({error:'Unauthorized'},{status:401});
-  }
+  if(!cronAuthorized&&!githubAuthorized)return NextResponse.json({error:'Unauthorized'},{status:401});
 
   try{
     await ensureSchema();
@@ -110,19 +94,15 @@ export async function POST(request:Request){
     const force=cronAuthorized&&new URL(request.url).searchParams.get('force')==='1';
     const last=await pool.query(`SELECT started_at FROM marketplace_sync_runs ORDER BY id DESC LIMIT 1`);
     const lastAt=last.rows[0]?.started_at?new Date(last.rows[0].started_at).getTime():0;
-    if(!force&&lastAt && Date.now()-lastAt<10*60*1000){
-      return NextResponse.json({ok:true,skipped:true,reason:'recent_sync'},{status:202});
-    }
+    if(!force&&lastAt&&Date.now()-lastAt<10*60*1000)return NextResponse.json({ok:true,skipped:true,reason:'recent_sync'},{status:202});
 
     const run=await pool.query(`INSERT INTO marketplace_sync_runs DEFAULT VALUES RETURNING id`);
     const runId=Number(run.rows[0].id);
-    const result:any={ok:true,runId,forced:force,stages:{},productHub:{imports:{},site:null,transfer:null}};
+    const result:any={ok:true,runId,forced:force,stages:{},productHub:{imports:{},site:null,facts:null,transfer:null}};
 
     const warehouses:any=await safeStage('WAREHOUSE_SETTINGS',15000,()=>getWarehouseSettings());
     result.stages.warehouses=warehouses;
-    if(!warehouses?.error){
-      if(warehouses.ozonWarehouseId)process.env.OZON_WAREHOUSE_ID=warehouses.ozonWarehouseId;
-    }
+    if(!warehouses?.error&&warehouses.ozonWarehouseId)process.env.OZON_WAREHOUSE_ID=warehouses.ozonWarehouseId;
 
     const [wb,ozon]=await Promise.all([
       process.env.WB_API_TOKEN?.trim()?syncMarketplaceBundle('wildberries'):Promise.resolve({skipped:'not_configured'}),
@@ -135,20 +115,15 @@ export async function POST(request:Request){
     result.stages.priceGuard=await safeStage('PRICE_GUARD',120000,()=>runPriceGuard());
 
     if(process.env.WB_API_TOKEN?.trim())await new Promise(resolve=>setTimeout(resolve,10000));
-    const wbImport=process.env.WB_API_TOKEN?.trim()?await safeStage('WB_PRODUCT_IMPORT',60000,()=>importMarketplaceProducts('wb',100)):{skipped:'not_configured'};
-    const ozonImport=process.env.OZON_CLIENT_ID?.trim()&&process.env.OZON_API_KEY?.trim()?await safeStage('OZON_PRODUCT_IMPORT',60000,()=>importMarketplaceProducts('ozon',100)):{skipped:'not_configured'};
-    result.productHub.imports.wb=wbImport;
-    result.productHub.imports.ozon=ozonImport;
+    result.productHub.imports.wb=process.env.WB_API_TOKEN?.trim()?await safeStage('WB_PRODUCT_IMPORT',60000,()=>importMarketplaceProducts('wb',100)):{skipped:'not_configured'};
+    result.productHub.imports.ozon=process.env.OZON_CLIENT_ID?.trim()&&process.env.OZON_API_KEY?.trim()?await safeStage('OZON_PRODUCT_IMPORT',60000,()=>importMarketplaceProducts('ozon',100)):{skipped:'not_configured'};
 
     result.productHub.site=await safeStage('SITE_CATALOG_SYNC',30000,()=>syncHubCatalogToSite());
+    result.productHub.facts=await safeStage('SITE_CATALOG_FACTS',90000,()=>refreshSiteCatalogFacts());
     result.productHub.transfer=await safeStage('AUTO_PRODUCT_TRANSFER',20000,()=>runAutoProductTransfers());
 
     const partialErrors=collectErrors(result);
-    if(partialErrors.length){
-      result.partial=true;
-      result.partialErrors=partialErrors;
-    }
-
+    if(partialErrors.length){result.partial=true;result.partialErrors=partialErrors}
     await pool.query(`UPDATE marketplace_sync_runs SET finished_at=NOW(),ok=TRUE,result=$2::jsonb WHERE id=$1`,[runId,JSON.stringify(result)]);
     return NextResponse.json(result,{headers:{'Cache-Control':'no-store'}});
   }catch(error:any){
