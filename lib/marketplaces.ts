@@ -67,7 +67,7 @@ async function upsertMarketplaceOrder(input:{
 }){
   await ensureSchema();
   const pool=getPool();
-  const result=await pool.query(`
+  await pool.query(`
     INSERT INTO marketplace_orders
       (source,external_id,order_number,status,total_amount,customer_name,phone,items,raw_payload,external_created_at,synced_at,updated_at)
     VALUES ($1,$2,$3,$4,$5,$6,$7,$8::jsonb,$9::jsonb,$10,NOW(),NOW())
@@ -81,9 +81,7 @@ async function upsertMarketplaceOrder(input:{
       raw_payload=EXCLUDED.raw_payload,
       external_created_at=COALESCE(EXCLUDED.external_created_at,marketplace_orders.external_created_at),
       synced_at=NOW(),updated_at=NOW()
-    RETURNING (xmax = 0) AS inserted
   `,[input.source,input.externalId,input.orderNumber||null,input.status,input.totalAmount,input.customerName||null,input.phone||null,JSON.stringify(input.items),JSON.stringify(input.raw),input.createdAt||null]);
-  return Boolean(result.rows[0]?.inserted);
 }
 
 function moneyToRubles(value:any){
@@ -100,14 +98,29 @@ function moneyToRubles(value:any){
 async function notifyWildberriesFbsOrder(order:any,totalAmount:number){
   const chatId=process.env.TELEGRAM_ADMIN_CHAT_ID?.trim();
   if(!chatId||!process.env.TELEGRAM_BOT_TOKEN?.trim()) return false;
+  await ensureSchema();
+  const pool=getPool();
+  await pool.query(`CREATE TABLE IF NOT EXISTS marketplace_order_notifications(
+    id BIGSERIAL PRIMARY KEY, source TEXT NOT NULL, external_id TEXT NOT NULL,
+    status TEXT NOT NULL DEFAULT 'pending', created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(), sent_at TIMESTAMPTZ,
+    UNIQUE(source,external_id)
+  )`);
+  const externalId=String(order.id);
+  await pool.query(`INSERT INTO marketplace_order_notifications(source,external_id,status)
+    VALUES('wildberries',$1,'pending') ON CONFLICT(source,external_id) DO NOTHING`,[externalId]);
+  const claim=await pool.query(`UPDATE marketplace_order_notifications SET status='sending',updated_at=NOW()
+    WHERE source='wildberries' AND external_id=$1 AND sent_at IS NULL
+      AND (status IN ('pending','failed') OR (status='sending' AND updated_at < NOW()-INTERVAL '10 minutes'))
+    RETURNING id`,[externalId]);
+  if(!claim.rowCount) return false;
   const article=order.article||'—';
-  const orderId=order.id??'—';
   const nmId=order.nmId??'—';
   const warehouse=order.warehouseId??order.officeId??'—';
   const created=order.createdAt?new Date(order.createdAt).toLocaleString('ru-RU',{timeZone:'Europe/Moscow'}):'—';
   const text=[
     '📦 <b>Новый заказ FBS · Wildberries</b>',
-    `Заказ: <b>${escapeTelegram(orderId)}</b>`,
+    `Заказ: <b>${escapeTelegram(externalId)}</b>`,
     `Артикул: <b>${escapeTelegram(article)}</b>`,
     `nmID: ${escapeTelegram(nmId)}`,
     `Сумма: <b>${Number(totalAmount||0).toLocaleString('ru-RU')} ₽</b>`,
@@ -116,7 +129,18 @@ async function notifyWildberriesFbsOrder(order:any,totalAmount:number){
     '',
     'Откройте кабинет WB и подтвердите сборку заказа.'
   ].join('\n');
-  return sendTelegramMessage(chatId,text);
+  try{
+    const ok=await sendTelegramMessage(chatId,text);
+    if(ok){
+      await pool.query(`UPDATE marketplace_order_notifications SET status='sent',sent_at=NOW(),updated_at=NOW() WHERE id=$1`,[claim.rows[0].id]);
+      return true;
+    }
+    await pool.query(`UPDATE marketplace_order_notifications SET status='failed',updated_at=NOW() WHERE id=$1`,[claim.rows[0].id]);
+    return false;
+  }catch(error){
+    await pool.query(`UPDATE marketplace_order_notifications SET status='failed',updated_at=NOW() WHERE id=$1`,[claim.rows[0].id]).catch(()=>{});
+    throw error;
+  }
 }
 
 export async function syncWildberriesOrders(){
@@ -137,7 +161,7 @@ export async function syncWildberriesOrders(){
       quantity:1,
       price:Number(o.finalPrice??o.convertedFinalPrice??o.price??0)||0,
     }];
-    const inserted=await upsertMarketplaceOrder({
+    await upsertMarketplaceOrder({
       source:'wildberries',
       externalId:String(o.id),
       orderNumber:String(o.id),
@@ -147,9 +171,7 @@ export async function syncWildberriesOrders(){
       raw:o,
       createdAt:o.createdAt||null,
     });
-    if(inserted){
-      try{if(await notifyWildberriesFbsOrder(o,totalAmount))notified++;}catch{}
-    }
+    try{if(await notifyWildberriesFbsOrder(o,totalAmount))notified++;}catch{}
   }
   return {synced:orders.length,notified};
 }
