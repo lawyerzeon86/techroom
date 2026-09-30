@@ -1,4 +1,5 @@
 import { ensureSchema, getPool } from './db';
+import { escapeTelegram, sendTelegramMessage } from './telegram';
 
 export type MarketplaceName = 'wildberries' | 'ozon';
 
@@ -66,7 +67,7 @@ async function upsertMarketplaceOrder(input:{
 }){
   await ensureSchema();
   const pool=getPool();
-  await pool.query(`
+  const result=await pool.query(`
     INSERT INTO marketplace_orders
       (source,external_id,order_number,status,total_amount,customer_name,phone,items,raw_payload,external_created_at,synced_at,updated_at)
     VALUES ($1,$2,$3,$4,$5,$6,$7,$8::jsonb,$9::jsonb,$10,NOW(),NOW())
@@ -80,7 +81,9 @@ async function upsertMarketplaceOrder(input:{
       raw_payload=EXCLUDED.raw_payload,
       external_created_at=COALESCE(EXCLUDED.external_created_at,marketplace_orders.external_created_at),
       synced_at=NOW(),updated_at=NOW()
+    RETURNING (xmax = 0) AS inserted
   `,[input.source,input.externalId,input.orderNumber||null,input.status,input.totalAmount,input.customerName||null,input.phone||null,JSON.stringify(input.items),JSON.stringify(input.raw),input.createdAt||null]);
+  return Boolean(result.rows[0]?.inserted);
 }
 
 function moneyToRubles(value:any){
@@ -94,6 +97,28 @@ function moneyToRubles(value:any){
   return 0;
 }
 
+async function notifyWildberriesFbsOrder(order:any,totalAmount:number){
+  const chatId=process.env.TELEGRAM_ADMIN_CHAT_ID?.trim();
+  if(!chatId||!process.env.TELEGRAM_BOT_TOKEN?.trim()) return false;
+  const article=order.article||'—';
+  const orderId=order.id??'—';
+  const nmId=order.nmId??'—';
+  const warehouse=order.warehouseId??order.officeId??'—';
+  const created=order.createdAt?new Date(order.createdAt).toLocaleString('ru-RU',{timeZone:'Europe/Moscow'}):'—';
+  const text=[
+    '📦 <b>Новый заказ FBS · Wildberries</b>',
+    `Заказ: <b>${escapeTelegram(orderId)}</b>`,
+    `Артикул: <b>${escapeTelegram(article)}</b>`,
+    `nmID: ${escapeTelegram(nmId)}`,
+    `Сумма: <b>${Number(totalAmount||0).toLocaleString('ru-RU')} ₽</b>`,
+    `Склад: ${escapeTelegram(warehouse)}`,
+    `Создан: ${escapeTelegram(created)}`,
+    '',
+    'Откройте кабинет WB и подтвердите сборку заказа.'
+  ].join('\n');
+  return sendTelegramMessage(chatId,text);
+}
+
 export async function syncWildberriesOrders(){
   const token=env('WB_API_TOKEN');
   const res=await fetch('https://marketplace-api.wildberries.ru/api/v3/orders/new',{
@@ -101,7 +126,9 @@ export async function syncWildberriesOrders(){
   });
   const data=await readJson(res);
   const orders=Array.isArray(data?.orders)?data.orders:[];
+  let notified=0;
   for(const o of orders){
+    const totalAmount=Math.round(Number(o.finalPrice??o.convertedFinalPrice??o.price??0)||0);
     const items=[{
       nmId:o.nmId??null,
       chrtId:o.chrtId??null,
@@ -110,18 +137,21 @@ export async function syncWildberriesOrders(){
       quantity:1,
       price:Number(o.finalPrice??o.convertedFinalPrice??o.price??0)||0,
     }];
-    await upsertMarketplaceOrder({
+    const inserted=await upsertMarketplaceOrder({
       source:'wildberries',
       externalId:String(o.id),
       orderNumber:String(o.id),
       status:'new',
-      totalAmount:Math.round(Number(o.finalPrice??o.convertedFinalPrice??o.price??0)||0),
+      totalAmount,
       items,
       raw:o,
       createdAt:o.createdAt||null,
     });
+    if(inserted){
+      try{if(await notifyWildberriesFbsOrder(o,totalAmount))notified++;}catch{}
+    }
   }
-  return {synced:orders.length};
+  return {synced:orders.length,notified};
 }
 
 export async function syncOzonOrders(days=30){
