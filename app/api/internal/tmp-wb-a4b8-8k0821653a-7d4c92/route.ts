@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { ensureSchema, getPool } from '../../../../../lib/db';
+import { ensureSchema, getPool } from '../../../../lib/db';
 
 export const runtime='nodejs';
 export const dynamic='force-dynamic';
