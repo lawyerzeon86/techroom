@@ -33,7 +33,7 @@ jobs:
             --output "$response_file" \
             --write-out '%{http_code}' \
             --request POST \
-            'https://techroom-main.onrender.com/api/internal/marketplace-sync')"
+            'https://duisun.ru/api/internal/marketplace-sync')"
           echo "HTTP $status"
           cat "$response_file"
           echo

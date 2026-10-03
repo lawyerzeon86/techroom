@@ -1,10 +1,13 @@
-import { runPriceGuard } from './lib/price-guard';
-import { syncHubCatalogToSite } from './lib/product-hub';
-import { pushPricesAndStocks, pushStockForSku, setAllOzonStock } from './lib/auto-sync';
-import { syncTechRoomPricesFromWildberries } from './lib/wb-price-source';
-import { publishSiteProductToMarketplaces } from './lib/site-product-publish';
-import { getWarehouseSettings } from './lib/marketplace-settings';
-import { ensureSchema, getPool } from './lib/db';
+let runPriceGuard: typeof import('./lib/price-guard').runPriceGuard;
+let syncHubCatalogToSite: typeof import('./lib/product-hub').syncHubCatalogToSite;
+let pushPricesAndStocks: typeof import('./lib/auto-sync').pushPricesAndStocks;
+let pushStockForSku: typeof import('./lib/auto-sync').pushStockForSku;
+let setAllOzonStock: typeof import('./lib/auto-sync').setAllOzonStock;
+let syncTechRoomPricesFromWildberries: typeof import('./lib/wb-price-source').syncTechRoomPricesFromWildberries;
+let publishSiteProductToMarketplaces: typeof import('./lib/site-product-publish').publishSiteProductToMarketplaces;
+let getWarehouseSettings: typeof import('./lib/marketplace-settings').getWarehouseSettings;
+let ensureSchema: typeof import('./lib/db').ensureSchema;
+let getPool: typeof import('./lib/db').getPool;
 
 const g=globalThis as typeof globalThis & {
   __techroomPriceGuardTimer?:NodeJS.Timeout;
@@ -164,6 +167,26 @@ export async function register(){
   // Production marketplace jobs run through the authenticated scheduled route.
   // Opt-in is retained only for local/temporary recovery runs.
   if(process.env.ENABLE_STARTUP_MARKETPLACE_TASKS!=='1')return;
+
+  const [priceGuard,productHub,autoSync,wbPriceSource,siteProductPublish,marketplaceSettings,db]=await Promise.all([
+    import('./lib/price-guard'),
+    import('./lib/product-hub'),
+    import('./lib/auto-sync'),
+    import('./lib/wb-price-source'),
+    import('./lib/site-product-publish'),
+    import('./lib/marketplace-settings'),
+    import('./lib/db'),
+  ]);
+  runPriceGuard=priceGuard.runPriceGuard;
+  syncHubCatalogToSite=productHub.syncHubCatalogToSite;
+  pushPricesAndStocks=autoSync.pushPricesAndStocks;
+  pushStockForSku=autoSync.pushStockForSku;
+  setAllOzonStock=autoSync.setAllOzonStock;
+  syncTechRoomPricesFromWildberries=wbPriceSource.syncTechRoomPricesFromWildberries;
+  publishSiteProductToMarketplaces=siteProductPublish.publishSiteProductToMarketplaces;
+  getWarehouseSettings=marketplaceSettings.getWarehouseSettings;
+  ensureSchema=db.ensureSchema;
+  getPool=db.getPool;
 
   process.env.WB_WAREHOUSE_ID='';
 

@@ -1,10 +1,10 @@
-name: Deploy to ISPmanager
+name: Deploy to Selectel
 
 on:
   workflow_dispatch:
 
 concurrency:
-  group: deploy-isp-production
+  group: deploy-selectel-production
   cancel-in-progress: true
 
 jobs:
@@ -16,24 +16,34 @@ jobs:
 
       - name: Deploy over SSH
         env:
+          SELECTEL_HOST: ${{ secrets.SELECTEL_HOST }}
+          SELECTEL_PORT: ${{ secrets.SELECTEL_PORT }}
+          SELECTEL_USER: ${{ secrets.SELECTEL_USER }}
+          SELECTEL_SSH_KEY: ${{ secrets.SELECTEL_SSH_KEY }}
           ISP_HOST: ${{ secrets.ISP_HOST }}
           ISP_PORT: ${{ secrets.ISP_PORT }}
           ISP_USER: ${{ secrets.ISP_USER }}
           ISP_SSH_KEY: ${{ secrets.ISP_SSH_KEY }}
-          ISP_APP_DIR: ${{ secrets.ISP_APP_DIR }}
         run: |
           set -euo pipefail
-          test -n "$ISP_HOST"
-          test -n "$ISP_USER"
-          test -n "$ISP_SSH_KEY"
+          HOST="${SELECTEL_HOST:-$ISP_HOST}"
+          PORT="${SELECTEL_PORT:-${ISP_PORT:-22}}"
+          USER="${SELECTEL_USER:-$ISP_USER}"
+          SSH_KEY="${SELECTEL_SSH_KEY:-$ISP_SSH_KEY}"
+          test -n "$HOST"
+          test -n "$USER"
+          test -n "$SSH_KEY"
           mkdir -p ~/.ssh
           chmod 700 ~/.ssh
-          printf '%s\n' "$ISP_SSH_KEY" > ~/.ssh/id_ed25519
+          printf '%s\n' "$SSH_KEY" > ~/.ssh/id_ed25519
           chmod 600 ~/.ssh/id_ed25519
-          PORT="${ISP_PORT:-22}"
-          ssh-keyscan -p "$PORT" "$ISP_HOST" >> ~/.ssh/known_hosts
-          REMOTE_DIR="$ISP_APP_DIR"
-          if [ -z "$REMOTE_DIR" ]; then REMOTE_DIR='~/www/duisun.ru/app'; fi
-          ssh -p "$PORT" "$ISP_USER@$ISP_HOST" \
-            "APP_DIR='$REMOTE_DIR' BRANCH='main' bash -s" \
-            < scripts/deploy-isp.sh
+          ssh-keyscan -p "$PORT" "$HOST" >> ~/.ssh/known_hosts
+          ssh -p "$PORT" "$USER@$HOST" 'bash -s' < scripts/deploy-selectel.sh
+
+      - name: Verify production
+        run: |
+          set -euo pipefail
+          health="$(curl --fail --silent --show-error --max-time 30 https://duisun.ru/api/health)"
+          echo "$health" | jq -e '.ok == true and .database == "up"'
+          status="$(curl --silent --show-error --output /dev/null --write-out '%{http_code}' --max-time 30 https://duisun.ru/admin/whatsapp)"
+          test "$status" = 200
