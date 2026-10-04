@@ -3,10 +3,34 @@ on:
   workflow_dispatch:
 permissions:
   contents: read
+  id-token: write
 jobs:
   verify:
     runs-on: ubuntu-24.04
     steps:
+      - uses: actions/checkout@v4
+      - name: Archive Render snapshot privately on Selectel
+        env:
+          HOST: ${{ secrets.SELECTEL_HOST }}
+          PORT: ${{ secrets.SELECTEL_PORT }}
+          SSH_KEY: ${{ secrets.SELECTEL_SSH_KEY }}
+        run: |
+          set -euo pipefail
+          umask 077
+          token="$(curl -fsS -H "Authorization: Bearer $ACTIONS_ID_TOKEN_REQUEST_TOKEN" "${ACTIONS_ID_TOKEN_REQUEST_URL}&audience=duisun-migration" | jq -r .value)"
+          echo "::add-mask::$token"
+          curl -fsS --max-time 180 -X POST -H "Authorization: Bearer $token" https://techroom-main.onrender.com/api/internal/migration-export -o /tmp/render-snapshot.json
+          jq -e '(.version == 1) and (.tables | length > 0)' /tmp/render-snapshot.json >/dev/null
+          mkdir -p ~/.ssh
+          chmod 700 ~/.ssh
+          printf '%s\n' "$SSH_KEY" > ~/.ssh/id_ed25519
+          chmod 600 ~/.ssh/id_ed25519
+          ssh-keyscan -p "${PORT:-22}" "$HOST" >> ~/.ssh/known_hosts
+          ssh -p "${PORT:-22}" "root@$HOST" 'install -d -m 700 /root/duisun-migration'
+          scp -P "${PORT:-22}" /tmp/render-snapshot.json "root@$HOST:/root/duisun-migration/render-snapshot.json"
+          ssh -p "${PORT:-22}" "root@$HOST" 'chmod 600 /root/duisun-migration/render-snapshot.json'
+          jq '{exportedAt, tables: [.tables[] | {name,count,sha256}], files: (.files | length), environmentKeys: (.environment | keys)}' /tmp/render-snapshot.json
+          rm /tmp/render-snapshot.json
       - name: Inspect Selectel without exposing customer data
         env:
           HOST: ${{ secrets.SELECTEL_HOST }}
