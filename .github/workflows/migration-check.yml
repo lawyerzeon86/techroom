@@ -31,6 +31,24 @@ jobs:
           ssh -p "${PORT:-22}" "root@$HOST" 'chmod 600 /root/duisun-migration/render-snapshot.json'
           jq '{exportedAt, tables: [.tables[] | {name,count,sha256}], files: (.files | length), environmentKeys: (.environment | keys)}' /tmp/render-snapshot.json
           rm /tmp/render-snapshot.json
+      - name: Back up Selectel and merge historical records
+        env:
+          HOST: ${{ secrets.SELECTEL_HOST }}
+          PORT: ${{ secrets.SELECTEL_PORT }}
+        run: |
+          set -euo pipefail
+          scp -P "${PORT:-22}" scripts/merge-render-snapshot.mjs "root@$HOST:/var/www/duisun/scripts/merge-render-snapshot.mjs"
+          ssh -p "${PORT:-22}" "root@$HOST" 'bash -s' <<'REMOTE'
+          set -euo pipefail
+          umask 077
+          cd /var/www/duisun
+          set -a; source .env.production; set +a
+          pg_dump --dbname="$DATABASE_URL" --format=custom --file="/root/duisun-migration/selectel-before-$(date -u +%Y%m%dT%H%M%S).dump"
+          systemctl stop duisun-sync-core.timer duisun-sync-communications.timer duisun-sync-transfers.timer
+          trap 'pm2 restart duisun --update-env; systemctl start duisun-sync-core.timer duisun-sync-communications.timer duisun-sync-transfers.timer' EXIT
+          pm2 stop duisun
+          node scripts/merge-render-snapshot.mjs
+          REMOTE
       - name: Inspect Selectel without exposing customer data
         env:
           HOST: ${{ secrets.SELECTEL_HOST }}
