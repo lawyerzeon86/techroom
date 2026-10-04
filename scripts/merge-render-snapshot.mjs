@@ -25,8 +25,13 @@ try{
     await client.query(`CREATE TABLE IF NOT EXISTS ${full} (${table.columns.map(c=>`${quote(c.name)} ${c.type}`).join(',')})`);
     const count=Number((await client.query(`SELECT count(*) FROM ${full}`)).rows[0].count);
     if(count===0)for(const row of table.rows)await client.query(`INSERT INTO ${full} SELECT * FROM json_populate_record(NULL::${full},$1::json)`,[JSON.stringify(row)]);
-    const archived=(await client.query(`SELECT row_to_json(t) AS row FROM ${full} t`)).rows.map(x=>x.row);
-    if(archived.length!==table.count||createHash('sha256').update(JSON.stringify(archived)).digest('hex')!==table.sha256)throw new Error('Archive verification failed: '+table.name);
+    const archivedCount=Number((await client.query(`SELECT count(*) FROM ${full}`)).rows[0].count);
+    if(archivedCount!==table.count)throw new Error('Archive count mismatch: '+table.name);
+    for(const row of table.rows){
+      const conditions=table.columns.map(c=>c.type==='json'?`actual.${quote(c.name)}::jsonb IS NOT DISTINCT FROM expected.${quote(c.name)}::jsonb`:`actual.${quote(c.name)} IS NOT DISTINCT FROM expected.${quote(c.name)}`).join(' AND ');
+      const verified=(await client.query(`SELECT EXISTS(SELECT 1 FROM ${full} actual CROSS JOIN json_populate_record(NULL::${full},$1::json) expected WHERE ${conditions}) AS ok`,[JSON.stringify(row)])).rows[0].ok;
+      if(!verified)throw new Error('Archive value mismatch: '+table.name);
+    }
   }
   // Parents precede all known foreign-key dependants.
   const order=['products','marketplace_product_hub','orders','marketplace_orders','marketplace_communications','marketplace_settings','marketplace_product_rules','price_sheet','marketplace_product_links','order_items'];
