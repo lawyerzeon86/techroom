@@ -48,6 +48,7 @@ export async function ensureSchema() {
       await pool.query(`ALTER TABLE products ADD COLUMN IF NOT EXISTS marketplace_product_id TEXT`);
       await pool.query(`ALTER TABLE products ADD COLUMN IF NOT EXISTS marketplace_payload JSONB NOT NULL DEFAULT '{}'::jsonb`);
       await pool.query(`ALTER TABLE products ADD COLUMN IF NOT EXISTS description_override TEXT`);
+      await pool.query(`ALTER TABLE products ADD COLUMN IF NOT EXISTS specs_override TEXT`);
       await pool.query(`CREATE TABLE IF NOT EXISTS telegram_outbox (
         id BIGSERIAL PRIMARY KEY, payload JSONB NOT NULL, status TEXT NOT NULL DEFAULT 'pending',
         attempts INTEGER NOT NULL DEFAULT 0, lease_until TIMESTAMPTZ, created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(), sent_at TIMESTAMPTZ

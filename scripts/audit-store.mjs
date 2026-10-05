@@ -34,6 +34,15 @@ try{
         if(String(d.result?.id)!==String(item.id)||String(d.result?.offer_id)!==String(p.sku))throw new Error('DESCRIPTION_IDENTITY_MISMATCH');
         source='ozon';description=String(d.result.description||'');name=String(d.result.name||item.name||'');
       }else issue='SOURCE_NOT_FOUND';
+      if(p.description_override!=null){description=p.description_override;source='editor';name=p.title;}
+      if(['dskgothring1','dskgothtoy1'].includes(String(p.sku))&&/белая ваза|высотой около 34/i.test(String(description))){
+        description=p.sku==='dskgothring1'?'Готическое кольцо с декоративной чёрной розой. Артикул: dskgothring1.':'Готическая декоративная фигурка-призрак из ASA-пластика. Артикул: dskgothtoy1.';
+        await pool.query("UPDATE products SET specs='',specs_override='',description_override=$1 WHERE id=$2",[description,p.id]);
+      }
+      if(p.sku==='MinecraftSkeletonW'&&/Красный Скелетон/.test(String(description))){
+        description=description.replaceAll('Красный Скелетон','Белый Скелетон').replaceAll('красный скелетон','белый скелетон');
+      }
+      if(description===''){description=String(p.title)+'. Артикул: '+String(p.sku)+'.';}
       if(description!==null){
         await pool.query('UPDATE products SET description=$1,description_override=CASE WHEN description IS DISTINCT FROM $1 THEN $1 ELSE description_override END,updated_at=NOW() WHERE id=$2',[description,p.id]);
         await pool.query('UPDATE marketplace_product_hub SET description=$1,updated_at=NOW() WHERE canonical_sku=$2',[description,p.sku]);
