@@ -4,6 +4,7 @@ import { ensureSchema, getPool } from '../../../lib/db';
 import { rateLimit, readJsonBody } from '../../../lib/security';
 import { createSbpPayment, yooKassaConfigured } from '../../../lib/yookassa';
 import { escapeTelegram, sendTelegramMessage } from '../../../lib/telegram';
+import { queueOrderEmail } from '../../../lib/email';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -115,6 +116,7 @@ export async function POST(request: Request) {
       }
 
       await client.query('COMMIT');
+      await queueOrderEmail(email,order.order_number,total).catch(()=>console.error('ORDER_EMAIL_QUEUE_FAILED'));
       const adminChat=process.env.TELEGRAM_ADMIN_CHAT_ID?.trim();
       if(adminChat)await sendTelegramMessage(adminChat,`Новый заказ ${escapeTelegram(order.order_number)}\n${escapeTelegram(customerName)}\nСумма: ${total} ₽\nhttps://duisun.ru/admin/orders`).catch(()=>{console.error('ORDER_NOTIFICATION_FAILED');});
       if (paymentMethod === 'qr') {

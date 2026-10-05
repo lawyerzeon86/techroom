@@ -53,6 +53,11 @@ export async function ensureSchema() {
         id BIGSERIAL PRIMARY KEY, payload JSONB NOT NULL, status TEXT NOT NULL DEFAULT 'pending',
         attempts INTEGER NOT NULL DEFAULT 0, lease_until TIMESTAMPTZ, created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(), sent_at TIMESTAMPTZ
       )`);
+      await pool.query(`CREATE TABLE IF NOT EXISTS email_outbox (
+        id BIGSERIAL PRIMARY KEY, order_number TEXT UNIQUE NOT NULL, payload JSONB NOT NULL,
+        attempts INTEGER NOT NULL DEFAULT 0, last_attempt_at TIMESTAMPTZ, last_error TEXT,
+        created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(), sent_at TIMESTAMPTZ
+      )`);
       await pool.query(`UPDATE products SET image_urls=jsonb_build_array(image_url) WHERE image_url IS NOT NULL AND image_url<>'' AND jsonb_array_length(image_urls)=0`);
 
       await pool.query(`
