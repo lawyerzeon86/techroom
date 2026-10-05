@@ -4,7 +4,7 @@ import pg from 'pg';
 const quote=s=>'"'+s.replaceAll('"','""')+'"';
 const pool=new pg.Pool({connectionString:process.env.DATABASE_URL,ssl:process.env.DATABASE_URL.includes('localhost')?false:{rejectUnauthorized:false}});
 try{
-  const file='/root/duisun-migration/render-snapshot.json';
+  const file='/root/duisun-migration/source-snapshot.json';
   if(fs.existsSync(file)){
     const snapshot=JSON.parse(fs.readFileSync(file,'utf8'));
     for(const table of snapshot.tables){

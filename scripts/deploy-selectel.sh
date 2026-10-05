@@ -28,6 +28,14 @@ else
 fi
 cd "$APP_DIR"
 
+# Preserve the verified source snapshot locally; production has no remote dependency.
+if [ -f /root/duisun-migration/render-snapshot-final.json ]; then
+  mv /root/duisun-migration/render-snapshot-final.json /root/duisun-migration/source-snapshot.json
+fi
+if [ -f /root/duisun-migration/render-snapshot.json ]; then
+  mv /root/duisun-migration/render-snapshot.json /root/duisun-migration/initial-snapshot.json
+fi
+
 [ -f "$ROOT_DB_ENV" ] || { echo "Missing $ROOT_DB_ENV"; exit 1; }
 set -a; source "$ROOT_DB_ENV"; set +a
 
@@ -59,6 +67,7 @@ TELEGRAM_WEBAPP_URL=https://duisun.ru/telegram
 MAX_WEBAPP_URL=https://duisun.ru/max
 WHATSAPP_STORE_URL=https://duisun.ru/
 YOOKASSA_RETURN_URL=https://duisun.ru/payment/return
+PUBLIC_STORE_URL=https://duisun.ru
 GITHUB_SYNC_REPOSITORY=lawyerzeon86/techroom
 ENABLE_STARTUP_MARKETPLACE_TASKS=0
 SYNC_MARKETPLACE_STOCKS=0
@@ -175,6 +184,7 @@ set -a; source .env.production; set +a
 STAMP=$(date -u +%Y%m%dT%H%M%S)
 pg_dump --dbname="$DATABASE_URL" --format=custom --file="/root/duisun-backups/database-$STAMP.dump"
 tar -czf "/root/duisun-backups/config-$STAMP.tar.gz" /root/duisun-db.env /root/duisun-admin.env /root/duisun-integrations.env /etc/nginx/sites-available/duisun
+tar -czf "/root/duisun-backups/uploads-$STAMP.tar.gz" /var/www/duisun/public/uploads 2>/dev/null || [ ! -d /var/www/duisun/public/uploads ]
 BACKUP
 chmod 700 /usr/local/bin/duisun-backup
 cat >/etc/systemd/system/duisun-backup.service <<'UNIT'

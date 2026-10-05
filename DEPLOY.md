@@ -1,34 +1,11 @@
-# TechRoom Admin — подключение на Render
+# TechRoom — Selectel
 
-## Что добавлено
-- `/admin` — управление товарами
-- API `/api/products`
-- PostgreSQL-хранилище
-- автоматическое создание таблицы `products`
-- автоматическое добавление 5 стартовых товаров при пустой базе
-- поля: категория, цена, старая цена, остаток, SKU, OEM, бейдж, фото по URL, описание, характеристики, рейтинг, порядок, видимость
+Production: https://duisun.ru. PostgreSQL работает локально на сервере, приложение управляется PM2, HTTPS — nginx.
 
-## Переменные окружения Render
-В сервисе `techroom-main` нужно добавить:
+Push в main запускает `.github/workflows/deploy-isp.yml` (Deploy to Selectel). Ключ SSH хранится в GitHub Secrets, DATABASE_URL — в `/root/duisun-db.env`, настройки администратора — `/root/duisun-admin.env`, интеграций — `/root/duisun-integrations.env`. Права файлов: 600. После изменения интеграций нужен деплой.
 
-- `DATABASE_URL` — Internal Database URL базы `techroom-db`
-- `ADMIN_PASSWORD` — уникальный пароль администратора, минимум 12 символов
-- `ADMIN_SESSION_SECRET` — случайная строка минимум 32 символа для подписи защищённой сессии
-- `TELEGRAM_BOT_TOKEN`, `TELEGRAM_WEBAPP_URL`, `TELEGRAM_WEBHOOK_SECRET` — настройки Telegram-магазина
-- `TELEGRAM_ADMIN_CHAT_ID` — необязательные уведомления о заказах
-- `NEXT_PUBLIC_TELEGRAM_MANAGER_URL` — ссылка на менеджера
+Каталог состоит из реальных товаров Ozon и Wildberries; демотовары не создаются. Управление: `/admin`, заказы: `/admin/orders`, WhatsApp: `/admin/whatsapp`.
 
-Подробная настройка Telegram описана в `TELEGRAM.md`. Все секреты задаются только в Render, не в репозитории.
+Синхронизации запускаются systemd timers, резервная копия PostgreSQL — ежедневно. Копии находятся в `/root/duisun-backups`; полный снимок прежнего хранилища и отчёт сверки — `/root/duisun-migration`. Это архив, приложение не обращается к прежнему хостингу.
 
-Настройка WhatsApp Business Cloud API и MAX описана в `MESSENGERS.md`.
-
-После этого при первом открытии `/api/products` таблица создастся автоматически.
-
-## Админка
-Открыть:
-`https://techroom-main.onrender.com/admin`
-
-Ввести тот же пароль, что записан в `ADMIN_PASSWORD`. После успешного входа пароль не хранится в браузере: сервер выдаёт защищённую HttpOnly-сессию на 8 часов.
-
-## Важно про изображения
-На первом этапе изображение задаётся ссылкой (`https://...`). Это сделано специально: локальная файловая система бесплатного Render-сервиса не подходит для постоянного хранения загруженных изображений. Следующим этапом можно подключить Cloudinary/S3/аналогичное хранилище и сделать загрузку файлов кнопкой.
+Для СБП нужны YOOKASSA_SHOP_ID и YOOKASSA_SECRET_KEY. Webhook ЮKassa: `https://duisun.ru/api/payments/yookassa/webhook`. Возврат: `https://duisun.ru/payment/return`. Без ключей сайт предлагает оплату при получении.

@@ -57,3 +57,13 @@ jobs:
           echo "$health" | jq -e '.ok == true and .database == "up"'
           status="$(curl --silent --show-error --output /dev/null --write-out '%{http_code}' --max-time 30 https://duisun.ru/admin/whatsapp)"
           test "$status" = 200
+
+      - name: Audit catalog and verify checkout on Selectel
+        if: contains(github.event.head_commit.message, '[launch-audit]')
+        env:
+          HOST: ${{ secrets.SELECTEL_HOST }}
+          PORT: ${{ secrets.SELECTEL_PORT }}
+        run: |
+          set -euo pipefail
+          ssh -p "${PORT:-22}" "root@$HOST" 'cd /var/www/duisun; set -a; source .env.production; set +a; bash scripts/verify-backup.sh; node scripts/audit-store.mjs; node scripts/verify-checkout.mjs'
+          ssh -p "${PORT:-22}" "root@$HOST" 'cd /var/www/duisun; set -a; source .env.production; set +a; node scripts/telegram-outbox.mjs export' | node scripts/deliver-telegram-outbox.mjs | ssh -p "${PORT:-22}" "root@$HOST" 'cd /var/www/duisun; set -a; source .env.production; set +a; node scripts/telegram-outbox.mjs ack'

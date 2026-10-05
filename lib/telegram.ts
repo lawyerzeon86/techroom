@@ -1,4 +1,5 @@
 import { createHmac, timingSafeEqual } from 'node:crypto';
+import { ensureSchema, getPool } from './db';
 
 export type TelegramUser = { id: number; first_name?: string; last_name?: string; username?: string; language_code?: string };
 
@@ -31,11 +32,19 @@ export function telegramUserFromRequest(request: Request) {
 export async function sendTelegramMessage(chatId: string | number, text: string, replyMarkup?: unknown) {
   const token = process.env.TELEGRAM_BOT_TOKEN;
   if (!token) return false;
+  const payload={chat_id:chatId,text,parse_mode:'HTML',disable_web_page_preview:true,reply_markup:replyMarkup};
+  try {
   const response = await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
     method: 'POST', headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ chat_id: chatId, text, parse_mode: 'HTML', disable_web_page_preview: true, reply_markup: replyMarkup }),
+    body: JSON.stringify(payload), signal:AbortSignal.timeout(5000),
   });
-  return response.ok;
+  const result=await response.json();
+  if(response.ok&&result.ok)return true;
+  if(response.status!==429&&response.status<500)return false;
+  } catch { /* Deliver through the private runner when the server cannot reach Telegram. */ }
+  await ensureSchema();
+  await getPool().query('INSERT INTO telegram_outbox(payload) VALUES($1::jsonb)',[JSON.stringify(payload)]);
+  return true;
 }
 
 export function escapeTelegram(value: unknown) {

@@ -21,7 +21,7 @@ async function getKeys(){
   return data.keys;
 }
 
-export async function verifyGitHubActionsToken(token:string, purpose:'sync'|'migration'='sync'){
+export async function verifyGitHubActionsToken(token:string){
   const parts=token.split('.');
   if(parts.length!==3)return false;
   let header:any,claims:Claims;
@@ -35,9 +35,9 @@ export async function verifyGitHubActionsToken(token:string, purpose:'sync'|'mig
   const now=Math.floor(Date.now()/1000);
   const audiences=Array.isArray(claims.aud)?claims.aud:[claims.aud];
   const repository=process.env.GITHUB_SYNC_REPOSITORY?.trim()||'lawyerzeon86/techroom';
-  const workflow=`${repository}/.github/workflows/${purpose==='migration'?'migration-check':'marketplace-sync'}.yml@refs/heads/main`;
+  const workflow=`${repository}/.github/workflows/marketplace-sync.yml@refs/heads/main`;
   return claims.iss===ISSUER
-    &&audiences.includes(purpose==='migration'?'duisun-migration':AUDIENCE)
+    &&audiences.includes(AUDIENCE)
     &&typeof claims.exp==='number'&&claims.exp>now
     &&(typeof claims.nbf!=='number'||claims.nbf<=now+30)
     &&claims.repository===repository

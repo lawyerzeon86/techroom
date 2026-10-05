@@ -15,7 +15,7 @@ Implemented hardening:
 Deployment requirements:
 - Set ADMIN_PASSWORD to a unique password of at least 12 characters (prefer 16+ random characters).
 - Set ADMIN_SESSION_SECRET to at least 32 random characters. If omitted, the app derives a signing key from ADMIN_PASSWORD for backwards compatibility.
-- Keep DATABASE_URL only in Render environment variables; never commit it.
+- Keep DATABASE_URL only in protected Selectel environment files; never commit it.
 - Rotate ADMIN_PASSWORD immediately if it was ever committed, shared in chat, screenshots, or logs.
 
 Limitations:

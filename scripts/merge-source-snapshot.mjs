@@ -3,11 +3,11 @@ import path from 'node:path';
 import { createHash } from 'node:crypto';
 import pg from 'pg';
 
-const sourcePath=process.argv[2]||'/root/duisun-migration/render-snapshot.json';
+const sourcePath=process.argv[2]||'/root/duisun-migration/source-snapshot.json';
 const source=JSON.parse(fs.readFileSync(sourcePath,'utf8'));
 if(source.version!==1||!Array.isArray(source.tables))throw new Error('Invalid snapshot');
 const quote=s=>'"'+s.replaceAll('"','""')+'"';
-const archive='render_archive_'+createHash('sha256').update(fs.readFileSync(sourcePath)).digest('hex').slice(0,12);
+const archive='migration_archive_'+createHash('sha256').update(fs.readFileSync(sourcePath)).digest('hex').slice(0,12);
 const pool=new pg.Pool({connectionString:process.env.DATABASE_URL,ssl:process.env.DATABASE_URL.includes('localhost')?false:{rejectUnauthorized:false}});
 const client=await pool.connect();
 const natural={products:['sku'],marketplace_product_hub:['canonical_sku'],marketplace_orders:['source','external_id'],marketplace_communications:['source','kind','external_id'],marketplace_settings:['key'],price_sheet:['sku'],marketplace_product_links:['hub_id','marketplace'],marketplace_product_rules:['source_marketplace','target_marketplace'],orders:['order_number'],marketplace_sync_runs:['started_at']};

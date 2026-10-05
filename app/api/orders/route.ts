@@ -3,6 +3,7 @@ import { randomBytes } from 'node:crypto';
 import { ensureSchema, getPool } from '../../../lib/db';
 import { rateLimit, readJsonBody } from '../../../lib/security';
 import { createSbpPayment, yooKassaConfigured } from '../../../lib/yookassa';
+import { escapeTelegram, sendTelegramMessage } from '../../../lib/telegram';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -114,9 +115,11 @@ export async function POST(request: Request) {
       }
 
       await client.query('COMMIT');
+      const adminChat=process.env.TELEGRAM_ADMIN_CHAT_ID?.trim();
+      if(adminChat)await sendTelegramMessage(adminChat,`Новый заказ ${escapeTelegram(order.order_number)}\n${escapeTelegram(customerName)}\nСумма: ${total} ₽\nhttps://duisun.ru/admin/orders`).catch(()=>{console.error('ORDER_NOTIFICATION_FAILED');});
       if (paymentMethod === 'qr') {
         try {
-          const baseReturnUrl = process.env.YOOKASSA_RETURN_URL?.trim() || 'https://techroom-main.onrender.com/payment/return';
+          const baseReturnUrl = process.env.YOOKASSA_RETURN_URL?.trim() || 'https://duisun.ru/payment/return';
           const returnUrl = new URL(baseReturnUrl);
           returnUrl.searchParams.set('order', order.order_number);
           returnUrl.searchParams.set('token', paymentToken!);

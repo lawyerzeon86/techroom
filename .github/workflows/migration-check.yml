@@ -1,9 +1,6 @@
 name: Migration verification
 on:
   workflow_dispatch:
-  push:
-    branches: [main]
-    paths: ['.github/workflows/migration-check.yml']
 permissions:
   contents: read
   id-token: write
@@ -24,19 +21,6 @@ jobs:
           printf '%s\n' "$SSH_KEY" > ~/.ssh/id_ed25519
           chmod 600 ~/.ssh/id_ed25519
           ssh-keyscan -p "${PORT:-22}" "$HOST" >> ~/.ssh/known_hosts
-          token=$(curl -fsS -H "Authorization: Bearer $ACTIONS_ID_TOKEN_REQUEST_TOKEN" "${ACTIONS_ID_TOKEN_REQUEST_URL}&audience=duisun-migration" | jq -r .value)
-          echo "::add-mask::$token"
-          snapshot=$(mktemp)
-          chmod 600 "$snapshot"
-          trap 'rm -f "$snapshot"' EXIT
-          for attempt in $(seq 1 40); do
-            status=$(curl -sS --max-time 120 -X POST -H "Authorization: Bearer $token" -o "$snapshot" -w '%{http_code}' https://techroom-main.onrender.com/api/internal/migration-export || true)
-            if [ "$status" = 200 ] && jq -e '.version == 1 and (.tables | length > 0)' "$snapshot" >/dev/null; then break; fi
-            [ "$attempt" -lt 40 ] || { echo "FINAL_EXPORT_FAILED HTTP $status"; exit 1; }
-            sleep 15
-          done
-          ssh -p "${PORT:-22}" "root@$HOST" 'install -d -m 700 /root/duisun-migration; umask 077; cat > /root/duisun-migration/render-snapshot-final.json' < "$snapshot"
-          ssh -p "${PORT:-22}" "root@$HOST" 'cd /var/www/duisun; set -a; source .env.production; set +a; node scripts/merge-render-snapshot.mjs /root/duisun-migration/render-snapshot-final.json; /usr/local/bin/duisun-backup'
           ssh -p "${PORT:-22}" "root@$HOST" 'bash -s' <<'REMOTE'
           set -euo pipefail
           cd /var/www/duisun

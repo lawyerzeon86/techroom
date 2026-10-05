@@ -71,7 +71,7 @@ async function ozonAttributeItems(productIds:(string|number)[]){
 async function ozonInfo(offerId:string){
   try{
     const d=await fetchJson('https://api-seller.ozon.ru/v3/product/info/list',{method:'POST',headers:ozonHeaders(),body:JSON.stringify({offer_id:[offerId],product_id:[],sku:[]})});
-    return (d?.items||d?.result?.items||[])[0]||{};
+    return (d?.items||d?.result?.items||[]).find((p:any)=>String(p.offer_id)===offerId)||{};
   }catch{return {}}
 }
 
@@ -110,7 +110,10 @@ export async function getProducts(mp:MarketplaceUi,q='',limit=50){
   const out:any[]=[];
   for(const p of items.slice(0,limit)){
     let description='';
-    try{const d=await fetchJson('https://api-seller.ozon.ru/v1/product/info/description',{method:'POST',headers:ozonHeaders(),body:JSON.stringify({offer_id:String(p.offer_id||'')})});description=d?.result?.description||d?.description||''}catch{}
+    const d=await fetchJson('https://api-seller.ozon.ru/v1/product/info/description',{method:'POST',headers:ozonHeaders(),body:JSON.stringify({product_id:Number(p.product_id),offer_id:String(p.offer_id)})});
+    const detail=d?.result;
+    if(String(detail?.id)!==String(p.product_id)||String(detail?.offer_id)!==String(p.offer_id))throw new Error('OZON_DESCRIPTION_IDENTITY_MISMATCH');
+    description=String(detail.description||'');
     const a:any=attrById.get(String(p.product_id))||{};
     const pi:any=await ozonInfo(String(p.offer_id||a.offer_id||''));
     const images=[...imageList(a.images),...imageList(pi.images),...imageList(a.primary_image?[a.primary_image]:[])].filter((x,i,arr)=>arr.indexOf(x)===i);

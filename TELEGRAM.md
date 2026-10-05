@@ -4,15 +4,15 @@ Mini App расположен по адресу `/telegram` и использу�
 
 ## Настройка без секретов в репозитории
 
-Переменные задаются только в Render Environment:
+Переменные задаются только в защищённом файле /root/duisun-integrations.env на Selectel:
 
 - `TELEGRAM_BOT_TOKEN` — токен от BotFather;
-- `TELEGRAM_WEBAPP_URL` — `https://techroom-main.onrender.com/telegram`;
+- `TELEGRAM_WEBAPP_URL` — `https://duisun.ru/telegram`;
 - `TELEGRAM_WEBHOOK_SECRET` — случайная строка для проверки webhook;
 - `TELEGRAM_ADMIN_CHAT_ID` — необязательно, чат уведомлений о новых заказах;
 - `NEXT_PUBLIC_TELEGRAM_MANAGER_URL` — ссылка вида `https://t.me/username`.
 
-После деплоя webhook устанавливается один раз запросом к Telegram Bot API с URL `https://techroom-main.onrender.com/api/telegram/webhook` и тем же `secret_token`, который записан в `TELEGRAM_WEBHOOK_SECRET`. Реальные значения нельзя добавлять в команды, логи или Git.
+После деплоя webhook устанавливается один раз запросом к Telegram Bot API с URL `https://duisun.ru/api/telegram/webhook` и тем же `secret_token`, который записан в `TELEGRAM_WEBHOOK_SECRET`. Реальные значения нельзя добавлять в команды, логи или Git.
 
 Команды `/start` и `/shop` показывают кнопку магазина. В BotFather для бота также можно назначить Menu Button на `TELEGRAM_WEBAPP_URL`.
 

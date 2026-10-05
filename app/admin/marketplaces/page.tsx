@@ -36,7 +36,7 @@ export default function MarketplacesPage(){
     <div className="admin-top"><div><h1>Маркетплейсы</h1><p>Wildberries + Ozon · отзывы, карточки и габариты упаковки</p></div><div style={{display:'flex',gap:8}}><button style={btn(mp==='wb')} onClick={()=>setMp('wb')}>Wildberries</button><button style={btn(mp==='ozon')} onClick={()=>setMp('ozon')}>Ozon</button></div></div>
     <div className="admin-card editor" style={{display:'flex',gap:8,flexWrap:'wrap'}}><button style={btn(tab==='reviews')} onClick={()=>setTab('reviews')}>Отзывы</button><button style={btn(tab==='products')} onClick={()=>setTab('products')}>Карточки товаров</button><button style={btn(tab==='settings')} onClick={()=>setTab('settings')}>Подключение</button></div>
     {msg&&<div className="admin-card editor"><b>{msg}</b></div>}
-    {!configured&&tab!=='settings'&&<div className="admin-card editor"><h2>API ещё не подключён</h2><p>Добавьте ключи в Environment на Render. В GitHub и браузер ключи не передаются.</p><button className="save-btn" onClick={()=>setTab('settings')}>Показать настройки</button></div>}
+    {!configured&&tab!=='settings'&&<div className="admin-card editor"><h2>API ещё не подключён</h2><p>Добавьте ключи в защищённый файл настроек на Selectel. В GitHub и браузер ключи не передаются.</p><button className="save-btn" onClick={()=>setTab('settings')}>Показать настройки</button></div>}
 
     {configured&&tab==='reviews'&&<section>
       <div className="admin-card editor" style={{display:'flex',justifyContent:'space-between',alignItems:'center'}}><b>Необработанные отзывы</b><button className="edit-btn" onClick={loadReviews}>{busy==='reviews'?'Загрузка…':'Обновить'}</button></div>

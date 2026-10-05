@@ -9,10 +9,6 @@ const ALIAS_HOSTS=new Set([
 
 export function proxy(request:NextRequest){
   const host=(request.headers.get('host')||'').split(':')[0].toLowerCase();
-  if(process.env.MIGRATED_STORE_URL==='https://duisun.ru'&&host.endsWith('.onrender.com')&&!['/api/health','/api/internal/migration-export'].includes(request.nextUrl.pathname)){
-    const url=request.nextUrl.clone();url.protocol='https:';url.host=CANONICAL_HOST;url.port='';
-    return NextResponse.redirect(url,307);
-  }
   if(ALIAS_HOSTS.has(host)){
     const url=request.nextUrl.clone();
     url.protocol='https:';

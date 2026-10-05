@@ -1,11 +1,11 @@
 # WhatsApp и MAX для TechRoom
 
-Оба канала используют существующий каталог, остатки и таблицы заказов TechRoom. Секреты задаются только в Render Environment.
+Оба канала используют существующий каталог, остатки и таблицы заказов TechRoom. Секреты задаются только в защищённом файле /root/duisun-integrations.env на Selectel.
 
 ## MAX
 
-- Mini App: `https://techroom-main.onrender.com/max`
-- Webhook: `https://techroom-main.onrender.com/api/max/webhook`
+- Mini App: `https://duisun.ru/max`
+- Webhook: `https://duisun.ru/api/max/webhook`
 - API использует актуальный домен `https://platform-api2.max.ru`.
 - Переменные: `MAX_BOT_TOKEN`, `MAX_WEBAPP_URL`, `MAX_WEBHOOK_SECRET`, необязательные `MAX_ADMIN_USER_ID` и `NEXT_PUBLIC_MAX_MANAGER_URL`.
 
@@ -15,7 +15,7 @@ Mini App передаёт `window.WebApp.initData`. Backend проверяет H
 
 ## WhatsApp Business Cloud API
 
-- Callback URL: `https://techroom-main.onrender.com/api/whatsapp/webhook`
+- Callback URL: `https://duisun.ru/api/whatsapp/webhook`
 - Verify token: значение `WHATSAPP_VERIFY_TOKEN`.
 - Подпись POST-запросов проверяется через `WHATSAPP_APP_SECRET` и `X-Hub-Signature-256`.
 - Переменные: `WHATSAPP_ACCESS_TOKEN`, `WHATSAPP_PHONE_NUMBER_ID`, `WHATSAPP_APP_SECRET`, `WHATSAPP_VERIFY_TOKEN`, необязательные `WHATSAPP_GRAPH_VERSION` и `WHATSAPP_STORE_URL`.

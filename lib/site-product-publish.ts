@@ -31,7 +31,7 @@ function score(a:string,b:string){
 function absImage(url:string|null){
   if(!url)return null;
   if(/^https?:\/\//i.test(url))return url;
-  const base=(process.env.RENDER_EXTERNAL_URL||'https://techroom-main.onrender.com').replace(/\/$/,'');
+  const base=(process.env.PUBLIC_STORE_URL||'https://duisun.ru').replace(/\/$/,'');
   return base+(url.startsWith('/')?'':'/')+url;
 }
 function parseSpecs(specs:string|null){
