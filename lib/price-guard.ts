@@ -1,3 +1,4 @@
+import { loadWbPriceGoods } from './wb-prices';
 export type PriceGuardRule={sku:string;minPrice:number};
 
 const OZON_PROMO_FLOOR_SKUS=new Set(['R8W0821653','8W0821653','DAK8T54A53A','FenderAudiA4B8front']);
@@ -150,17 +151,13 @@ async function loadWbGoods(token:string):Promise<WbLoadState>{
   if(Date.now()<wbBlockedUntil)return {goods:[],rateLimitedUntil:new Date(wbBlockedUntil).toISOString()};
   const ids:number[]=[];
   try{
+    const goods=await loadWbPriceGoods(token);
     for(const rule of RULES){
-      const nmID=await resolveWbNmId(token,rule.sku);
-      if(nmID)ids.push(nmID);
-      await delay(80);
+      const good=goods.find(g=>String(g.vendorCode||'').trim()===rule.sku);
+      if(good)wbNmIdCache.set(rule.sku,Number(good.nmID));
+      else wbNmIdCache.delete(rule.sku);
     }
-    const unique=[...new Set(ids)];
-    if(!unique.length)return {goods:[]};
-    const data=await wbRequest('https://discounts-prices-api.wildberries.ru/api/v2/list/goods/filter',{
-      method:'POST',headers:{Authorization:token,'Content-Type':'application/json'},body:JSON.stringify({nmList:unique})
-    });
-    return {goods:(data?.data?.listGoods||data?.listGoods||[]) as WbGood[]};
+    return {goods};
   }catch(e:any){
     if(Number(e?.status)===429){
       const retryAt=Number(e?.retryAt||wbBlockedUntil||Date.now()+180000);

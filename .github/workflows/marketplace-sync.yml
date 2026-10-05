@@ -1,8 +1,6 @@
 name: Marketplace Sync
 
 on:
-  schedule:
-    - cron: '*/15 * * * *'
   workflow_dispatch:
 
 concurrency:
@@ -40,3 +38,4 @@ jobs:
           if [ "$status" -lt 200 ] || [ "$status" -ge 300 ]; then
             exit 1
           fi
+          jq -e '.ok == true and (.partial != true)' "$response_file" >/dev/null

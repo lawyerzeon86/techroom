@@ -1,5 +1,5 @@
 import { ensureSchema, getPool } from './db';
-import { getProducts, updateProductText, type MarketplaceUi } from './marketplace-content';
+import { getProducts, updateProductText, updateWbCards, type MarketplaceUi } from './marketplace-content';
 import { ensurePriceSheetSchema } from './price-sheet';
 
 export type HubMarketplace = MarketplaceUi;
@@ -114,8 +114,36 @@ export async function syncHubProductToTarget(hubId:number,target:HubMarketplace)
   }catch(e:any){await pool.query(`INSERT INTO marketplace_product_links(hub_id,marketplace,sync_enabled,last_status,last_error) VALUES($1,$2,TRUE,'error',$3) ON CONFLICT(hub_id,marketplace) DO UPDATE SET last_status='error',last_error=EXCLUDED.last_error`,[hubId,target,String(e?.message||e)]);throw e}
 }
 export async function runAutoProductTransfers(){
-  await ensureProductHubSchema();const pool=getPool();const rules=await pool.query(`SELECT * FROM marketplace_product_rules WHERE enabled=TRUE AND auto_publish=TRUE ORDER BY id`);const result:any[]=[];
-  for(const rule of rules.rows){const products=await pool.query(`SELECT id FROM marketplace_product_hub WHERE source_marketplace=$1 ORDER BY updated_at DESC LIMIT 500`,[rule.source_marketplace]);for(const p of products.rows){try{result.push({hubId:Number(p.id),target:rule.target_marketplace,...await syncHubProductToTarget(Number(p.id),rule.target_marketplace)})}catch(e:any){result.push({hubId:Number(p.id),target:rule.target_marketplace,status:'error',error:String(e?.message||e)})}}}
+  await ensureProductHubSchema();const pool=getPool();
+  const rules=await pool.query(`SELECT * FROM marketplace_product_rules WHERE enabled=TRUE AND auto_publish=TRUE ORDER BY id`);
+  const result:any[]=[];
+  for(const rule of rules.rows){
+    // One target catalogue lookup per rule replaces one lookup per source SKU.
+    const targets=await getProducts(rule.target_marketplace,'',100);
+    const products=await pool.query(`SELECT h.* FROM marketplace_product_hub h WHERE source_marketplace=$1 AND EXISTS(SELECT 1 FROM products p WHERE p.sku=h.canonical_sku AND p.is_active=TRUE AND p.marketplace_source IN ('wb','ozon')) ORDER BY h.id`,[rule.source_marketplace]);
+    const batch:any[]=[];
+    for(const hub of products.rows){
+      const target=targets.find((p:any)=>canonicalSku(p)===hub.canonical_sku);
+      if(!target){await queueMapping(pool,Number(hub.id),rule.target_marketplace);result.push({hubId:Number(hub.id),target:rule.target_marketplace,status:'needs_mapping'});continue}
+      if(rule.target_marketplace==='wb'){
+        const dimensions=hub.dimensions||{};
+        const validDimensions=['length','width','height','weight'].every(k=>Number(dimensions[k])>0);
+        batch.push({hub,target,card:target.raw,title:String(hub.title||'').slice(0,60),description:String(hub.description||''),dimensions:validDimensions?dimensions:undefined});
+      }else{
+        try{result.push({hubId:Number(hub.id),target:rule.target_marketplace,...await syncHubProductToTarget(Number(hub.id),rule.target_marketplace)})}
+        catch(e:any){result.push({hubId:Number(hub.id),target:rule.target_marketplace,status:'error',error:String(e?.message||e)})}
+      }
+    }
+    if(batch.length){
+      try{
+        await updateWbCards(batch);
+        for(const p of batch){
+          await pool.query(`INSERT INTO marketplace_product_links(hub_id,marketplace,product_id,offer_id,sync_enabled,last_status,last_error,last_synced_at) VALUES($1,'wb',$2,$3,TRUE,'submitted',NULL,NOW()) ON CONFLICT(hub_id,marketplace) DO UPDATE SET product_id=EXCLUDED.product_id,offer_id=EXCLUDED.offer_id,last_status='submitted',last_error=NULL,last_synced_at=NOW()`,[p.hub.id,String(p.target.id),String(p.target.offerId||p.hub.canonical_sku)]);
+          result.push({hubId:Number(p.hub.id),target:'wb',status:'submitted',pending:true});
+        }
+      }catch(e:any){for(const p of batch)result.push({hubId:Number(p.hub.id),target:'wb',status:'error',error:String(e?.message||e)})}
+    }
+  }
   return {processed:result.length,results:result};
 }
 export async function listHubProducts(){

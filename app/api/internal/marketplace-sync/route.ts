@@ -52,6 +52,8 @@ async function saveCommunications(source:MarketplaceName,kind:CommunicationType)
       rating=EXCLUDED.rating,text=EXCLUDED.text,answer=EXCLUDED.answer,external_created_at=EXCLUDED.external_created_at,
       raw_payload=EXCLUDED.raw_payload,synced_at=NOW()`,[source,kind,String(item.id),item.productName||null,item.sku||null,item.article||null,item.rating==null?null:Number(item.rating),item.text||null,typeof item.answer==='string'?item.answer:(item.answer?JSON.stringify(item.answer):null),item.createdAt||null,JSON.stringify(item.raw||{})]);
   }
+  await pool.query("CREATE TABLE IF NOT EXISTS marketplace_settings (key TEXT PRIMARY KEY,value TEXT,updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW())");
+  await pool.query("INSERT INTO marketplace_settings(key,value) VALUES($1,$2) ON CONFLICT(key) DO UPDATE SET value=EXCLUDED.value,updated_at=NOW()",['wb_last_'+kind,new Date().toISOString()]);
   return Number(data.total||data.items?.length||0);
 }
 
@@ -68,8 +70,11 @@ async function syncMarketplaceBundle(source:MarketplaceName,includeCommunication
     result.questions={skipped:'requires_premium_plus'};
     return result;
   }
-  result.reviews=await safeStage(`${source.toUpperCase()}_REVIEWS`,60000,()=>saveCommunications(source,'reviews'));
-  result.questions=await safeStage(`${source.toUpperCase()}_QUESTIONS`,60000,()=>saveCommunications(source,'questions'));
+  const settings=await getPool().query("SELECT key,value FROM marketplace_settings WHERE key IN ('wb_last_reviews','wb_last_questions')");
+  const last=new Map(settings.rows.map((r:any)=>[r.key,Date.parse(r.value)||0]));
+  const kind:CommunicationType=Number(last.get('wb_last_reviews')||0)<=Number(last.get('wb_last_questions')||0)?'reviews':'questions';
+  result[kind==='reviews'?'questions':'reviews']={skipped:'next_communication_cycle'};
+  result[kind]=await safeStage(`${source.toUpperCase()}_${kind.toUpperCase()}`,60000,()=>saveCommunications(source,kind));
   return result;
 }
 
@@ -91,6 +96,9 @@ export async function POST(request:Request){
   const githubAuthorized=bearer?await verifyGitHubActionsToken(bearer).catch(()=>false):false;
   if(!cronAuthorized&&!githubAuthorized)return NextResponse.json({error:'Unauthorized'},{status:401});
 
+  const lock=await getPool().connect();
+  const acquired=(await lock.query('SELECT pg_try_advisory_lock(74195022) AS acquired')).rows[0].acquired;
+  if(!acquired){lock.release();return NextResponse.json({ok:true,skipped:true,reason:'sync_in_progress'},{status:202})}
   try{
     await ensureSchema();
     const pool=getPool();
@@ -108,6 +116,14 @@ export async function POST(request:Request){
     const run=await pool.query(`INSERT INTO marketplace_sync_runs DEFAULT VALUES RETURNING id`);
     const runId=Number(run.rows[0].id);
     const result:any={ok:true,runId,forced:force,communications:includeCommunications,transfers:includeTransfers,stages:{},productHub:{imports:{},site:null,facts:null,prune:null,transfer:null}};
+
+    if(includeCommunications){
+      result.stages.wildberries=process.env.WB_API_TOKEN?.trim()?await syncMarketplaceBundle('wildberries',true):{skipped:'not_configured'};
+      result.stages.ozon={reviews:{skipped:'requires_premium_plus'},questions:{skipped:'requires_premium_plus'}};
+      const errors=collectErrors(result);if(errors.length){result.partial=true;result.partialErrors=errors}
+      await pool.query('UPDATE marketplace_sync_runs SET finished_at=NOW(),ok=$2,result=$3::jsonb WHERE id=$1',[runId,!errors.length,JSON.stringify(result)]);
+      return NextResponse.json(result,{headers:{'Cache-Control':'no-store'}});
+    }
 
     const warehouses:any=await safeStage('WAREHOUSE_SETTINGS',15000,()=>getWarehouseSettings());
     result.stages.warehouses=warehouses;
@@ -156,9 +172,9 @@ export async function POST(request:Request){
 
     const partialErrors=collectErrors(result);
     if(partialErrors.length){result.partial=true;result.partialErrors=partialErrors}
-    await pool.query(`UPDATE marketplace_sync_runs SET finished_at=NOW(),ok=TRUE,result=$2::jsonb WHERE id=$1`,[runId,JSON.stringify(result)]);
+    await pool.query(`UPDATE marketplace_sync_runs SET finished_at=NOW(),ok=$3,result=$2::jsonb WHERE id=$1`,[runId,JSON.stringify(result),!partialErrors.length]);
     return NextResponse.json(result,{headers:{'Cache-Control':'no-store'}});
   }catch(error:any){
     return NextResponse.json({error:String(error?.message||'Sync failed')},{status:500});
-  }
+  }finally{await lock.query('SELECT pg_advisory_unlock(74195022)').catch(()=>{});lock.release()}
 }

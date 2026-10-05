@@ -9,46 +9,6 @@ jobs:
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
-      - name: Archive Render snapshot privately on Selectel
-        env:
-          HOST: ${{ secrets.SELECTEL_HOST }}
-          PORT: ${{ secrets.SELECTEL_PORT }}
-          SSH_KEY: ${{ secrets.SELECTEL_SSH_KEY }}
-        run: |
-          set -euo pipefail
-          umask 077
-          token="$(curl -fsS -H "Authorization: Bearer $ACTIONS_ID_TOKEN_REQUEST_TOKEN" "${ACTIONS_ID_TOKEN_REQUEST_URL}&audience=duisun-migration" | jq -r .value)"
-          echo "::add-mask::$token"
-          curl -fsS --max-time 180 -X POST -H "Authorization: Bearer $token" https://techroom-main.onrender.com/api/internal/migration-export -o /tmp/render-snapshot.json
-          jq -e '(.version == 1) and (.tables | length > 0)' /tmp/render-snapshot.json >/dev/null
-          mkdir -p ~/.ssh
-          chmod 700 ~/.ssh
-          printf '%s\n' "$SSH_KEY" > ~/.ssh/id_ed25519
-          chmod 600 ~/.ssh/id_ed25519
-          ssh-keyscan -p "${PORT:-22}" "$HOST" >> ~/.ssh/known_hosts
-          ssh -p "${PORT:-22}" "root@$HOST" 'install -d -m 700 /root/duisun-migration'
-          scp -P "${PORT:-22}" /tmp/render-snapshot.json "root@$HOST:/root/duisun-migration/render-snapshot.json"
-          ssh -p "${PORT:-22}" "root@$HOST" 'chmod 600 /root/duisun-migration/render-snapshot.json'
-          jq '{exportedAt, tables: [.tables[] | {name,count,sha256}], files: (.files | length), environmentKeys: (.environment | keys)}' /tmp/render-snapshot.json
-          rm /tmp/render-snapshot.json
-      - name: Back up Selectel and merge historical records
-        env:
-          HOST: ${{ secrets.SELECTEL_HOST }}
-          PORT: ${{ secrets.SELECTEL_PORT }}
-        run: |
-          set -euo pipefail
-          scp -P "${PORT:-22}" scripts/merge-render-snapshot.mjs "root@$HOST:/var/www/duisun/scripts/merge-render-snapshot.mjs"
-          ssh -p "${PORT:-22}" "root@$HOST" 'bash -s' <<'REMOTE'
-          set -euo pipefail
-          umask 077
-          cd /var/www/duisun
-          set -a; source .env.production; set +a
-          pg_dump --dbname="$DATABASE_URL" --format=custom --file="/root/duisun-migration/selectel-before-$(date -u +%Y%m%dT%H%M%S).dump"
-          systemctl stop duisun-sync-core.timer duisun-sync-communications.timer duisun-sync-transfers.timer
-          trap 'pm2 restart duisun --update-env; systemctl start duisun-sync-core.timer duisun-sync-communications.timer duisun-sync-transfers.timer' EXIT
-          pm2 stop duisun
-          node scripts/merge-render-snapshot.mjs
-          REMOTE
       - name: Inspect Selectel without exposing customer data
         env:
           HOST: ${{ secrets.SELECTEL_HOST }}
@@ -65,6 +25,18 @@ jobs:
           set -euo pipefail
           cd /var/www/duisun
           set -a; source .env.production; set +a
+          /usr/local/bin/duisun-backup
+          CFG=$(mktemp /run/duisun-verify.XXXXXX)
+          trap 'rm -f "$CFG"' EXIT
+          chmod 600 "$CFG"
+          printf 'header = "x-cron-secret: %s"\n' "$CRON_SYNC_SECRET" > "$CFG"
+          for mode in core communications transfers; do
+            query='force=1'
+            [ "$mode" = communications ] && query='force=1&communications=1'
+            [ "$mode" = transfers ] && query='force=1&transfers=1'
+            curl -fsS --max-time 300 -X POST --config "$CFG" "http://127.0.0.1:3000/api/internal/marketplace-sync?$query" > "/var/log/duisun-sync-$mode-last.json"
+            node -e 'const r=JSON.parse(require("fs").readFileSync(process.argv[1],"utf8"));if(r.ok!==true||r.partial){console.error(JSON.stringify(r.partialErrors||["SYNC_FAILED"]));process.exit(1)}' "/var/log/duisun-sync-$mode-last.json"
+          done
           node --input-type=module <<'NODE'
           import pg from 'pg';
           import fs from 'node:fs';
@@ -76,10 +48,10 @@ jobs:
           console.log('DATABASE_TARGET',new URL(process.env.DATABASE_URL).hostname);
           for(const mode of ['core','communications','transfers']){
             const path=`/var/log/duisun-sync-${mode}-last.json`;
-            try{const r=JSON.parse(fs.readFileSync(path,'utf8'));console.log('SYNC_'+mode,JSON.stringify({ok:r.ok,partial:r.partial,partialErrors:r.partialErrors,skipped:r.skipped,reason:r.reason,imports:r.productHub?.imports,transfer:r.productHub?.transfer,communications:{wb:r.stages?.wildberries,ozon:r.stages?.ozon},priceGuard:r.stages?.priceGuard?.results?.map(x=>({marketplace:x.marketplace,status:x.status,error:x.error}))}))}catch{console.log('SYNC_'+mode,'NO_VALID_RESULT')}
+            try{const r=JSON.parse(fs.readFileSync(path,'utf8'));console.log('SYNC_'+mode,JSON.stringify({ok:r.ok,partial:r.partial,partialErrors:r.partialErrors,skipped:r.skipped,reason:r.reason,imports:r.productHub?.imports,transfer:r.productHub?.transfer?{processed:r.productHub.transfer.processed,statuses:r.productHub.transfer.results?.reduce((o,x)=>(o[x.status]=(o[x.status]||0)+1,o),{})}:undefined,communications:{wb:r.stages?.wildberries,ozon:r.stages?.ozon},priceGuard:r.stages?.priceGuard?.results?.map(x=>({marketplace:x.marketplace,status:x.status,error:x.error}))}))}catch{console.log('SYNC_'+mode,'NO_VALID_RESULT')}
           }
           await pool.end();
           NODE
-          systemctl is-active duisun-sync-core.timer duisun-sync-communications.timer duisun-sync-transfers.timer
+          systemctl is-active duisun-sync-core.timer duisun-sync-communications.timer duisun-sync-transfers.timer duisun-backup.timer
           curl -fsS http://127.0.0.1:3000/api/health
           REMOTE

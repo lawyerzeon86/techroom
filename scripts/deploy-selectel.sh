@@ -13,7 +13,7 @@ if [ "$(id -u)" -ne 0 ]; then echo "Run as root"; exit 1; fi
 mkdir -p "$APP_DIR"
 
 if [ -f "$ENV_FILE" ] && [ ! -f "$ROOT_INTEGRATIONS_ENV" ]; then
-  grep -E '^(WB_API_TOKEN|WB_WAREHOUSE_ID|OZON_CLIENT_ID|OZON_API_KEY|OZON_WAREHOUSE_ID|OZON_DESCRIPTION_ATTRIBUTE_ID|AVITO_CLIENT_ID|AVITO_CLIENT_SECRET|AVITO_USER_ID|YANDEX_MARKET_API_KEY|YANDEX_MARKET_BUSINESS_ID|VK_ACCESS_TOKEN|VK_GROUP_ID|TELEGRAM_BOT_TOKEN|TELEGRAM_WEBHOOK_SECRET|TELEGRAM_ADMIN_CHAT_ID|MAX_BOT_TOKEN|MAX_WEBHOOK_SECRET|MAX_ADMIN_USER_ID|WHATSAPP_ACCESS_TOKEN|WHATSAPP_PHONE_NUMBER_ID|WHATSAPP_APP_SECRET|WHATSAPP_VERIFY_TOKEN|WHATSAPP_GRAPH_VERSION|YOOKASSA_SHOP_ID|YOOKASSA_SECRET_KEY|OPENAI_API_KEY|OPENAI_MODEL)=' "$ENV_FILE" > "$ROOT_INTEGRATIONS_ENV" || true
+  grep -E '^(WB_API_TOKEN|WB_FEEDBACK_TOKEN|WB_WAREHOUSE_ID|OZON_CLIENT_ID|OZON_API_KEY|OZON_WAREHOUSE_ID|OZON_DESCRIPTION_ATTRIBUTE_ID|AVITO_CLIENT_ID|AVITO_CLIENT_SECRET|AVITO_USER_ID|YANDEX_MARKET_API_KEY|YANDEX_MARKET_BUSINESS_ID|VK_ACCESS_TOKEN|VK_GROUP_ID|TELEGRAM_BOT_TOKEN|TELEGRAM_WEBHOOK_SECRET|TELEGRAM_ADMIN_CHAT_ID|MAX_BOT_TOKEN|MAX_WEBHOOK_SECRET|MAX_ADMIN_USER_ID|WHATSAPP_ACCESS_TOKEN|WHATSAPP_PHONE_NUMBER_ID|WHATSAPP_APP_SECRET|WHATSAPP_VERIFY_TOKEN|WHATSAPP_GRAPH_VERSION|YOOKASSA_SHOP_ID|YOOKASSA_SECRET_KEY|OPENAI_API_KEY|OPENAI_MODEL)=' "$ENV_FILE" > "$ROOT_INTEGRATIONS_ENV" || true
   chmod 600 "$ROOT_INTEGRATIONS_ENV"
 fi
 
@@ -68,6 +68,7 @@ if [ -s "$ROOT_INTEGRATIONS_ENV" ]; then cat "$ROOT_INTEGRATIONS_ENV" >> "$ENV_F
 chmod 600 "$ENV_FILE"
 
 npm ci
+node scripts/finalize-selectel.mjs
 npm run build
 pm2 delete techroom >/dev/null 2>&1 || true
 pm2 delete duisun >/dev/null 2>&1 || true
@@ -91,7 +92,16 @@ CFG=$(mktemp /run/duisun-curl.XXXXXX)
 trap 'rm -f "$CFG"' EXIT
 chmod 600 "$CFG"
 printf 'header = "x-cron-secret: %s"\n' "$CRON_SYNC_SECRET" > "$CFG"
-flock -n /run/duisun-marketplace-sync.lock curl -fsS --max-time "$TIMEOUT" -X POST --config "$CFG" "$URL" > "$OUT" || true
+RESULT=$(mktemp /run/duisun-result.XXXXXX)
+trap 'rm -f "$CFG" "$RESULT"' EXIT
+if flock -E 75 -n /run/duisun-marketplace-sync.lock curl -fsS --max-time "$TIMEOUT" -X POST --config "$CFG" "$URL" > "$RESULT"; then
+  install -m 600 "$RESULT" "$OUT"
+  node -e 'const fs=require("fs");const r=JSON.parse(fs.readFileSync(process.argv[1],"utf8"));if(r.ok!==true||r.partial===true)process.exit(1)' "$RESULT"
+else
+  status=$?
+  [ "$status" = 75 ] && exit 0
+  exit "$status"
+fi
 SYNC
 chmod 700 /usr/local/bin/duisun-sync-run
 
@@ -129,8 +139,8 @@ cat >/etc/systemd/system/duisun-sync-communications.timer <<'UNIT'
 Description=Duisun reviews and questions sync every 2 hours
 [Timer]
 OnBootSec=10min
-OnUnitActiveSec=2h
-RandomizedDelaySec=5min
+OnUnitActiveSec=15min
+RandomizedDelaySec=45
 Persistent=true
 [Install]
 WantedBy=timers.target
@@ -150,6 +160,37 @@ UNIT
 systemctl disable --now duisun-marketplace-sync.timer 2>/dev/null || true
 systemctl daemon-reload
 systemctl enable --now duisun-sync-core.timer duisun-sync-communications.timer duisun-sync-transfers.timer
+
+install -d -m 700 /root/duisun-backups
+cat >/usr/local/bin/duisun-backup <<'BACKUP'
+#!/usr/bin/env bash
+set -euo pipefail
+umask 077
+cd /var/www/duisun
+set -a; source .env.production; set +a
+STAMP=$(date -u +%Y%m%dT%H%M%S)
+pg_dump --dbname="$DATABASE_URL" --format=custom --file="/root/duisun-backups/database-$STAMP.dump"
+tar -czf "/root/duisun-backups/config-$STAMP.tar.gz" /root/duisun-db.env /root/duisun-admin.env /root/duisun-integrations.env /etc/nginx/sites-available/duisun
+BACKUP
+chmod 700 /usr/local/bin/duisun-backup
+cat >/etc/systemd/system/duisun-backup.service <<'UNIT'
+[Unit]
+Description=Duisun private database and configuration backup
+[Service]
+Type=oneshot
+ExecStart=/usr/local/bin/duisun-backup
+UNIT
+cat >/etc/systemd/system/duisun-backup.timer <<'UNIT'
+[Unit]
+Description=Duisun daily backup
+[Timer]
+OnCalendar=*-*-* 01:30:00 UTC
+Persistent=true
+[Install]
+WantedBy=timers.target
+UNIT
+systemctl daemon-reload
+systemctl enable --now duisun-backup.timer
 
 cat >/etc/nginx/sites-available/duisun <<'NGINX'
 server {
@@ -203,5 +244,5 @@ if [ -f /etc/letsencrypt/live/duisun.ru/fullchain.pem ] && [ -f "$APP_DIR/script
 fi
 
 echo "DUISUN DEPLOYED"
-echo "Marketplace core pull: 15m; communications: 2h; cross-marketplace transfer: 6h."
+echo "Marketplace core pull: 15m; communications: 15m (alternating reviews/questions); cross-marketplace transfer: 6h."
 echo "Only Ozon/WB marketplace products are eligible for the storefront; no demo product seeding."

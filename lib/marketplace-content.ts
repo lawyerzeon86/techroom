@@ -1,3 +1,4 @@
+import { loadWbPriceGoods } from './wb-prices';
 export type MarketplaceUi='wb'|'ozon';
 
 function env(name:string){return process.env[name]?.trim()||null}
@@ -46,23 +47,12 @@ function wbGoodPrice(g:any){
   return Number.isFinite(direct)&&direct>0?direct:0;
 }
 async function wbPriceMap(nmIds:(string|number)[]){
-  const ids=[...new Set(nmIds.map(Number).filter(n=>Number.isFinite(n)&&n>0))];
+  const ids=new Set(nmIds.map(String));
   const out=new Map<string,number>();
-  if(!ids.length)return out;
-  for(let i=0;i<ids.length;i+=100){
-    const part=ids.slice(i,i+100);
-    try{
-      const d=await fetchJson('https://discounts-prices-api.wildberries.ru/api/v2/list/goods/filter',{
-        method:'POST',headers:wbHeaders(),body:JSON.stringify({nmList:part})
-      });
-      const goods=d?.data?.listGoods||d?.listGoods||[];
-      for(const g of goods){const id=String(g?.nmID||'');const price=wbGoodPrice(g);if(id&&price>0)out.set(id,price)}
-    }catch{
-      // Price enrichment is optional for catalog imports. The dedicated price
-      // sync/guard handles its own rate limits, so keep the cards on a 429.
-    }
-    if(i+100<ids.length)await new Promise(resolve=>setTimeout(resolve,700));
-  }
+  try{for(const g of await loadWbPriceGoods(wbHeaders().Authorization,true)){
+    const id=String(g?.nmID||'');const price=wbGoodPrice(g);
+    if(ids.has(id)&&price>0)out.set(id,price);
+  }}catch{}
   return out;
 }
 function normalizeWbCardBase(c:any){
@@ -120,17 +110,23 @@ function wbPayload(card:any,patch:{title?:string;description?:string;dimensions?
   return x;
 }
 function positive(v:any,name:string){const n=Number(v);if(!Number.isFinite(n)||n<=0)throw new Error(`INVALID_${name}`);return n}
+function wbDimensions(dim:any){
+  const sizeFactor=String(dim.dimensionUnit||'cm').toLowerCase()==='mm'?0.1:1;
+  const weightFactor=String(dim.weightUnit||'kg').toLowerCase()==='g'?0.001:1;
+  return {length:positive(dim.length,'LENGTH')*sizeFactor,width:positive(dim.width,'WIDTH')*sizeFactor,height:positive(dim.height,'HEIGHT')*sizeFactor,weightBrutto:positive(dim.weight,'WEIGHT')*weightFactor};
+}
+export async function updateWbCards(patches:Array<{card:any;title?:string;description?:string;dimensions?:any}>){
+  const payload=patches.map(p=>wbPayload(p.card,{title:p.title,description:p.description,dimensions:p.dimensions?wbDimensions(p.dimensions):undefined}));
+  if(!payload.length)return {skipped:true};
+  return fetchJson('https://content-api.wildberries.ru/content/v2/cards/update',{method:'POST',headers:wbHeaders(),body:JSON.stringify(payload)});
+}
 async function updateWb(p:any){
   if(!p.id)throw new Error('VALIDATION');
   const body={settings:{cursor:{limit:100},filter:{textSearch:String(p.id),withPhoto:-1}}};
   const d=await fetchJson('https://content-api.wildberries.ru/content/v2/get/cards/list',{method:'POST',headers:wbHeaders(),body:JSON.stringify(body)});
   const card=(d?.cards||[]).find((c:any)=>String(c.nmID)===String(p.id));
   if(!card)throw new Error('WB_CARD_NOT_FOUND');
-  const patch:any={};
-  if(p.title!==undefined)patch.title=String(p.title).trim();
-  if(p.description!==undefined)patch.description=String(p.description).trim();
-  if(p.dimensions){patch.dimensions={length:positive(p.dimensions.length,'LENGTH'),width:positive(p.dimensions.width,'WIDTH'),height:positive(p.dimensions.height,'HEIGHT'),weightBrutto:positive(p.dimensions.weight,'WEIGHT')}}
-  return fetchJson('https://content-api.wildberries.ru/content/v2/cards/update',{method:'POST',headers:wbHeaders(),body:JSON.stringify([wbPayload(card,patch)])});
+  return updateWbCards([{card,title:p.title===undefined?undefined:String(p.title).trim(),description:p.description===undefined?undefined:String(p.description).trim(),dimensions:p.dimensions}]);
 }
 async function updateOzonDimensions(p:any){
   if(!p.offerId||!p.id)throw new Error('VALIDATION');
