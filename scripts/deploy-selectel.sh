@@ -28,14 +28,6 @@ else
 fi
 cd "$APP_DIR"
 
-# Preserve the verified source snapshot locally; production has no remote dependency.
-if [ -f /root/duisun-migration/render-snapshot-final.json ]; then
-  mv /root/duisun-migration/render-snapshot-final.json /root/duisun-migration/source-snapshot.json
-fi
-if [ -f /root/duisun-migration/render-snapshot.json ]; then
-  mv /root/duisun-migration/render-snapshot.json /root/duisun-migration/initial-snapshot.json
-fi
-
 [ -f "$ROOT_DB_ENV" ] || { echo "Missing $ROOT_DB_ENV"; exit 1; }
 set -a; source "$ROOT_DB_ENV"; set +a
 

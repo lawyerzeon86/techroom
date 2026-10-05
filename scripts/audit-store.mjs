@@ -39,8 +39,8 @@ try{
         description=p.sku==='dskgothring1'?'Готическое кольцо с декоративной чёрной розой. Артикул: dskgothring1.':'Готическая декоративная фигурка-призрак из ASA-пластика. Артикул: dskgothtoy1.';
         await pool.query("UPDATE products SET specs='',specs_override='',description_override=$1 WHERE id=$2",[description,p.id]);
       }
-      if(p.sku==='MinecraftSkeletonW'&&/Красный Скелетон/.test(String(description))){
-        description=description.replaceAll('Красный Скелетон','Белый Скелетон').replaceAll('красный скелетон','белый скелетон');
+      if(p.sku==='MinecraftSkeletonW'&&/красн[а-яё]* скелетон/i.test(String(description))){
+        description=description.replace(/красн(ыми|ого|ый|ым|ом|ая|ой|ую|ое|ые|ых)(?![а-яё])/gi,(word,ending)=>(word[0]===word[0].toUpperCase()?'Бел':'бел')+ending);
       }
       if(description===''){description=String(p.title)+'. Артикул: '+String(p.sku)+'.';}
       if(description!==null){
