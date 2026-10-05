@@ -248,7 +248,7 @@ if [ -f /etc/letsencrypt/live/duisun.ru/fullchain.pem ] && [ -f "$APP_DIR/script
 fi
 
 set -a; source "$ENV_FILE"; set +a
-node scripts/configure-telegram.mjs
+echo "Telegram webhook is configured by the deployment runner."
 
 echo "DUISUN DEPLOYED"
 echo "Marketplace core pull: 15m; communications: 15m (alternating reviews/questions); cross-marketplace transfer: 6h."
