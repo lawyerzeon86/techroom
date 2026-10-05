@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import styles from './product.module.css';
 import { addToCart } from '../../../lib/cart-client';
+import { marketplacePlainText } from '../../../lib/plain-text';
 
 type Product = {
   id:number;
@@ -69,8 +70,8 @@ export default function ProductPage(){
     if(!product?.specs) return [];
     return product.specs.split('\n').map(s=>s.trim()).filter(Boolean).map(row=>{
       const i=row.indexOf(':');
-      return i>0 ? [row.slice(0,i).trim(),row.slice(i+1).trim()] : ['Характеристика',row];
-    });
+      return i>0 ? [row.slice(0,i).trim(),marketplacePlainText(row.slice(i+1))] : ['Характеристика',marketplacePlainText(row)];
+    }).filter(([,value])=>value!==marketplacePlainText(product.description||'')&&value!==product.title);
   },[product]);
 
   if(loading) return <main className={styles.page}><div className={styles.card}><p>Загрузка товара…</p></div></main>;
@@ -142,7 +143,7 @@ export default function ProductPage(){
             {product.description && (
               <div className={styles.description}>
                 <h2>Описание</h2>
-                <p>{product.description}</p>
+                <p>{marketplacePlainText(product.description)}</p>
               </div>
             )}
 

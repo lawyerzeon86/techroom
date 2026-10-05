@@ -1,4 +1,5 @@
 import type { MarketplaceName } from './marketplaces';
+import { getPool } from './db';
 
 export type CommunicationType = 'reviews' | 'questions';
 
@@ -62,11 +63,24 @@ export async function listWildberries(type:CommunicationType){
   if(cached) return cached;
 
   const token=wbToken();
+  const pool=getPool();
+  await pool.query("CREATE TABLE IF NOT EXISTS marketplace_settings (key TEXT PRIMARY KEY,value TEXT,updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW())");
+  await pool.query("INSERT INTO marketplace_settings(key,value) VALUES('wb_feedback_next_request_at','1970-01-01T00:00:00Z') ON CONFLICT DO NOTHING");
+  const claim=await pool.query("UPDATE marketplace_settings SET value=$1,updated_at=NOW() WHERE key='wb_feedback_next_request_at' AND value::timestamptz<=NOW() RETURNING key",[new Date(Date.now()+13*60*1000).toISOString()]);
+  if(!claim.rowCount){
+    const state=await pool.query("SELECT value FROM marketplace_settings WHERE key='wb_feedback_next_request_at'");
+    const retry=Math.max(1,Math.ceil((Date.parse(state.rows[0].value)-Date.now())/1000));
+    throw new Error(`RATE_LIMIT: повторите через ${retry} сек.`);
+  }
   const endpoint=type==='reviews'?'feedbacks':'questions';
   const qs=new URLSearchParams({isAnswered:'false',take:'100',skip:'0',order:'dateDesc'});
   const res=await fetch(`https://feedbacks-api.wildberries.ru/api/v1/${endpoint}?${qs.toString()}`,{
-    headers:{Authorization:token},cache:'no-store'
+    headers:{Authorization:token},cache:'no-store',signal:AbortSignal.timeout(20000)
   });
+  if(res.status===429){
+    const next=new Date(Date.now()+Math.max(13*60,retryAfterSeconds(res))*1000).toISOString();
+    await pool.query("UPDATE marketplace_settings SET value=$1,updated_at=NOW() WHERE key='wb_feedback_next_request_at'",[next]);
+  }
   const data=await readJson(res);
   const raw=type==='reviews'
     ? (data?.data?.feedbacks??data?.feedbacks??[])

@@ -1,3 +1,5 @@
+import { createHash } from 'node:crypto';
+import { getPool } from './db';
 import { loadWbPriceGoods } from './wb-prices';
 export type MarketplaceUi='wb'|'ozon';
 
@@ -73,13 +75,30 @@ async function ozonInfo(offerId:string){
   }catch{return {}}
 }
 
+async function wbCards(){
+  const pool=getPool();
+  await pool.query(`CREATE TABLE IF NOT EXISTS wb_catalog_cache (key TEXT PRIMARY KEY,cards JSONB NOT NULL DEFAULT '[]'::jsonb,fetched_at TIMESTAMPTZ)`);
+  const token=wbHeaders().Authorization;
+  const key=createHash('sha256').update(token).digest('hex');
+  const client=await pool.connect();
+  try{
+    await client.query('BEGIN');
+    await client.query('INSERT INTO wb_catalog_cache(key) VALUES($1) ON CONFLICT DO NOTHING',[key]);
+    const row=(await client.query('SELECT * FROM wb_catalog_cache WHERE key=$1 FOR UPDATE',[key])).rows[0];
+    if(row.fetched_at&&Date.now()-new Date(row.fetched_at).getTime()<10*60*1000){await client.query('COMMIT');return row.cards}
+    const d=await fetchJson('https://content-api.wildberries.ru/content/v2/get/cards/list',{method:'POST',headers:wbHeaders(),body:JSON.stringify({settings:{cursor:{limit:100},filter:{withPhoto:-1},sort:{ascending:false}}})});
+    const cards=d?.cards||[];
+    if(!Array.isArray(cards))throw new Error('WB_CARDS_INVALID');
+    await client.query('UPDATE wb_catalog_cache SET cards=$2::jsonb,fetched_at=NOW() WHERE key=$1',[key,JSON.stringify(cards)]);
+    await client.query('COMMIT');return cards;
+  }catch(e){await client.query('ROLLBACK').catch(()=>{});throw e}finally{client.release()}
+}
+
 export async function getProducts(mp:MarketplaceUi,q='',limit=50){
   limit=Math.max(1,Math.min(100,limit));
   if(mp==='wb'){
-    const body:any={settings:{cursor:{limit},filter:{withPhoto:-1},sort:{ascending:false}}};
-    if(q.trim())body.settings.filter.textSearch=q.trim();
-    const d=await fetchJson('https://content-api.wildberries.ru/content/v2/get/cards/list',{method:'POST',headers:wbHeaders(),body:JSON.stringify(body)});
-    const cards=d?.cards||[];
+    const query=q.trim().toLowerCase();
+    const cards=(await wbCards()).filter((c:any)=>!query||`${c.nmID} ${c.vendorCode||''} ${c.title||''}`.toLowerCase().includes(query)).slice(0,limit);
     const prices=await wbPriceMap(cards.map((c:any)=>c.nmID));
     return cards.map((c:any)=>{const p:any=normalizeWbCardBase(c);p.price=prices.get(String(c.nmID))||0;return p});
   }
@@ -122,9 +141,7 @@ export async function updateWbCards(patches:Array<{card:any;title?:string;descri
 }
 async function updateWb(p:any){
   if(!p.id)throw new Error('VALIDATION');
-  const body={settings:{cursor:{limit:100},filter:{textSearch:String(p.id),withPhoto:-1}}};
-  const d=await fetchJson('https://content-api.wildberries.ru/content/v2/get/cards/list',{method:'POST',headers:wbHeaders(),body:JSON.stringify(body)});
-  const card=(d?.cards||[]).find((c:any)=>String(c.nmID)===String(p.id));
+  const card=(await wbCards()).find((c:any)=>String(c.nmID)===String(p.id));
   if(!card)throw new Error('WB_CARD_NOT_FOUND');
   return updateWbCards([{card,title:p.title===undefined?undefined:String(p.title).trim(),description:p.description===undefined?undefined:String(p.description).trim(),dimensions:p.dimensions}]);
 }

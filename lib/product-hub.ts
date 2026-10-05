@@ -40,10 +40,11 @@ function sitePriceFromPayload(source:string,payload:any){
   return firstPositiveNumber(payload?.price);
 }
 function categoryFrom(h:any){
-  const text=`${h.title||''} ${h.description||''} ${JSON.stringify(h.attributes||{})}`.toLowerCase();
-  if(/audi|bmw|mercedes|porsche|авто|порог|датчик|кожух|запчаст/.test(text))return 'Автозапчасти';
-  if(/3d|печать|printed|asa|abs|petg|pla|нейлон/.test(text))return '3D-печать';
-  if(/электрон|кабель|заряд|адаптер|usb|науш/.test(text))return 'Электроника';
+  const title=String(h.title||'').toLowerCase();
+  const description=String(h.description||'').toLowerCase();
+  if(/audi|bmw|mercedes|porsche|автомоб|порог|датчик|кожух|запчаст|прикуривател|мотошлем/.test(title))return 'Автозапчасти';
+  if(/электрон|кабель|заряд|адаптер|usb|науш|провод|шнур|вентилятор/.test(title))return 'Электроника';
+  if(/3d|3д|печать|printed|\b(?:asa|abs|petg|pla)\b|нейлон/.test(`${title} ${description}`))return '3D-печать';
   return 'Гаджеты';
 }
 function specsFrom(h:any){

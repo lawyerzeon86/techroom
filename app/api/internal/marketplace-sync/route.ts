@@ -39,7 +39,7 @@ async function saveCommunications(source:MarketplaceName,kind:CommunicationType)
     const message=String(error?.message||error);
     if(source!=='wildberries'||!/(429|rate.?limit|too many)/i.test(message))throw error;
     const retrySeconds=Math.max(1,Number(message.match(/(?:retry|повтор)[^\d]*(\d+)/i)?.[1]||10));
-    if(retrySeconds>30)throw error;
+    if(retrySeconds>30)return {deferred:true,reason:'wb_rate_limit',retryAt:new Date(Date.now()+retrySeconds*1000).toISOString()};
     await new Promise(resolve=>setTimeout(resolve,retrySeconds*1000));
     data=await listCommunications(source,kind);
   }
