@@ -4,6 +4,7 @@ import { escapeTelegram, sendTelegramMessage } from '../../../../lib/telegram';
 import { ensureSchema, getPool } from '../../../../lib/db';
 export const runtime='nodejs'; export const dynamic='force-dynamic';
 async function bindAdmin(chatId:string|number){
+  if(String(chatId)!==process.env.TELEGRAM_ADMIN_CHAT_ID?.trim())return false;
   await ensureSchema();
   const pool=getPool();
   await pool.query(`CREATE TABLE IF NOT EXISTS app_settings(key TEXT PRIMARY KEY,value TEXT NOT NULL,updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW())`);

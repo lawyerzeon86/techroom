@@ -44,6 +44,10 @@ EOF
 fi
 set -a; source "$ROOT_ADMIN_ENV"; set +a
 
+if [ -s "$ROOT_INTEGRATIONS_ENV" ] && grep -q '^TELEGRAM_BOT_TOKEN=' "$ROOT_INTEGRATIONS_ENV" && ! grep -q '^TELEGRAM_WEBHOOK_SECRET=' "$ROOT_INTEGRATIONS_ENV"; then
+  printf '\nTELEGRAM_WEBHOOK_SECRET=%s\n' "$(openssl rand -hex 32)" >> "$ROOT_INTEGRATIONS_ENV"
+fi
+
 cat >"$ENV_FILE" <<EOF
 NODE_ENV=production
 PORT=3000
@@ -242,6 +246,9 @@ if [ -f /etc/letsencrypt/live/duisun.ru/fullchain.pem ] && [ -f "$APP_DIR/script
   nginx -t
   systemctl reload nginx
 fi
+
+set -a; source "$ENV_FILE"; set +a
+node scripts/configure-telegram.mjs
 
 echo "DUISUN DEPLOYED"
 echo "Marketplace core pull: 15m; communications: 15m (alternating reviews/questions); cross-marketplace transfer: 6h."
