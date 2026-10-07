@@ -1,0 +1,28 @@
+name: Probe old Render
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/probe-old-render.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Probe old Render service
+        shell: bash
+        run: |
+          set -u
+          echo 'HEALTH_BEGIN'
+          curl -sS -i 'https://techroom.onrender.com/api/health' || true
+          echo
+          echo 'HEALTH_END'
+          echo 'PRODUCTS_BEGIN'
+          curl -sS -i 'https://techroom.onrender.com/api/products' || true
+          echo
+          echo 'PRODUCTS_END'
