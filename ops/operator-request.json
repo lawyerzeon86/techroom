@@ -1,5 +1,5 @@
 {
-  "action": "wb_drafts_search",
-  "q": "наклад",
-  "nonce": "2026-10-08T02:40:00+03:00"
+  "action": "wb_remove_description_emoji",
+  "vendorCode": "FenderAudiA4B8front",
+  "nonce": "2026-10-08T02:45:00+03:00"
 }
