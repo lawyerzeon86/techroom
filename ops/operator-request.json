@@ -1,6 +1,4 @@
 {
-  "action": "db_catalog",
-  "q": "",
-  "limit": 1000,
-  "nonce": "2026-10-08T02:21:00+03:00"
+  "action": "wb_fbs_catalog",
+  "nonce": "2026-10-08T02:30:00+03:00"
 }
