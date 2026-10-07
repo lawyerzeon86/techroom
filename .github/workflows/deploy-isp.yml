@@ -50,6 +50,14 @@ jobs:
           set -euo pipefail
           ssh -p "${PORT:-22}" "root@$HOST" 'cd /var/www/duisun; set -a; source .env.production; set +a; node scripts/telegram-config-export.mjs' | node scripts/configure-telegram.mjs
 
+      - name: Set requested WB FBS stock
+        env:
+          HOST: ${{ secrets.SELECTEL_HOST }}
+          PORT: ${{ secrets.SELECTEL_PORT }}
+        run: |
+          set -euo pipefail
+          ssh -p "${PORT:-22}" "root@$HOST" 'cd /var/www/duisun; set -a; source .env.production; set +a; node scripts/set-wb-fbs-stock-once.mjs'
+
       - name: Verify production
         run: |
           set -euo pipefail
