@@ -55,13 +55,47 @@ jobs:
             if(!r.ok) throw new Error('HTTP_'+r.status+' '+JSON.stringify(data));
             return data;
           }
+          async function allCards(){
+            const cards=[]; let cursor={limit:100};
+            for(let page=0;page<50;page++){
+              const data=await post('https://content-api.wildberries.ru/content/v2/get/cards/list',{settings:{cursor,filter:{withPhoto:-1},sort:{ascending:false}}});
+              const part=Array.isArray(data?.cards)?data.cards:[];
+              cards.push(...part);
+              if(part.length<100||!data?.cursor?.updatedAt||!data?.cursor?.nmID) break;
+              cursor={limit:100,updatedAt:data.cursor.updatedAt,nmID:data.cursor.nmID};
+            }
+            return cards;
+          }
           if(req.action==='wb_drafts_search'){
             const q=String(req.q||'').toLowerCase();
             const errors=await post('https://content-api.wildberries.ru/content/v2/cards/error/list',{});
-            const text=JSON.stringify(errors);
             const out={ok:true,action:req.action,q,errors};
             console.log('OPERATOR_RESULT_BEGIN');
             console.log(JSON.stringify(out));
+            console.log('OPERATOR_RESULT_END');
+          } else if(req.action==='wb_remove_description_emoji'){
+            const vendorCode=String(req.vendorCode||'').trim();
+            if(!vendorCode) throw new Error('VENDOR_CODE_REQUIRED');
+            const cards=await allCards();
+            const card=cards.find(x=>String(x?.vendorCode||'')===vendorCode);
+            if(!card) throw new Error('WB_CARD_NOT_FOUND');
+            const before=String(card.description||'');
+            const after=before
+              .replace(/\p{Extended_Pictographic}/gu,'')
+              .replace(/[\uFE0E\uFE0F\u200D]/g,'')
+              .replace(/[\u{1F1E6}-\u{1F1FF}]/gu,'')
+              .replace(/[\u{1F3FB}-\u{1F3FF}]/gu,'')
+              .replace(/[ \t]{2,}/g,' ')
+              .replace(/ *\n */g,'\n')
+              .trim();
+            const keys=['nmID','vendorCode','brand','title','description','dimensions','characteristics','sizes','kizMarked','wholesale'];
+            const payload={}; for(const k of keys) if(card?.[k]!==undefined) payload[k]=card[k];
+            payload.description=after;
+            const result=await post('https://content-api.wildberries.ru/content/v2/cards/update',[payload]);
+            const errors=await post('https://content-api.wildberries.ru/content/v2/cards/error/list',{});
+            const remaining=(errors?.data?.items||[]).filter(x=>Array.isArray(x?.vendorCodes)&&x.vendorCodes.includes(vendorCode));
+            console.log('OPERATOR_RESULT_BEGIN');
+            console.log(JSON.stringify({ok:true,action:req.action,vendorCode,nmID:card.nmID,title:card.title,descriptionChanged:before!==after,removedChars:before.length-after.length,result,remainingErrors:remaining}));
             console.log('OPERATOR_RESULT_END');
           } else {
             throw new Error('Unsupported action');
