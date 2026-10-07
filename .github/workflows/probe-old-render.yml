@@ -19,10 +19,10 @@ jobs:
         run: |
           set -u
           echo 'HEALTH_BEGIN'
-          curl -sS -i 'https://techroom.onrender.com/api/health' || true
+          curl --max-time 15 -sS -i 'https://techroom.onrender.com/api/health' || true
           echo
           echo 'HEALTH_END'
           echo 'PRODUCTS_BEGIN'
-          curl -sS -i 'https://techroom.onrender.com/api/products' || true
+          curl --max-time 15 -sS -i 'https://techroom.onrender.com/api/products' || true
           echo
           echo 'PRODUCTS_END'
