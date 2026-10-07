@@ -21,7 +21,7 @@ async function getKeys(){
   return data.keys;
 }
 
-export async function verifyGitHubActionsToken(token:string){
+async function verifyToken(token:string,allowedWorkflowFiles:string[]){
   const parts=token.split('.');
   if(parts.length!==3)return false;
   let header:any,claims:Claims;
@@ -35,12 +35,21 @@ export async function verifyGitHubActionsToken(token:string){
   const now=Math.floor(Date.now()/1000);
   const audiences=Array.isArray(claims.aud)?claims.aud:[claims.aud];
   const repository=process.env.GITHUB_SYNC_REPOSITORY?.trim()||'lawyerzeon86/techroom';
-  const workflow=`${repository}/.github/workflows/marketplace-sync.yml@refs/heads/main`;
+  const allowedRefs=allowedWorkflowFiles.map(file=>`${repository}/.github/workflows/${file}@refs/heads/main`);
   return claims.iss===ISSUER
     &&audiences.includes(AUDIENCE)
     &&typeof claims.exp==='number'&&claims.exp>now
     &&(typeof claims.nbf!=='number'||claims.nbf<=now+30)
     &&claims.repository===repository
     &&claims.ref==='refs/heads/main'
-    &&claims.workflow_ref===workflow;
+    &&typeof claims.workflow_ref==='string'
+    &&allowedRefs.includes(claims.workflow_ref);
+}
+
+export async function verifyGitHubActionsToken(token:string){
+  return verifyToken(token,['marketplace-sync.yml']);
+}
+
+export async function verifyOperatorGitHubActionsToken(token:string){
+  return verifyToken(token,['operator-bridge.yml']);
 }
