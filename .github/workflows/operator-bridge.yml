@@ -1,0 +1,36 @@
+name: Operator Bridge
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'ops/operator-request.json'
+      - '.github/workflows/operator-bridge.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  id-token: write
+
+jobs:
+  run:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Get OIDC token
+        id: oidc
+        shell: bash
+        run: |
+          RESPONSE="$(curl -fsS -H "Authorization: bearer $ACTIONS_ID_TOKEN_REQUEST_TOKEN" "$ACTIONS_ID_TOKEN_REQUEST_URL&audience=techroom-marketplace-sync")"
+          TOKEN="$(printf '%s' "$RESPONSE" | python -c "import sys,json; print(json.load(sys.stdin)['value'])")"
+          echo "token=$TOKEN" >> "$GITHUB_OUTPUT"
+      - name: Run operator request
+        shell: bash
+        env:
+          OIDC_TOKEN: ${{ steps.oidc.outputs.token }}
+        run: |
+          set -euo pipefail
+          RESPONSE="$(curl -fsS -X POST 'https://techroom-main.onrender.com/api/internal/operator-data'             -H "Authorization: Bearer $OIDC_TOKEN"             -H 'Content-Type: application/json'             --data-binary @ops/operator-request.json)"
+          echo 'OPERATOR_RESULT_BEGIN'
+          printf '%s\n' "$RESPONSE"
+          echo 'OPERATOR_RESULT_END'
