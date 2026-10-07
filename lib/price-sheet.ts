@@ -143,7 +143,7 @@ export function priceSheetMarketplaceStatus(){
   return {
     ozon:Boolean(process.env.OZON_CLIENT_ID?.trim()&&process.env.OZON_API_KEY?.trim()),
     wb:Boolean(process.env.WB_API_TOKEN?.trim()),
-    yandex:Boolean(process.env.YANDEX_MARKET_API_KEY?.trim()&&process.env.YANDEX_MARKET_BUSINESS_ID?.trim()),
+    yandex:Boolean(process.env.YANDEX_MARKET_API_KEY?.trim()&&process.env.YANDEX_MARKET_BUSINESS_ID?.trim()&&process.env.YANDEX_MARKET_CAMPAIGN_ID?.trim()),
     avito:Boolean(process.env.AVITO_CLIENT_ID?.trim()&&process.env.AVITO_CLIENT_SECRET?.trim()),
   };
 }

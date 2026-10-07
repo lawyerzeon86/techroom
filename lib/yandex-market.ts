@@ -1,4 +1,5 @@
 import { ensureSchema, getPool } from './db';
+import { yandexRequest, yandexPages, yandexId, yandexFbsCampaign } from './yandex-api';
 
 function env(name:string){
   const value=process.env[name]?.trim();
@@ -43,37 +44,25 @@ async function upsert(order:any){
 }
 
 export function yandexMarketConfigured(){
-  return Boolean(process.env.YANDEX_MARKET_API_KEY?.trim()&&process.env.YANDEX_MARKET_BUSINESS_ID?.trim());
+  return Boolean(process.env.YANDEX_MARKET_API_KEY?.trim()&&process.env.YANDEX_MARKET_BUSINESS_ID?.trim()&&process.env.YANDEX_MARKET_CAMPAIGN_ID?.trim());
 }
 
 export async function testYandexMarket(){
-  const apiKey=env('YANDEX_MARKET_API_KEY');
-  const res=await fetch('https://api.partner.market.yandex.ru/v2/auth/token',{
-    method:'POST',headers:{'Api-Key':apiKey,'Content-Type':'application/json'},body:'{}',cache:'no-store'
-  });
-  const data=await readJson(res);
-  return {ok:true,details:data?.status||'OK'};
+  const campaign=await yandexFbsCampaign();
+  const campaignId=Number(yandexId('YANDEX_MARKET_CAMPAIGN_ID'));
+  await yandexRequest(`/v1/businesses/${yandexId('YANDEX_MARKET_BUSINESS_ID')}/orders?limit=1`,{fake:false,sourcePlatforms:['MARKET'],campaignIds:[campaignId],programTypes:['FBS']});
+  return {ok:true,campaign:{id:campaign.id,name:campaign.domain,model:campaign.placementType,apiAvailability:campaign.apiAvailability}};
 }
 
 export async function syncYandexMarketOrders(){
-  const apiKey=env('YANDEX_MARKET_API_KEY');
+  env('YANDEX_MARKET_API_KEY');
   const businessId=env('YANDEX_MARKET_BUSINESS_ID');
-  let pageToken='';
+  const campaignId=Number(env('YANDEX_MARKET_CAMPAIGN_ID'));
+  await yandexFbsCampaign();
   let total=0;
-
-  for(let page=0;page<20;page++){
-    const qs=new URLSearchParams({limit:'50'});
-    if(pageToken) qs.set('pageToken',pageToken);
-    const url=`https://api.partner.market.yandex.ru/v1/businesses/${encodeURIComponent(businessId)}/orders?${qs.toString()}`;
-    const res=await fetch(url,{
-      method:'POST',
-      headers:{'Api-Key':apiKey,'Content-Type':'application/json'},
-      body:JSON.stringify({fake:false,sourcePlatforms:['MARKET']}),
-      cache:'no-store'
-    });
-    const data=await readJson(res);
-    const orders=Array.isArray(data?.orders)?data.orders:[];
+  const orders=await yandexPages(`/v1/businesses/${encodeURIComponent(businessId)}/orders`,'orders',{fake:false,sourcePlatforms:['MARKET'],campaignIds:[campaignId],programTypes:['FBS']},50);
     for(const o of orders){
+      if(!o.orderId)throw new Error('YANDEX_ORDER_ID_MISSING');
       const items=(Array.isArray(o.items)?o.items:[]).map((x:any)=>({
         sku:x.offerId??null,
         offerId:x.offerId??null,
@@ -81,8 +70,10 @@ export async function syncYandexMarketOrders(){
         quantity:Number(x.count??x.quantity??1)||1,
         price:asNumber(x?.prices?.payment??x?.buyerPrice??x?.price),
       }));
-      const itemTotal=items.reduce((s:number,x:any)=>s+(Number(x.price)||0)*(Number(x.quantity)||1),0);
-      const orderTotal=asNumber(o?.prices?.payment)||itemTotal;
+      // Business API item payment is the line total, rather than a unit price.
+      for(const item of items)item.price=item.price/item.quantity;
+      const itemTotal=items.reduce((s:number,x:any)=>s+Number(x.price)*Number(x.quantity),0);
+      const orderTotal=o?.prices?.payment==null?itemTotal:asNumber(o.prices.payment);
       await upsert({
         externalId:String(o.orderId??o.externalOrderId??''),
         orderNumber:String(o.externalOrderId??o.orderId??''),
@@ -94,11 +85,7 @@ export async function syncYandexMarketOrders(){
         raw:o,
         createdAt:o.creationDate??o.createdAt??null,
       });
-    }
-    total+=orders.length;
-    const next=String(data?.paging?.nextPageToken??data?.nextPageToken??'');
-    if(!next||next===pageToken) break;
-    pageToken=next;
+      total++;
   }
   return {synced:total};
 }

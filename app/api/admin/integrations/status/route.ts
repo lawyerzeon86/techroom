@@ -2,11 +2,12 @@ import { NextResponse } from 'next/server';
 import { isAdminSession } from '../../../../../lib/security';
 import { marketplaceConfig } from '../../../../../lib/marketplaces';
 import { vkConfigured } from '../../../../../lib/vk-market';
+import { yandexMarketConfigured } from '../../../../../lib/yandex-market';
 
 export const runtime='nodejs';
 export const dynamic='force-dynamic';
 
 export async function GET(request:Request){
   if(!isAdminSession(request)) return NextResponse.json({error:'Требуется вход администратора'},{status:401});
-  return NextResponse.json({configured:{...marketplaceConfig(),vk:vkConfigured()}},{headers:{'Cache-Control':'no-store'}});
+  return NextResponse.json({configured:{...marketplaceConfig(),vk:vkConfigured(),yandex:yandexMarketConfigured()}},{headers:{'Cache-Control':'no-store'}});
 }

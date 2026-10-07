@@ -9,6 +9,7 @@ import { importMarketplaceProducts, runAutoProductTransfers, syncHubCatalogToSit
 import { refreshSiteCatalogFacts } from '../../../../lib/site-catalog-refresh';
 import { runPriceGuard } from '../../../../lib/price-guard';
 import { verifyGitHubActionsToken } from '../../../../lib/github-oidc';
+import { syncYandexMarketOrders, yandexMarketConfigured } from '../../../../lib/yandex-market';
 
 export const runtime='nodejs';
 export const dynamic='force-dynamic';
@@ -135,6 +136,9 @@ export async function POST(request:Request){
     ]);
     result.stages.wildberries=wb;
     result.stages.ozon=ozon;
+    result.stages.yandex=yandexMarketConfigured()
+      ? await safeStage('YANDEX_FBS_ORDERS',30000,()=>syncYandexMarketOrders())
+      : {skipped:'not_configured'};
 
     result.stages.catalog=await safeStage('CATALOG_SYNC',120000,()=>pushPricesAndStocks());
     result.stages.priceGuard=await safeStage('PRICE_GUARD',120000,()=>runPriceGuard());

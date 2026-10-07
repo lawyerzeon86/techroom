@@ -5,6 +5,7 @@ import { importMarketplaceProducts, runAutoProductTransfers } from './product-hu
 import { hardFloorForSku, listPriceSheet } from './price-sheet';
 import { pushAvitoPrices } from './avito';
 import { getProducts } from './marketplace-content';
+import { yandexBusinessSettings, yandexCatalog, yandexUpdatePrices, yandexUpdateStocks } from './yandex-api';
 
 function targetPrice(p:{sku:string;price:number;minPrice:number}){
   return Math.max(1,Math.round(p.price),Math.round(p.minPrice||0),hardFloorForSku(p.sku));
@@ -107,7 +108,7 @@ async function saveCommunications(source:MarketplaceName,kind:CommunicationType)
 export async function pushPricesAndStocks(options:{onlyOzonPrices?:boolean;onlyPrices?:boolean}={}){
   const pool=getPool();
   const products=await listPriceSheet();
-  const result:any={products:products.length,wb:{prices:'skipped',stocks:'skipped'},ozon:{prices:'skipped',stocks:'skipped'},yandex:{prices:'skipped'},avito:{prices:'skipped'}};
+  const result:any={products:products.length,wb:{prices:'skipped',stocks:'skipped'},ozon:{prices:'skipped',stocks:'skipped'},yandex:{prices:'skipped',stocks:'skipped'},avito:{prices:'skipped'}};
 
   if(!options.onlyOzonPrices && process.env.WB_API_TOKEN?.trim() && products.length){
     try{
@@ -180,24 +181,25 @@ export async function pushPricesAndStocks(options:{onlyOzonPrices?:boolean;onlyP
       } else if(!options.onlyOzonPrices && !options.onlyPrices && !warehouseId) result.ozon.stocks='needs_OZON_WAREHOUSE_ID';
     }catch(e:any){result.ozon.error=String(e?.message||e)}
   }
-  if(!options.onlyOzonPrices && process.env.YANDEX_MARKET_API_KEY?.trim() && process.env.YANDEX_MARKET_BUSINESS_ID?.trim() && products.length && (process.env.SYNC_YANDEX_PRICES==='1'||process.env.SYNC_MARKETPLACE_PRICES==='1')){
+  if(!options.onlyOzonPrices && process.env.YANDEX_MARKET_API_KEY?.trim() && process.env.YANDEX_MARKET_BUSINESS_ID?.trim() && process.env.YANDEX_MARKET_CAMPAIGN_ID?.trim() && products.length){
     try{
-      const apiKey=process.env.YANDEX_MARKET_API_KEY!.trim();
-      const businessId=process.env.YANDEX_MARKET_BUSINESS_ID!.trim();
-      const yandexProducts=products.filter((p:any)=>p.syncYandex&&p.price>0);
-      let pushed=0;
-      for(let i=0;i<yandexProducts.length;i+=2000){
-        const part=yandexProducts.slice(i,i+2000);
-        const offers=part.map((p:any)=>({offerId:p.sku,price:{value:targetPrice(p),currencyId:'RUR'}}));
-        if(!offers.length)continue;
-        const res=await fetch(`https://api.partner.market.yandex.ru/v2/businesses/${encodeURIComponent(businessId)}/offer-prices/updates`,{
-          method:'POST',headers:{'Api-Key':apiKey,'Content-Type':'application/json'},body:JSON.stringify({offers}),cache:'no-store'
-        });
-        const data=await res.json().catch(()=>({}));
-        if(!res.ok)throw new Error(String(data?.message||data?.errors?.[0]?.message||`YANDEX_PRICE_${res.status}`));
-        pushed+=offers.length;
+      const catalog=await yandexCatalog();
+      const offerIds=new Set(catalog.map((x:any)=>String(x?.offer?.offerId??x?.offerId??'')).filter(Boolean));
+      const yandexProducts=products.filter((p:any)=>p.syncYandex&&offerIds.has(String(p.sku)));
+      result.yandex.matched=yandexProducts.length;
+      if(process.env.SYNC_YANDEX_PRICES==='1'||process.env.SYNC_MARKETPLACE_PRICES==='1'){
+        const settings=await yandexBusinessSettings();
+        if(settings.onlyDefaultPrice===true){
+          result.yandex.prices={status:'skipped',reason:'business_only_default_price'};
+        }else{
+          const offers=yandexProducts.filter((p:any)=>p.price>0).map((p:any)=>({offerId:p.sku,price:{value:targetPrice(p),currencyId:'RUR'}}));
+          result.yandex.prices=await yandexUpdatePrices(offers);
+        }
       }
-      result.yandex.prices=pushed;
+      if(!options.onlyPrices&&(process.env.SYNC_YANDEX_STOCKS==='1'||process.env.SYNC_MARKETPLACE_STOCKS==='1')){
+        const stocks=yandexProducts.map((p:any)=>({sku:p.sku,count:Math.max(0,Math.round(Number(p.stock)||0))}));
+        result.yandex.stocks=await yandexUpdateStocks(stocks);
+      }
     }catch(e:any){result.yandex.error=String(e?.message||e)}
   }
 
