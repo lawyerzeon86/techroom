@@ -30,7 +30,7 @@ jobs:
           OIDC_TOKEN: ${{ steps.oidc.outputs.token }}
         run: |
           set -euo pipefail
-          RESPONSE="$(curl -fsS -X POST 'https://techroom-main.onrender.com/api/internal/operator-data'             -H "Authorization: Bearer $OIDC_TOKEN"             -H 'Content-Type: application/json'             --data-binary @ops/operator-request.json)"
+          RESPONSE="$(curl -sS -X POST 'https://techroom-main.onrender.com/api/internal/operator-data'             -H "Authorization: Bearer $OIDC_TOKEN"             -H 'Content-Type: application/json'             --data-binary @ops/operator-request.json)"
           echo 'OPERATOR_RESULT_BEGIN'
           printf '%s\n' "$RESPONSE"
           echo 'OPERATOR_RESULT_END'
