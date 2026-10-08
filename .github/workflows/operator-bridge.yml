@@ -97,6 +97,31 @@ jobs:
             console.log('OPERATOR_RESULT_BEGIN');
             console.log(JSON.stringify({ok:true,action:req.action,vendorCode,nmID:card.nmID,title:card.title,descriptionChanged:before!==after,removedChars:before.length-after.length,result,remainingErrors:remaining}));
             console.log('OPERATOR_RESULT_END');
+          } else if(req.action==='wb_update_product_and_stock'){
+            const vendorCode=String(req.vendorCode||'').trim();
+            const description=String(req.description||'').trim();
+            const amount=Number(req.amount);
+            if(!vendorCode||!description||!Number.isFinite(amount)||amount<0) throw new Error('INVALID_REQUEST');
+            const cards=await allCards();
+            const card=cards.find(x=>String(x?.vendorCode||'')===vendorCode);
+            if(!card) throw new Error('WB_CARD_NOT_FOUND');
+            const keys=['nmID','vendorCode','brand','title','description','dimensions','characteristics','sizes','kizMarked','wholesale'];
+            const payload={}; for(const k of keys) if(card?.[k]!==undefined) payload[k]=card[k];
+            payload.description=description;
+            const cardResult=await post('https://content-api.wildberries.ru/content/v2/cards/update',[payload]);
+            const warehouseId=String(process.env.WB_WAREHOUSE_ID||'').trim();
+            if(!warehouseId) throw new Error('WB_WAREHOUSE_ID_NOT_CONFIGURED');
+            const stocks=[];
+            for(const size of (Array.isArray(card?.sizes)?card.sizes:[])){
+              for(const sku of (Array.isArray(size?.skus)?size.skus:[])){
+                if(String(sku||'').trim()) stocks.push({sku:String(sku),amount:Math.round(amount)});
+              }
+            }
+            if(!stocks.length) throw new Error('WB_SKU_NOT_FOUND');
+            const stockResult=await post('https://marketplace-api.wildberries.ru/api/v3/stocks/'+encodeURIComponent(warehouseId),{stocks});
+            console.log('OPERATOR_RESULT_BEGIN');
+            console.log(JSON.stringify({ok:true,action:req.action,vendorCode,nmID:card.nmID,title:card.title,warehouseId,skus:stocks.map(x=>x.sku),amount:Math.round(amount),cardResult,stockResult}));
+            console.log('OPERATOR_RESULT_END');
           } else {
             throw new Error('Unsupported action');
           }
