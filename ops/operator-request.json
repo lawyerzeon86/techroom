@@ -1,11 +1,6 @@
 {
-  "action": "wb_set_country",
-  "vendorCodes": [
-    "MinecraftSkeletonW",
-    "MinecraftSkeletonRed",
-    "MinecraftSkeletonBlack",
-    "MinecraftSkeletonBlue"
-  ],
-  "country": "Россия",
-  "nonce": "2026-10-08T07:25:00+03:00"
+  "action": "wb_update_stock_by_nmid",
+  "nmID": 134444872,
+  "amount": 20,
+  "nonce": "2026-10-08T13:41:00+03:00"
 }
