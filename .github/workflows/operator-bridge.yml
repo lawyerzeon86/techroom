@@ -117,7 +117,8 @@ jobs:
             const items=Array.isArray(req.items)?req.items:[];
             if(!items.length) throw new Error('ITEMS_REQUIRED');
             const cards=await allCards();
-            const results=[];
+            const payloads=[];
+            const meta=[];
             for(const item of items){
               const vendorCode=String(item?.vendorCode||'').trim();
               const description=String(item?.description||'').trim();
@@ -127,11 +128,12 @@ jobs:
               const keys=['nmID','vendorCode','brand','title','description','dimensions','characteristics','sizes','kizMarked','wholesale'];
               const payload={}; for(const k of keys) if(card?.[k]!==undefined) payload[k]=card[k];
               payload.description=description;
-              const result=await post('https://content-api.wildberries.ru/content/v2/cards/update',[payload]);
-              results.push({vendorCode,nmID:card.nmID,title:card.title,result});
+              payloads.push(payload);
+              meta.push({vendorCode,nmID:card.nmID,title:card.title});
             }
+            const result=await post('https://content-api.wildberries.ru/content/v2/cards/update',payloads);
             console.log('OPERATOR_RESULT_BEGIN');
-            console.log(JSON.stringify({ok:true,action:req.action,results}));
+            console.log(JSON.stringify({ok:true,action:req.action,items:meta,result}));
             console.log('OPERATOR_RESULT_END');
           } else if(req.action==='wb_update_product_and_stock'){
             const vendorCode=String(req.vendorCode||'').trim();
