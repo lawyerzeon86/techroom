@@ -113,6 +113,26 @@ jobs:
             console.log('OPERATOR_RESULT_BEGIN');
             console.log(JSON.stringify({ok:true,action:req.action,vendorCode,nmID:card.nmID,title:card.title,descriptionChanged:before!==after,removedChars:before.length-after.length,result,remainingErrors:remaining}));
             console.log('OPERATOR_RESULT_END');
+          } else if(req.action==='wb_update_descriptions'){
+            const items=Array.isArray(req.items)?req.items:[];
+            if(!items.length) throw new Error('ITEMS_REQUIRED');
+            const cards=await allCards();
+            const results=[];
+            for(const item of items){
+              const vendorCode=String(item?.vendorCode||'').trim();
+              const description=String(item?.description||'').trim();
+              if(!vendorCode||!description) throw new Error('INVALID_ITEM');
+              const card=cards.find(x=>String(x?.vendorCode||'')===vendorCode);
+              if(!card) throw new Error('WB_CARD_NOT_FOUND_'+vendorCode);
+              const keys=['nmID','vendorCode','brand','title','description','dimensions','characteristics','sizes','kizMarked','wholesale'];
+              const payload={}; for(const k of keys) if(card?.[k]!==undefined) payload[k]=card[k];
+              payload.description=description;
+              const result=await post('https://content-api.wildberries.ru/content/v2/cards/update',[payload]);
+              results.push({vendorCode,nmID:card.nmID,title:card.title,result});
+            }
+            console.log('OPERATOR_RESULT_BEGIN');
+            console.log(JSON.stringify({ok:true,action:req.action,results}));
+            console.log('OPERATOR_RESULT_END');
           } else if(req.action==='wb_update_product_and_stock'){
             const vendorCode=String(req.vendorCode||'').trim();
             const description=String(req.description||'').trim();
