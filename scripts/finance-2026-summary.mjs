@@ -4,13 +4,16 @@ const {Pool}=pg;
 const pool=new Pool({connectionString:process.env.DATABASE_URL,ssl:process.env.DATABASE_URL?.includes('localhost')?false:{rejectUnauthorized:false}});
 const num=v=>Number(v)||0;
 const round=v=>Math.round(v*100)/100;
-const out={generatedAt:new Date().toISOString(),year:2026,channels:{},warnings:[]};
+const out={generatedAt:new Date().toISOString(),year:2026,channels:{},warnings:[],debug:{}};
 try{
   const ps=await pool.query("SELECT sku,title,cost_price,tax_rate,variable_cost FROM price_sheet");
   const costs=new Map(ps.rows.map(r=>[String(r.sku),{title:r.title,cost:num(r.cost_price),tax:num(r.tax_rate),variable:num(r.variable_cost)}]));
   if(!ps.rows.some(r=>num(r.cost_price)>0))out.warnings.push('cost_price_not_filled');
   const wbq=await pool.query("SELECT month,payload FROM marketplace_finance_pages WHERE source='wildberries' AND month BETWEEN '2026-01' AND '2026-12' ORDER BY month,page");
   const wbr=wbq.rows.flatMap(r=>(Array.isArray(r.payload)?r.payload:[]).map(x=>({...x,_month:r.month})));
+  out.debug.wbKeys=wbr[0]?Object.keys(wbr[0]).sort():[];
+  out.debug.wbNumericSums={};
+  for(const k of out.debug.wbKeys){let sum=0,seen=0;for(const x of wbr){if(typeof x[k]==='number'){sum+=x[k];seen++;}}if(seen)out.debug.wbNumericSums[k]={seen,sum:round(sum)};}
   let wbRetail=0,wbPayout=0,wbLogistics=0,wbStorage=0,wbPenalty=0,wbCogs=0,wbTax=0,wbVariable=0,wbQty=0;
   for(const x of wbr){
     const retail=num(x.retail_amount??x.retailAmount??x.retail_price_withdisc_rub);
@@ -27,6 +30,12 @@ try{
   out.channels.wildberries={records:wbr.length,quantity:round(wbQty),sales:round(wbRetail),marketplaceNet:round(wbPayout),logistics:round(wbLogistics),storage:round(wbStorage),penalties:round(wbPenalty),cogs:round(wbCogs),tax:round(wbTax),variable:round(wbVariable),profitEstimate:round(wbPayout-wbCogs-wbTax-wbVariable)};
   const ozq=await pool.query("SELECT month,payload FROM marketplace_finance_pages WHERE source='ozon' AND month BETWEEN '2026-01' AND '2026-12' ORDER BY month,page");
   const ozr=ozq.rows.flatMap(r=>(Array.isArray(r.payload)?r.payload:[]).map(x=>({...x,_month:r.month})));
+  out.debug.ozKeys=ozr[0]?Object.keys(ozr[0]).sort():[];
+  const op=ozr.find(x=>x?.posting)||ozr[0];
+  out.debug.ozPostingKeys=op?.posting?Object.keys(op.posting).sort():[];
+  const prod=op?.posting?.products?.[0];
+  out.debug.ozProductKeys=prod?Object.keys(prod).sort():[];
+  out.debug.ozSaleKeys=prod?.sale?Object.keys(prod.sale).sort():[];
   let ozTotal=0,ozSales=0,ozServices=0,ozCogs=0,ozTax=0,ozVariable=0,ozQty=0;
   for(const a of ozr){
     ozTotal+=num(a.total_amount?.amount??a.total_amount);
