@@ -1,2 +1,1 @@
-2026 financial import via existing Selectel SSH deploy workflow.
-No credentials stored here.
+final finance import trigger 2026-10-09T21:34:04.782Z
