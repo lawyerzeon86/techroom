@@ -74,3 +74,15 @@ jobs:
           set -euo pipefail
           ssh -p "${PORT:-22}" "root@$HOST" 'set -euo pipefail; cd /var/www/duisun; set -a; source .env.production; set +a; bash scripts/verify-backup.sh; node scripts/audit-store.mjs; node scripts/verify-checkout.mjs'
           ssh -p "${PORT:-22}" "root@$HOST" 'cd /var/www/duisun; set -a; source .env.production; set +a; node scripts/telegram-outbox.mjs export' | node scripts/deliver-telegram-outbox.mjs | ssh -p "${PORT:-22}" "root@$HOST" 'cd /var/www/duisun; set -a; source .env.production; set +a; node scripts/telegram-outbox.mjs ack'
+
+      - name: Import 2026 marketplace finance on Selectel
+        if: contains(github.event.head_commit.message, '[finance-import-2026]')
+        env:
+          HOST: ${{ secrets.SELECTEL_HOST }}
+          PORT: ${{ secrets.SELECTEL_PORT }}
+          USER: ${{ secrets.SELECTEL_USER }}
+        run: |
+          set -euo pipefail
+          test -n "$HOST"
+          ssh -o BatchMode=yes -p "${PORT:-22}" "${USER:-root}@$HOST" \
+            'bash -lc '\''set -euo pipefail; cd /var/www/duisun; set -a; source .env.production; set +a; node scripts/finance-2026-import.mjs'\''
