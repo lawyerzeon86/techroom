@@ -48,7 +48,14 @@ jobs:
           PORT: ${{ secrets.SELECTEL_PORT }}
         run: |
           set -euo pipefail
-          ssh -p "${PORT:-22}" "root@$HOST" 'cd /var/www/duisun; set -a; source .env.production; set +a; node scripts/telegram-config-export.mjs' | node scripts/configure-telegram.mjs
+          for attempt in 1 2 3; do
+            if ssh -p "${PORT:-22}" "root@$HOST" 'cd /var/www/duisun; set -a; source .env.production; set +a; node scripts/telegram-config-export.mjs' | node scripts/configure-telegram.mjs; then
+              exit 0
+            fi
+            echo "::warning::Telegram API configuration attempt $attempt failed"
+            sleep $((attempt * 5))
+          done
+          echo "::warning::Telegram API is temporarily unreachable; deploy continues with the existing webhook configuration"
 
       - name: Verify production
         run: |
