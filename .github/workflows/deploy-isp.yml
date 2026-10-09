@@ -162,3 +162,21 @@ jobs:
         run: |
           set -euo pipefail
           ssh -o BatchMode=yes -p "${PORT:-22}" "${USER:-root}@$HOST" "cd /var/www/duisun && set -a && source .env.production && set +a && node scripts/finance-schema.mjs"
+
+      - name: Run YTD finance sync now
+        if: contains(github.event.head_commit.message, '[finance-ytd-now]')
+        env:
+          HOST: ${{ secrets.SELECTEL_HOST }}
+          PORT: ${{ secrets.SELECTEL_PORT }}
+          USER: ${{ secrets.SELECTEL_USER }}
+        run: |
+          set -euo pipefail
+          ssh -o BatchMode=yes -p "${PORT:-22}" "${USER:-root}@$HOST" '
+            set -euo pipefail
+            systemctl start duisun-finance-sync.service
+            systemctl is-active --quiet duisun-finance-sync.service && exit 1 || true
+            systemctl show duisun-finance-sync.service -p Result --value
+            test -s /var/log/duisun-finance-sync-last.json
+          '
+          scp -P "${PORT:-22}" "${USER:-root}@$HOST:/var/log/duisun-finance-sync-last.json" /tmp/finance-sync.json
+          node -e 'const fs=require("fs");const x=JSON.parse(fs.readFileSync("/tmp/finance-sync.json","utf8"));console.log(JSON.stringify({ok:x.ok,year:x.import?.year||x.year,wb:x.import?.wildberries,ozon:x.import?.ozon?.[0],stored:(x.stored||[]).map(v=>({source:v.source,month:v.month,rows:v.rows}))}))'
