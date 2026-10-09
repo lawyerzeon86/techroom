@@ -1,0 +1,75 @@
+name: Selectel migration audit
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/selectel-migration-audit.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  audit:
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Audit Selectel production and create backup
+        env:
+          HOST: ${{ secrets.SELECTEL_HOST }}
+          PORT: ${{ secrets.SELECTEL_PORT }}
+          USER: ${{ secrets.SELECTEL_USER }}
+          SSH_KEY: ${{ secrets.SELECTEL_SSH_KEY }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p ~/.ssh
+          chmod 700 ~/.ssh
+          printf '%s\n' "$SSH_KEY" > ~/.ssh/id_ed25519
+          chmod 600 ~/.ssh/id_ed25519
+          ssh-keyscan -p "${PORT:-22}" "$HOST" >> ~/.ssh/known_hosts
+
+          ssh -p "${PORT:-22}" "$USER@$HOST" 'bash -s' <<'REMOTE'
+          set -euo pipefail
+          cd /var/www/duisun
+          set -a
+          source .env.production
+          set +a
+
+          echo "=== SERVICE ==="
+          pm2 jlist | node -e 'let s="";process.stdin.on("data",d=>s+=d).on("end",()=>{const a=JSON.parse(s);const p=a.find(x=>x.name==="duisun"); console.log("PM2_STATUS="+(p?.pm2_env?.status||"missing"));})'
+          echo "NGINX=$(systemctl is-active nginx)"
+          echo "SYNC_CORE_TIMER=$(systemctl is-enabled duisun-sync-core.timer 2>/dev/null || true)"
+          echo "BACKUP_TIMER=$(systemctl is-enabled duisun-backup.timer 2>/dev/null || true)"
+
+          echo "=== DATABASE ==="
+          node - <<'NODE'
+          const { URL } = require('url');
+          const u = new URL(process.env.DATABASE_URL);
+          console.log('DB_HOST=' + u.hostname);
+          console.log('DB_PORT=' + (u.port || '5432'));
+          console.log('DB_NAME=' + u.pathname.replace(/^\//,''));
+          console.log('DB_IS_RENDER=' + (/render|dpg-/i.test(u.hostname) ? 'yes' : 'no'));
+          NODE
+          psql "$DATABASE_URL" -Atc "select 'DB_CURRENT='||current_database(), 'PRODUCTS='||count(*) from products;"
+          psql "$DATABASE_URL" -Atc "select 'ORDERS='||count(*) from orders;" 2>/dev/null || true
+          psql "$DATABASE_URL" -Atc "select 'MARKETPLACE_SETTINGS='||count(*) from marketplace_settings;" 2>/dev/null || true
+
+          echo "=== INTEGRATIONS ==="
+          for k in WB_API_TOKEN OZON_API_KEY OZON_CLIENT_ID TELEGRAM_BOT_TOKEN WHATSAPP_ACCESS_TOKEN; do
+            if [ -n "${!k:-}" ]; then echo "$k=present"; else echo "$k=missing"; fi
+          done
+
+          echo "=== BACKUP ==="
+          /usr/local/bin/duisun-backup
+          latest=$(ls -1t /root/duisun-backups/database-*.dump | head -n1)
+          echo "BACKUP_FILE=$(basename "$latest")"
+          echo "BACKUP_SIZE=$(stat -c%s "$latest")"
+
+          echo "=== EXTERNAL ==="
+          curl -fsS --max-time 20 https://duisun.ru/api/health
+          echo
+          wb_status=$(curl -sS -o /tmp/wb.json -w '%{http_code}' --max-time 20 -H "Authorization: $WB_API_TOKEN" 'https://marketplace-api.wildberries.ru/api/v3/warehouses')
+          echo "WB_HTTP=$wb_status"
+          rm -f /tmp/wb.json
+          test "$wb_status" = "200"
+          REMOTE
