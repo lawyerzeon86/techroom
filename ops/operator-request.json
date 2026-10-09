@@ -1,4 +1,26 @@
 {
-  "action": "wb_catalog_status",
-  "nonce": "2026-10-09T22:02:00+03:00"
+  "action": "wb_update_stocks_by_nmid",
+  "items": [
+    {
+      "nmID": 843194324,
+      "amount": 30
+    },
+    {
+      "nmID": 1344233224,
+      "amount": 30
+    },
+    {
+      "nmID": 1344806387,
+      "amount": 30
+    },
+    {
+      "nmID": 1363287832,
+      "amount": 30
+    },
+    {
+      "nmID": 134444872,
+      "amount": 20
+    }
+  ],
+  "nonce": "2026-10-09T22:06:00+03:00"
 }
