@@ -207,6 +207,32 @@ jobs:
             console.log('OPERATOR_RESULT_BEGIN');
             console.log(JSON.stringify({ok:true,action:req.action,items:meta,result}));
             console.log('OPERATOR_RESULT_END');
+          } else if(req.action==='wb_update_stocks_by_nmid'){
+            const items=Array.isArray(req.items)?req.items:[];
+            if(!items.length) throw new Error('ITEMS_REQUIRED');
+            const cards=await allCards();
+            const warehouseId=String(process.env.WB_WAREHOUSE_ID||'').trim();
+            if(!warehouseId) throw new Error('WB_WAREHOUSE_ID_NOT_CONFIGURED');
+            const results=[];
+            for(const item of items){
+              const nmID=Number(item?.nmID);
+              const amount=Number(item?.amount);
+              if(!Number.isFinite(nmID)||!Number.isFinite(amount)||amount<0) throw new Error('INVALID_ITEM');
+              const card=cards.find(x=>Number(x?.nmID)===nmID);
+              if(!card) throw new Error('WB_CARD_NOT_FOUND_'+nmID);
+              const stocks=[];
+              for(const size of (Array.isArray(card?.sizes)?card.sizes:[])){
+                for(const sku of (Array.isArray(size?.skus)?size.skus:[])){
+                  if(String(sku||'').trim()) stocks.push({sku:String(sku),amount:Math.round(amount)});
+                }
+              }
+              if(!stocks.length) throw new Error('WB_SKU_NOT_FOUND_'+nmID);
+              const stockResult=await put('https://marketplace-api.wildberries.ru/api/v3/stocks/'+encodeURIComponent(warehouseId),{stocks});
+              results.push({nmID:card.nmID,vendorCode:card.vendorCode,title:card.title,amount:Math.round(amount),skus:stocks.map(x=>x.sku),stockResult});
+            }
+            console.log('OPERATOR_RESULT_BEGIN');
+            console.log(JSON.stringify({ok:true,action:req.action,warehouseId,results}));
+            console.log('OPERATOR_RESULT_END');
           } else if(req.action==='wb_update_stock_by_nmid'){
             const nmID=Number(req.nmID);
             const amount=Number(req.amount);
