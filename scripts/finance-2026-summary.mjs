@@ -13,7 +13,9 @@ try{
   const wbr=wbq.rows.flatMap(r=>(Array.isArray(r.payload)?r.payload:[]).map(x=>({...x,_month:r.month})));
   out.debug.wbKeys=wbr[0]?Object.keys(wbr[0]).sort():[];
   out.debug.wbNumericSums={};
+  out.debug.wbMoneySums={};
   for(const k of out.debug.wbKeys){let sum=0,seen=0;for(const x of wbr){if(typeof x[k]==='number'){sum+=x[k];seen++;}}if(seen)out.debug.wbNumericSums[k]={seen,sum:round(sum)};}
+  for(const k of ['retailAmount','forPay','deliveryAmount','paidStorage','paidAcceptance','paymentProcessing','acquiringFee','deduction','additionalPayment','penalty','returnAmount','ppvzReward','ppvzSalesCommission','cashbackAmount','cashbackCommissionChange']){let sum=0,seen=0;for(const x of wbr){const v=Number(x[k]);if(Number.isFinite(v)){sum+=v;seen++;}}out.debug.wbMoneySums[k]={seen,sum:round(sum)};}
   let wbRetail=0,wbPayout=0,wbLogistics=0,wbStorage=0,wbPenalty=0,wbCogs=0,wbTax=0,wbVariable=0,wbQty=0;
   for(const x of wbr){
     const retail=num(x.retail_amount??x.retailAmount??x.retail_price_withdisc_rub);
@@ -36,6 +38,12 @@ try{
   const prod=op?.posting?.products?.[0];
   out.debug.ozProductKeys=prod?Object.keys(prod).sort():[];
   out.debug.ozSaleKeys=prod?.sale?Object.keys(prod.sale).sort():[];
+  out.debug.ozCommissionKeys=prod?.commission?Object.keys(prod.commission).sort():[];
+  out.debug.ozDeliveryKeys=prod?.delivery?Object.keys(prod.delivery).sort():[];
+  out.debug.ozItemFeesKeys=ozr.find(x=>Array.isArray(x?.item_fees)&&x.item_fees.length)?.item_fees?.[0]?Object.keys(ozr.find(x=>Array.isArray(x?.item_fees)&&x.item_fees.length).item_fees[0]).sort():[];
+  out.debug.ozNonItemFeeKeys=ozr.find(x=>x?.non_item_fee)?.non_item_fee?Object.keys(ozr.find(x=>x?.non_item_fee).non_item_fee).sort():[];
+  out.debug.ozCategories={};
+  for(const x of ozr){const k=String(x.accrued_category||'unknown');out.debug.ozCategories[k]??={count:0,total:0};out.debug.ozCategories[k].count++;out.debug.ozCategories[k].total+=num(x.total_amount?.amount??x.total_amount);}for(const k of Object.keys(out.debug.ozCategories))out.debug.ozCategories[k].total=round(out.debug.ozCategories[k].total);
   let ozTotal=0,ozSales=0,ozServices=0,ozCogs=0,ozTax=0,ozVariable=0,ozQty=0;
   for(const a of ozr){
     ozTotal+=num(a.total_amount?.amount??a.total_amount);
