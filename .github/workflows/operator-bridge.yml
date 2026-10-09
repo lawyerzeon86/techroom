@@ -72,8 +72,7 @@ jobs:
               nmID:card.nmID,
               vendorCode:card.vendorCode,
               title:card.title,
-              photos:card.photos,
-              sizes:card.sizes
+              photo:Array.isArray(card.photos)&&card.photos[0]?card.photos[0].c246x328||card.photos[0].big:null
             }));
             console.log('OPERATOR_RESULT_BEGIN');
             console.log(JSON.stringify({ok:true,action:req.action,products}));
