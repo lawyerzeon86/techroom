@@ -172,12 +172,21 @@ export async function pushPricesAndStocks(options:{onlyOzonPrices?:boolean;onlyP
       const warehouseId=process.env.OZON_WAREHOUSE_ID?.trim();
       if(!options.onlyOzonPrices && !options.onlyPrices && warehouseId && process.env.SYNC_MARKETPLACE_STOCKS==='1'){
         const liveOzon=await getProducts('ozon','',100);
+        const localStockBySku=new Map(
+          products
+            .filter((p:any)=>p.syncOzon)
+            .map((p:any)=>[String(p.sku||'').trim(),Math.max(0,Math.round(Number(p.stock)||0))])
+            .filter(([sku])=>Boolean(sku))
+        );
         const stocks=liveOzon
           .map((p:any)=>String(p.offerId||p.sku||'').trim())
-          .filter(Boolean)
-          .map((offerId:string)=>({offer_id:offerId,stock:10,warehouse_id:Number(warehouseId)}));
-        const r=await fetch('https://api-seller.ozon.ru/v2/products/stocks',{method:'POST',headers,body:JSON.stringify({stocks}),cache:'no-store'});
-        if(!r.ok) throw new Error(`OZON_STOCK_${r.status}`);result.ozon.stocks=stocks.length;
+          .filter((offerId:string)=>offerId&&localStockBySku.has(offerId))
+          .map((offerId:string)=>({offer_id:offerId,stock:Number(localStockBySku.get(offerId)||0),warehouse_id:Number(warehouseId)}));
+        if(stocks.length){
+          const r=await fetch('https://api-seller.ozon.ru/v2/products/stocks',{method:'POST',headers,body:JSON.stringify({stocks}),cache:'no-store'});
+          if(!r.ok) throw new Error(`OZON_STOCK_${r.status}`);
+        }
+        result.ozon.stocks=stocks.length;
       } else if(!options.onlyOzonPrices && !options.onlyPrices && !warehouseId) result.ozon.stocks='needs_OZON_WAREHOUSE_ID';
     }catch(e:any){result.ozon.error=String(e?.message||e)}
   }
