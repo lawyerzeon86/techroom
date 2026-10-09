@@ -1,5 +1,4 @@
 {
-  "action": "wb_drafts_search",
-  "q": "",
+  "action": "wb_catalog_status",
   "nonce": "2026-10-09T22:02:00+03:00"
 }
