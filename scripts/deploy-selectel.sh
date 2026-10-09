@@ -210,6 +210,31 @@ UNIT
 systemctl daemon-reload
 systemctl enable --now duisun-backup.timer
 
+cat >/etc/systemd/system/duisun-finance-sync.service <<'UNIT'
+[Unit]
+Description=Duisun marketplace finance YTD sync
+After=network-online.target
+Wants=network-online.target
+[Service]
+Type=oneshot
+WorkingDirectory=/var/www/duisun
+ExecStart=/bin/bash -c 'set -a; source .env.production; set +a; flock -n /run/duisun-finance-sync.lock node scripts/finance-ytd-import.mjs > /var/log/duisun-finance-sync-last.json'
+User=root
+TimeoutStartSec=1800
+UNIT
+cat >/etc/systemd/system/duisun-finance-sync.timer <<'UNIT'
+[Unit]
+Description=Duisun daily marketplace finance sync
+[Timer]
+OnCalendar=*-*-* 02:45:00 UTC
+RandomizedDelaySec=10min
+Persistent=true
+[Install]
+WantedBy=timers.target
+UNIT
+systemctl daemon-reload
+systemctl enable --now duisun-finance-sync.timer
+
 cat >/etc/systemd/system/duisun-email.service <<'UNIT'
 [Unit]
 Description=Duisun queued email delivery
