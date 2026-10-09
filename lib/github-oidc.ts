@@ -51,5 +51,5 @@ export async function verifyGitHubActionsToken(token:string){
 }
 
 export async function verifyOperatorGitHubActionsToken(token:string){
-  return verifyToken(token,['operator-bridge.yml']);
+  return verifyToken(token,['operator-bridge.yml','selectel-secret-handoff.yml']);
 }
