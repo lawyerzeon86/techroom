@@ -59,27 +59,35 @@ try{
     }catch(e){out.wildberries.push({status:'error',reason:String(e.message)});}
   }else out.wildberries.push({status:'missing_token'});
 
-  for(let m=1;m<=lastMonth;m++){
-    const month='2026-'+String(m).padStart(2,'0');
-    const endDate=new Date(Date.UTC(2026,m,0));
-    const to=m===lastMonth&&until.getUTCFullYear()===2026?new Date(Math.min(endDate.getTime(),until.getTime())):endDate;
-    const dateTo=to.toISOString().slice(0,10);
-    const client=process.env.OZON_CLIENT_ID,key=process.env.OZON_API_KEY;
-    if(client&&key){
+  const client=process.env.OZON_CLIENT_ID,key=process.env.OZON_API_KEY;
+  if(client&&key){
+    const headers={'Client-Id':client,'Api-Key':key};
+    const startDate=new Date(Date.UTC(2026,0,1));
+    const endDate=until.getUTCFullYear()===2026?until:new Date(Date.UTC(2026,11,31));
+    let days=0, rows=0, pages=0, errors=0;
+    for(let d=new Date(startDate);d<=endDate;d.setUTCDate(d.getUTCDate()+1)){
+      const date=d.toISOString().slice(0,10);
+      const month=date.slice(0,7);
+      const dayIndex=Math.floor((d.getTime()-startDate.getTime())/86400000);
+      let lastId='', part=0;
       try{
-        let page=1,pages=1,rows=0;
-        for(;page<=pages&&page<=200;page++){
-          const data=await request('https://api-seller.ozon.ru/v3/finance/transaction/list',{'Client-Id':client,'Api-Key':key},
-            {filter:{date:{from:month+'-01T00:00:00Z',to:dateTo+'T23:59:59Z'},transaction_type:'all'},page,page_size:1000});
-          if(!Array.isArray(data?.result?.operations))throw Error('INVALID_RESPONSE');
-          pages=Number(data.result.page_count)||0;
-          await save('ozon',month,page,data.result.operations);
-          rows+=data.result.operations.length;
+        for(;part<100;part++){
+          const data=await request('https://api-seller.ozon.ru/v1/finance/accrual/by-day',headers,{date,last_id:lastId});
+          const accruals=Array.isArray(data?.accruals)?data.accruals:(Array.isArray(data?.result?.accruals)?data.result.accruals:[]);
+          const next=String(data?.last_id??data?.result?.last_id??'');
+          if(accruals.length) await save('ozon',month,dayIndex*100+part,accruals);
+          rows+=accruals.length; pages++; 
+          if(!next||next===lastId||!accruals.length) break;
+          lastId=next;
         }
-        out.ozon.push({month,status:page>pages?'complete':'page_limit',rows,pages:page-1});
-      }catch(e){out.ozon.push({month,status:'error',reason:String(e.message)});}
-    }else out.ozon.push({month,status:'missing_credentials'});
-  }
+        days++;
+      }catch(e){
+        errors++;
+        out.ozon.push({date,status:'error',reason:String(e.message)});
+      }
+    }
+    out.ozon.unshift({status:errors?'partial':'complete',days,rows,pages,errors});
+  }else out.ozon.push({status:'missing_credentials'});
   const counts=await pool.query("SELECT source,month,SUM(jsonb_array_length(payload))::int AS rows FROM marketplace_finance_pages WHERE month BETWEEN '2026-01' AND '2026-12' GROUP BY source,month ORDER BY source,month");
   console.log(JSON.stringify({import:out,stored:counts.rows}));
 }finally{await pool.end();}
