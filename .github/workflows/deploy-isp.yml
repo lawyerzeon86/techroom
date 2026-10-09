@@ -180,3 +180,23 @@ jobs:
           '
           scp -P "${PORT:-22}" "${USER:-root}@$HOST:/var/log/duisun-finance-sync-last.json" /tmp/finance-sync.json
           node -e 'const fs=require("fs");const x=JSON.parse(fs.readFileSync("/tmp/finance-sync.json","utf8"));console.log(JSON.stringify({ok:x.ok,year:x.import?.year||x.year,wb:x.import?.wildberries,ozon:x.import?.ozon?.[0],stored:(x.stored||[]).map(v=>({source:v.source,month:v.month,rows:v.rows}))}))'
+
+      - name: Check admin auth metadata
+        if: contains(github.event.head_commit.message, '[admin-auth-check]')
+        env:
+          HOST: ${{ secrets.SELECTEL_HOST }}
+          PORT: ${{ secrets.SELECTEL_PORT }}
+          USER: ${{ secrets.SELECTEL_USER }}
+        run: |
+          set -euo pipefail
+          ssh -o BatchMode=yes -p "${PORT:-22}" "${USER:-root}@$HOST" '
+            set -euo pipefail
+            source /root/duisun-admin.env
+            echo "ADMIN_ENV_EXISTS=yes"
+            echo "ADMIN_PASSWORD_LENGTH=${#ADMIN_PASSWORD}"
+            if [ "${#ADMIN_PASSWORD}" -lt 12 ]; then echo "ADMIN_PASSWORD_POLICY=too_short"; else echo "ADMIN_PASSWORD_POLICY=ok"; fi
+            stat -c "ADMIN_ENV_MTIME=%y" /root/duisun-admin.env
+            cd /var/www/duisun
+            set -a; source .env.production; set +a
+            node -e "console.log('APP_ADMIN_PASSWORD_LENGTH='+String(process.env.ADMIN_PASSWORD||'').length)"
+          '
