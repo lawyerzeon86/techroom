@@ -14,9 +14,7 @@ async function save(source,month,page,data){
 }
 async function request(url,headers,body){
   for(let attempt=0;attempt<5;attempt++){
-    const isWb=url.includes('finance-api.wildberries.ru');
-    const endpoint=isWb?url+'?'+new URLSearchParams(Object.entries(body).map(([k,v])=>[k,String(v)])):url;
-    const r=await fetch(endpoint,{method:isWb?'GET':'POST',headers:{...headers,...(isWb?{}:{'Content-Type':'application/json'})},...(isWb?{}:{body:JSON.stringify(body)}),signal:AbortSignal.timeout(50000)});
+    const r=await fetch(url,{method:'POST',headers:{...headers,'Content-Type':'application/json'},body:JSON.stringify(body),signal:AbortSignal.timeout(50000)});
     if(r.status===204)return [];
     if(r.status===429||r.status===503){
       if(attempt===4)throw Error('HTTP_'+r.status);
@@ -32,37 +30,40 @@ try{
     source TEXT NOT NULL,month CHAR(7) NOT NULL,page INTEGER NOT NULL,
     payload JSONB NOT NULL,fetched_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     PRIMARY KEY(source,month,page))`);
+  const ytdEnd=(until.getUTCFullYear()===2026?until:new Date(Date.UTC(2026,11,31,23,59,59))).toISOString().slice(0,10);
+  const wb=process.env.WB_FINANCE_TOKEN||process.env.WB_API_TOKEN;
+  if(wb){
+    try{
+      let cursor=0,page=0;
+      for(let p=0;p<20;p++){
+        if(p>0) await sleep(61000);
+        const data=await request('https://finance-api.wildberries.ru/api/finance/v1/sales-reports/detailed',
+          {Authorization:wb},{dateFrom:'2026-01-01',dateTo:ytdEnd,limit:100000,rrdId:cursor});
+        if(!Array.isArray(data))throw Error('INVALID_RESPONSE');
+        if(!data.length){out.wildberries.push({status:'complete',pages:page});break;}
+        const next=Number(data.at(-1).rrdId??data.at(-1).rrd_id??0);
+        if(next<=cursor)throw Error('INVALID_CURSOR');
+        cursor=next;
+        const byMonth=new Map();
+        for(const row of data){
+          const d=String(row.sale_dt||row.order_dt||row.date_from||row.create_dt||'2026-01').slice(0,7);
+          const month=/^2026-(0[1-9]|1[0-2])$/.test(d)?d:'2026-01';
+          if(!byMonth.has(month))byMonth.set(month,[]);
+          byMonth.get(month).push(row);
+        }
+        for(const [month,rows] of byMonth) await save('wildberries',month,page,rows);
+        page++;
+        if(data.length<100000){out.wildberries.push({status:'complete',pages:page,rows:data.length});break;}
+        if(p===19)out.wildberries.push({status:'page_limit',pages:page});
+      }
+    }catch(e){out.wildberries.push({status:'error',reason:String(e.message)});}
+  }else out.wildberries.push({status:'missing_token'});
+
   for(let m=1;m<=lastMonth;m++){
     const month='2026-'+String(m).padStart(2,'0');
     const endDate=new Date(Date.UTC(2026,m,0));
     const to=m===lastMonth&&until.getUTCFullYear()===2026?new Date(Math.min(endDate.getTime(),until.getTime())):endDate;
     const dateTo=to.toISOString().slice(0,10);
-    const wb=process.env.WB_FINANCE_TOKEN||process.env.WB_API_TOKEN;
-    if(wb){
-      try {
-        const existing=await pool.query("SELECT page,payload FROM marketplace_finance_pages WHERE source='wildberries' AND month=$1 ORDER BY page DESC LIMIT 1",[month]);
-        let page=existing.rows.length?Number(existing.rows[0].page)+1:0;
-        let prev=existing.rows[0]?.payload;
-        if(Array.isArray(prev)&&prev.length===0){out.wildberries.push({month,status:'already_complete'});}
-        else{
-          let cursor=Array.isArray(prev)&&prev.length?Number(prev.at(-1).rrdId??prev.at(-1).rrd_id??0):0;
-          // One request/minute seller limit. A max of 20 pages per month guards against loops.
-          for(let p=0;p<20;p++){
-            if(m!==1||p!==0)await sleep(61000);
-            const data=await request('https://finance-api.wildberries.ru/api/finance/v1/sales-reports/detailed',{Authorization:wb},{dateFrom:month+'-01',dateTo,limit:100000,rrdId:cursor});
-            if(!Array.isArray(data))throw Error('INVALID_RESPONSE');
-            if(data.length){
-              const next=Number(data.at(-1).rrdId??data.at(-1).rrd_id??0);
-              if(next<=cursor)throw Error('INVALID_CURSOR');
-              cursor=next;
-            }
-            await save('wildberries',month,page++,data);
-            if(!data.length){out.wildberries.push({month,status:'complete',pages:page});break;}
-            if(p===19)out.wildberries.push({month,status:'page_limit',pages:page});
-          }
-        }
-      }catch(e){out.wildberries.push({month,status:'error',reason:String(e.message)});}
-    }else out.wildberries.push({month,status:'missing_token'});
     const client=process.env.OZON_CLIENT_ID,key=process.env.OZON_API_KEY;
     if(client&&key){
       try{
