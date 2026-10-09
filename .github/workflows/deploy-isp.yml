@@ -119,21 +119,32 @@ jobs:
           test -n "$HOST"
           ssh -o BatchMode=yes -p "${PORT:-22}" "${USER:-root}@$HOST" "cd /var/www/duisun && set -a && source .env.production && set +a && node scripts/finance-2026-import.mjs"
 
-      - name: Save 2026 finance summary
+      - name: Encrypt 2026 finance summary
         if: contains(github.event.head_commit.message, '[finance-import-2026]')
         env:
           HOST: ${{ secrets.SELECTEL_HOST }}
           PORT: ${{ secrets.SELECTEL_PORT }}
           USER: ${{ secrets.SELECTEL_USER }}
+          FINANCE_PUB_B64: LS0tLS1CRUdJTiBQVUJMSUMgS0VZLS0tLS0KTUlJQ0lqQU5CZ2txaGtpRzl3MEJBUUVGQUFPQ0FnOEFNSUlDQ2dLQ0FnRUFxN0hNY2FyN1dlYzY4cUgzVzNxK2xQakJHMHd2eGNWdFI4VnN6NUxjVFNDUnNZSHhvM2xVVEV1UVBxVnRUanFkZ1FLTHlCekp3eTFQblphWVRiRFo5eFUvSEpuT1VDTnJnTzVtRmVhVnBLQklHZ0VBeFFIZnIzVUlIUmN6SHhmYXdESVVYbmhxdTVpaE5VbGd1clVjVllFYW5GMHF5U0l5eTArZ0E0aFgzMzdVQ3haZGowSk9laU9mWGh4bGI3UG96R0g5L2NVblB0M2ZkcWU5alJiOFJXMmRJWGZ1OGJyWFFwcExqNk5DV2c4K2VYWm1hT3d1TFBxQXlPeUtCdGRIekd1SnpxU2hLT0NSN0FZaE9qVGYyVU5YT3NYVFhWNEk0R2QyWlhBQ3JncHVOWkZxczBCUGVEWEt4a1B1S2x5RDBLb2l1TkRBQjU1cmxXa3B6UFljL0M0cTJvRWcwNkpRNEtRV0ZjS2FHZjMrQUNtZjY5RW1Ob0xKTUZmZ0M3S1dUaGpvb0JqTUx4UW9uMVlDTmxQdG9KWEVQWmZmN3FwUWdIT3dKODU1eGQ4QmJHQXRvMG9RbXZNeUJTdWdnVnU5VjNxbU5VNmtJcWZHa29ZeCt6N0JPR1VTMFBLV2dPRVJIQkhZK21uT0xpMEczWjloYUxzaXNpTjR4K3RoN0I4Q2dBSlFKa3NrY2wyMkhjVld4aU9wSG1tdHY5eXVyS0xHMWo5QzVtL2VubGp5YmlFUHlVaVNGWXpoK2hMZW9hQXVTVEJuZ3dPb3V6UDB0dUJWUGU2ZDRBTUoyVTlHckFIVWpiQXFGbkFtY3VKUHJ5T0k0QWdNQkFBRT0KLS0tLS1FTkQgUFVCTElDIEtFWS0tLS0tCg==
         run: |
           set -euo pipefail
           mkdir -p ops
-          ssh -o BatchMode=yes -p "${PORT:-22}" "${USER:-root}@$HOST" \
-            "cd /var/www/duisun && set -a && source .env.production && set +a && node scripts/finance-2026-summary.mjs" \
-            > ops/finance-2026-last.json
-          node -e 'JSON.parse(require("fs").readFileSync("ops/finance-2026-last.json","utf8"));'
+          echo "$FINANCE_PUB_B64" | base64 -d > /tmp/finance-pub.pem
+          scp -P "${PORT:-22}" /tmp/finance-pub.pem "${USER:-root}@$HOST:/tmp/finance-pub.pem"
+          ssh -o BatchMode=yes -p "${PORT:-22}" "${USER:-root}@$HOST" '
+            set -euo pipefail
+            cd /var/www/duisun
+            set -a; source .env.production; set +a
+            node scripts/finance-2026-summary.mjs > /root/duisun-finance-summary-2026.json
+            KEY=$(openssl rand -hex 32)
+            openssl enc -aes-256-cbc -pbkdf2 -salt -in /root/duisun-finance-summary-2026.json -out /tmp/finance-summary-2026.enc -pass pass:"$KEY"
+            printf "%s" "$KEY" | openssl pkeyutl -encrypt -pubin -inkey /tmp/finance-pub.pem -pkeyopt rsa_padding_mode:oaep -out /tmp/finance-key-2026.enc
+            rm -f /tmp/finance-pub.pem
+          '
+          scp -P "${PORT:-22}" "${USER:-root}@$HOST:/tmp/finance-summary-2026.enc" ops/finance-summary-2026.enc
+          scp -P "${PORT:-22}" "${USER:-root}@$HOST:/tmp/finance-key-2026.enc" ops/finance-key-2026.enc
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add ops/finance-2026-last.json
-          git diff --cached --quiet || git commit -m "Record 2026 finance summary [skip ci]"
+          git add ops/finance-summary-2026.enc ops/finance-key-2026.enc
+          git diff --cached --quiet || git commit -m "Store encrypted 2026 finance summary [skip ci]"
           git push origin HEAD:main
