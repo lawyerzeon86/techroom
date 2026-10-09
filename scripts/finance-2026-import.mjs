@@ -65,28 +65,36 @@ try{
     const startDate=new Date(Date.UTC(2026,0,1));
     const endDate=until.getUTCFullYear()===2026?until:new Date(Date.UTC(2026,11,31));
     let days=0, rows=0, pages=0, errors=0;
-    for(let d=new Date(startDate);d<=endDate;d.setUTCDate(d.getUTCDate()+1)){
+    const dates=[];
+    for(let d=new Date(startDate);d<=endDate;d.setUTCDate(d.getUTCDate()+1)) dates.push(new Date(d));
+    async function importDay(d){
       const date=d.toISOString().slice(0,10);
       const month=date.slice(0,7);
       const dayIndex=Math.floor((d.getTime()-startDate.getTime())/86400000);
-      let lastId='', part=0;
+      let lastId='', part=0, dayRows=0, dayPages=0;
       try{
         for(;part<100;part++){
           const data=await request('https://api-seller.ozon.ru/v1/finance/accrual/by-day',headers,{date,last_id:lastId});
           const accruals=Array.isArray(data?.accruals)?data.accruals:(Array.isArray(data?.result?.accruals)?data.result.accruals:[]);
           const next=String(data?.last_id??data?.result?.last_id??'');
           if(accruals.length) await save('ozon',month,dayIndex*100+part,accruals);
-          rows+=accruals.length; pages++; 
+          dayRows+=accruals.length; dayPages++;
           if(!next||next===lastId||!accruals.length) break;
           lastId=next;
         }
-        days++;
+        return {ok:true,rows:dayRows,pages:dayPages};
       }catch(e){
-        errors++;
         out.ozon.push({date,status:'error',reason:String(e.message)});
+        return {ok:false,rows:dayRows,pages:dayPages};
       }
     }
+    for(let i=0;i<dates.length;i+=6){
+      const batch=await Promise.all(dates.slice(i,i+6).map(importDay));
+      for(const x of batch){rows+=x.rows;pages+=x.pages;if(x.ok)days++;else errors++;}
+      await sleep(150);
+    }
     out.ozon.unshift({status:errors?'partial':'complete',days,rows,pages,errors});
+
   }else out.ozon.push({status:'missing_credentials'});
   const counts=await pool.query("SELECT source,month,SUM(jsonb_array_length(payload))::int AS rows FROM marketplace_finance_pages WHERE month BETWEEN '2026-01' AND '2026-12' GROUP BY source,month ORDER BY source,month");
   console.log(JSON.stringify({import:out,stored:counts.rows}));
