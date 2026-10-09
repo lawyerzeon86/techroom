@@ -5,6 +5,7 @@ on:
     branches: [main]
     paths-ignore:
       - 'ops/deploy-last-status.txt'
+      - 'ops/finance-2026-last.json'
   workflow_dispatch:
 
 permissions:
@@ -117,3 +118,22 @@ jobs:
           set -euo pipefail
           test -n "$HOST"
           ssh -o BatchMode=yes -p "${PORT:-22}" "${USER:-root}@$HOST" "cd /var/www/duisun && set -a && source .env.production && set +a && node scripts/finance-2026-import.mjs"
+
+      - name: Save 2026 finance summary
+        if: contains(github.event.head_commit.message, '[finance-import-2026]')
+        env:
+          HOST: ${{ secrets.SELECTEL_HOST }}
+          PORT: ${{ secrets.SELECTEL_PORT }}
+          USER: ${{ secrets.SELECTEL_USER }}
+        run: |
+          set -euo pipefail
+          mkdir -p ops
+          ssh -o BatchMode=yes -p "${PORT:-22}" "${USER:-root}@$HOST" \
+            "cd /var/www/duisun && set -a && source .env.production && set +a && node scripts/finance-2026-summary.mjs" \
+            > ops/finance-2026-last.json
+          node -e 'JSON.parse(require("fs").readFileSync("ops/finance-2026-last.json","utf8"));'
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add ops/finance-2026-last.json
+          git diff --cached --quiet || git commit -m "Record 2026 finance summary [skip ci]"
+          git push origin HEAD:main
