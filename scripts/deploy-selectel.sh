@@ -74,6 +74,12 @@ EOF
 if [ -s "$ROOT_INTEGRATIONS_ENV" ]; then cat "$ROOT_INTEGRATIONS_ENV" >> "$ENV_FILE"; fi
 chmod 600 "$ENV_FILE"
 
+# Export the final production environment before build and PM2 startup.
+# This ensures runtime-only settings such as ADMIN_PASSWORD_SHA256 are inherited by Next.js.
+set -a
+source "$ENV_FILE"
+set +a
+
 npm ci
 node scripts/finalize-selectel.mjs
 npm run build
