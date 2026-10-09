@@ -45,27 +45,27 @@ jobs:
             -pkeyopt rsa_oaep_md:sha256
 
           python3 - <<'PY'
-from pathlib import Path
-token = Path('/root/.duisun-wb-token.txt').read_text().strip()
-parts = token.split('.')
-if len(parts) != 3 or any(not p for p in parts):
-    raise SystemExit('invalid WB token format')
+          from pathlib import Path
+          token = Path('/root/.duisun-wb-token.txt').read_text().strip()
+          parts = token.split('.')
+          if len(parts) != 3 or any(not p for p in parts):
+              raise SystemExit('invalid WB token format')
 
-for target in [Path('/root/duisun-integrations.env'), Path('/var/www/duisun/.env.production')]:
-    lines = target.read_text().splitlines() if target.exists() else []
-    out = []
-    replaced = False
-    for line in lines:
-        if line.startswith('WB_API_TOKEN='):
-            out.append('WB_API_TOKEN=' + token)
-            replaced = True
-        else:
-            out.append(line)
-    if not replaced:
-        out.append('WB_API_TOKEN=' + token)
-    target.write_text('\n'.join(out) + '\n')
-    target.chmod(0o600)
-PY
+          for target in [Path('/root/duisun-integrations.env'), Path('/var/www/duisun/.env.production')]:
+              lines = target.read_text().splitlines() if target.exists() else []
+              out = []
+              replaced = False
+              for line in lines:
+                  if line.startswith('WB_API_TOKEN='):
+                      out.append('WB_API_TOKEN=' + token)
+                      replaced = True
+                  else:
+                      out.append(line)
+              if not replaced:
+                  out.append('WB_API_TOKEN=' + token)
+              target.write_text('\\n'.join(out) + '\\n')
+              target.chmod(0o600)
+          PY
 
           cd /var/www/duisun
           set -a
