@@ -28,16 +28,16 @@ async function wildberries(month:string){
   if(!token)return {status:'missing_finance_token'};
   const prior=await getPool().query("SELECT page,payload FROM marketplace_finance_pages WHERE source='wildberries' AND month=$1 ORDER BY page DESC LIMIT 1",[month]);
   const last=prior.rows[0],lastRows=Array.isArray(last?.payload)?last.payload:[];
-  if(last&&lastRows.length<100000)return {status:'complete',pages:Number(last.page)+1};
-  const rrdId=lastRows.length?money(lastRows[lastRows.length-1]?.rrdId):0;
+  if(last&&lastRows.length===0)return {status:'complete',pages:Number(last.page)+1};
+  const rrdId=lastRows.length?money(lastRows[lastRows.length-1]?.rrd_id ?? lastRows[lastRows.length-1]?.rrdId):0;
   const page=last?Number(last.page)+1:0;
   const end=new Date(Date.UTC(Number(month.slice(0,4)),Number(month.slice(5,7)),0)).toISOString().slice(0,10);
   const rows=await fetchRows('https://finance-api.wildberries.ru/api/finance/v1/sales-reports/detailed',
     {Authorization:token},{dateFrom:month+'-01',dateTo:end,limit:100000,rrdId});
   if(!Array.isArray(rows))throw new Error('WB_INVALID_RESPONSE');
-  if(page>0&&rows.length&&money(rows[rows.length-1]?.rrdId)<=rrdId)throw new Error('WB_CURSOR_ERROR');
+  if(page>0&&rows.length&&money(rows[rows.length-1]?.rrd_id ?? rows[rows.length-1]?.rrdId)<=rrdId)throw new Error('WB_CURSOR_ERROR');
   await store('wildberries',month,page,rows);
-  return {status:rows.length<100000?'complete':'more_pages',pages:page+1,rows:rows.length};
+  return {status:rows.length===0?'complete':'more_pages',pages:page+1,rows:rows.length};
 }
 async function ozon(month:string){
   const client=process.env.OZON_CLIENT_ID?.trim(),key=process.env.OZON_API_KEY?.trim();
