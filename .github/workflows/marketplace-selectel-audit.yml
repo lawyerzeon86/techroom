@@ -1,0 +1,134 @@
+name: Marketplace Selectel audit
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/marketplace-selectel-audit.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  audit:
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Audit WB and Ozon on Selectel
+        env:
+          HOST: ${{ secrets.SELECTEL_HOST }}
+          PORT: ${{ secrets.SELECTEL_PORT }}
+          USER: ${{ secrets.SELECTEL_USER }}
+          SSH_KEY: ${{ secrets.SELECTEL_SSH_KEY }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p ~/.ssh
+          chmod 700 ~/.ssh
+          printf '%s\n' "$SSH_KEY" > ~/.ssh/id_ed25519
+          chmod 600 ~/.ssh/id_ed25519
+          ssh-keyscan -p "${PORT:-22}" "$HOST" >> ~/.ssh/known_hosts
+
+          ssh -p "${PORT:-22}" "$USER@$HOST" 'bash -s' <<'REMOTE'
+          set -euo pipefail
+          cd /var/www/duisun
+          set -a
+          source .env.production
+          set +a
+
+          echo '=== ENV FLAGS ==='
+          for k in WB_API_TOKEN WB_FEEDBACK_TOKEN WB_WAREHOUSE_ID OZON_CLIENT_ID OZON_API_KEY OZON_WAREHOUSE_ID SYNC_MARKETPLACE_STOCKS SYNC_MARKETPLACE_PRICES SYNC_WB_PRICES SYNC_OZON_PRICES; do
+            case "$k" in
+              *TOKEN*|*KEY*|OZON_CLIENT_ID)
+                if [ -n "${!k:-}" ]; then echo "$k=present"; else echo "$k=missing"; fi ;;
+              *)
+                echo "$k=${!k:-missing}" ;;
+            esac
+          done
+
+          echo '=== TIMERS ==='
+          systemctl list-timers --all --no-pager | grep 'duisun-sync-' || true
+
+          echo '=== DB COUNTS ==='
+          psql "$DATABASE_URL" -Atc "select 'PRODUCTS_TOTAL='||count(*) from products;"
+          psql "$DATABASE_URL" -Atc "select 'PRODUCTS_BY_SOURCE='||coalesce(marketplace_source,'null')||':'||count(*) from products group by marketplace_source order by 1;"
+          psql "$DATABASE_URL" -Atc "select 'ACTIVE_BY_SOURCE='||coalesce(marketplace_source,'null')||':'||count(*) from products where is_active=true group by marketplace_source order by 1;"
+          psql "$DATABASE_URL" -Atc "select 'PRICE_SHEET='||count(*)||',WB='||count(*) filter(where sync_wb)||',OZON='||count(*) filter(where sync_ozon) from price_sheet;"
+          psql "$DATABASE_URL" -Atc "select 'HUB='||count(*) from marketplace_product_hub;" 2>/dev/null || true
+          psql "$DATABASE_URL" -Atc "select 'LINKS='||count(*) from marketplace_product_links;" 2>/dev/null || true
+          psql "$DATABASE_URL" -Atc "select 'JOBS_BY_STATUS='||status||':'||count(*) from marketplace_product_jobs group by status order by status;" 2>/dev/null || true
+          psql "$DATABASE_URL" -Atc "select 'MP_ORDERS='||source||':'||count(*) from marketplace_orders group by source order by source;" 2>/dev/null || true
+          psql "$DATABASE_URL" -Atc "select 'COMM='||source||':'||kind||':'||count(*) from marketplace_communications group by source,kind order by source,kind;" 2>/dev/null || true
+          psql "$DATABASE_URL" -Atc "select 'SETTING='||key||'='||coalesce(value,'') from marketplace_settings order by key;" 2>/dev/null || true
+
+          echo '=== LATEST SYNC RUNS ==='
+          psql "$DATABASE_URL" -Atc "select 'SYNC_RUN='||id||'|'||coalesce(ok::text,'null')||'|'||to_char(started_at,'YYYY-MM-DD HH24:MI:SS')||'|'||coalesce(error,'')||'|'||left(result::text,2000) from marketplace_sync_runs order by id desc limit 5;" 2>/dev/null || true
+
+          echo '=== LATEST SYNC FILES ==='
+          for f in /var/log/duisun-sync-core-last.json /var/log/duisun-sync-communications-last.json /var/log/duisun-sync-transfers-last.json; do
+            if [ -f "$f" ]; then echo "FILE=$f"; head -c 6000 "$f"; echo; else echo "FILE_MISSING=$f"; fi
+          done
+
+          echo '=== READ-ONLY API CHECKS ==='
+          node <<'NODE'
+          const out=(k,v)=>console.log(k+'='+String(v));
+          async function json(url,init){
+            try{
+              const r=await fetch(url,{...init,signal:AbortSignal.timeout(20000)});
+              let d={}; try{d=await r.json()}catch{}
+              return {status:r.status,data:d};
+            }catch(e){return {status:'ERR',data:{error:String(e?.message||e)}}}
+          }
+
+          const wbToken=process.env.WB_API_TOKEN||'';
+          const wbWh=await json('https://marketplace-api.wildberries.ru/api/v3/warehouses',{headers:{Authorization:wbToken}});
+          out('WB_WAREHOUSES_HTTP',wbWh.status);
+          const warehouses=Array.isArray(wbWh.data)?wbWh.data:[];
+          out('WB_WAREHOUSES_COUNT',warehouses.length);
+          out('WB_WAREHOUSE_IDS',warehouses.map(x=>x.id).join(','));
+
+          const wbCards=await json('https://content-api.wildberries.ru/content/v2/get/cards/list',{
+            method:'POST',headers:{Authorization:wbToken,'Content-Type':'application/json'},
+            body:JSON.stringify({settings:{cursor:{limit:100},filter:{withPhoto:-1},sort:{ascending:false}}})
+          });
+          out('WB_CARDS_HTTP',wbCards.status);
+          const cards=Array.isArray(wbCards.data?.cards)?wbCards.data.cards:[];
+          out('WB_CARDS_FIRST_PAGE',cards.length);
+          const barcodes=[];
+          for(const c of cards) for(const s of (Array.isArray(c?.sizes)?c.sizes:[])) for(const b of (Array.isArray(s?.skus)?s.skus:[])) if(b) barcodes.push(String(b));
+          const wid=String(process.env.WB_WAREHOUSE_ID||warehouses[0]?.id||'');
+          if(wid&&barcodes.length){
+            const st=await json('https://marketplace-api.wildberries.ru/api/v3/stocks/'+encodeURIComponent(wid),{
+              method:'POST',headers:{Authorization:wbToken,'Content-Type':'application/json'},
+              body:JSON.stringify({skus:barcodes.slice(0,1000)})
+            });
+            out('WB_STOCKS_HTTP',st.status);
+            out('WB_STOCK_ROWS',Array.isArray(st.data)?st.data.length:0);
+            out('WB_STOCK_TOTAL',Array.isArray(st.data)?st.data.reduce((s,x)=>s+(Number(x.amount)||0),0):0);
+          }
+
+          const ozHeaders={'Client-Id':process.env.OZON_CLIENT_ID||'','Api-Key':process.env.OZON_API_KEY||'','Content-Type':'application/json'};
+          const ozList=await json('https://api-seller.ozon.ru/v3/product/list',{
+            method:'POST',headers:ozHeaders,body:JSON.stringify({filter:{visibility:'ALL'},last_id:'',limit:100})
+          });
+          out('OZON_PRODUCTS_HTTP',ozList.status);
+          const ozItems=ozList.data?.result?.items||ozList.data?.items||[];
+          out('OZON_PRODUCTS_FIRST_PAGE',Array.isArray(ozItems)?ozItems.length:0);
+
+          const ozWh=await json('https://api-seller.ozon.ru/v1/warehouse/list',{method:'POST',headers:ozHeaders,body:'{}'});
+          out('OZON_WAREHOUSES_HTTP',ozWh.status);
+          const ozWarehouses=ozWh.data?.result||ozWh.data?.warehouses||[];
+          out('OZON_WAREHOUSES_COUNT',Array.isArray(ozWarehouses)?ozWarehouses.length:0);
+
+          const now=new Date().toISOString();
+          const since=new Date(Date.now()-86400000).toISOString();
+          const ozOrders=await json('https://api-seller.ozon.ru/v4/posting/fbs/list',{
+            method:'POST',headers:ozHeaders,
+            body:JSON.stringify({sort_dir:'desc',filter:{since,to:now,status:[]},limit:1,cursor:'',with:{analytics_data:false,barcodes:false,financial_data:false,legal_info:false,translit:false}})
+          });
+          out('OZON_ORDERS_HTTP',ozOrders.status);
+
+          const wbOrders=await json('https://marketplace-api.wildberries.ru/api/v3/orders/new',{headers:{Authorization:wbToken}});
+          out('WB_ORDERS_HTTP',wbOrders.status);
+          out('WB_NEW_ORDERS',Array.isArray(wbOrders.data?.orders)?wbOrders.data.orders.length:0);
+          NODE
+          REMOTE
