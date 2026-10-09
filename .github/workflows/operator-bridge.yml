@@ -66,7 +66,19 @@ jobs:
             }
             return cards;
           }
-          if(req.action==='wb_get_products'){
+          if(req.action==='wb_get_catalog_with_photos'){
+            const cards=await allCards();
+            const products=cards.map(card=>({
+              nmID:card.nmID,
+              vendorCode:card.vendorCode,
+              title:card.title,
+              photos:card.photos,
+              sizes:card.sizes
+            }));
+            console.log('OPERATOR_RESULT_BEGIN');
+            console.log(JSON.stringify({ok:true,action:req.action,products}));
+            console.log('OPERATOR_RESULT_END');
+          } else if(req.action==='wb_get_products'){
             const vendorCodes=Array.isArray(req.vendorCodes)?req.vendorCodes.map(x=>String(x).trim()).filter(Boolean):[];
             if(!vendorCodes.length) throw new Error('VENDOR_CODES_REQUIRED');
             const cards=await allCards();
