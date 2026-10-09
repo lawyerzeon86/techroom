@@ -71,6 +71,11 @@ export function isAdminCookieHeader(cookieHeader:string) {
 }
 
 export function verifyAdminPassword(candidate: string) {
+  const configuredHash = process.env.ADMIN_PASSWORD_SHA256?.trim().toLowerCase();
+  if (configuredHash) {
+    const candidateHash = createHash('sha256').update(candidate).digest('hex');
+    return safeEqual(candidateHash, configuredHash);
+  }
   const configured = process.env.ADMIN_PASSWORD;
   if (!configured || configured.length < 12) return false;
   return safeEqual(candidate, configured);
