@@ -49,8 +49,7 @@ function getCookie(request: Request, name: string) {
   return null;
 }
 
-export function isAdminSession(request: Request) {
-  const token = getCookie(request, ADMIN_COOKIE);
+function validAdminToken(token:string|null){
   const secret = sessionSecret();
   if (!token || !secret) return false;
   const parts = token.split('.');
@@ -60,6 +59,15 @@ export function isAdminSession(request: Request) {
   if (!Number.isFinite(exp) || exp < Math.floor(Date.now() / 1000) || nonce.length < 8) return false;
   const payload = `${expRaw}.${nonce}`;
   return safeEqual(sig, sign(payload, secret));
+}
+
+export function isAdminSession(request: Request) {
+  return validAdminToken(getCookie(request, ADMIN_COOKIE));
+}
+
+export function isAdminCookieHeader(cookieHeader:string) {
+  const request=new Request('https://duisun.ru/',{headers:{cookie:cookieHeader||''}});
+  return validAdminToken(getCookie(request, ADMIN_COOKIE));
 }
 
 export function verifyAdminPassword(candidate: string) {
