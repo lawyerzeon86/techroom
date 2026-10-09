@@ -55,11 +55,14 @@ async function uploadMarketPhoto(url:string){
   return photo?.id?Number(photo.id):undefined;
 }
 
-async function resolveCategoryId(title:string,description:string){
+async function getCategories(){
+  const cats=await vk('market.getCategories',{count:1000});
+  return Array.isArray(cats?.items)?cats.items:[];
+}
+
+function resolveCategoryId(title:string,description:string,items:any[]){
   const forced=Number(process.env.VK_MARKET_CATEGORY_ID||0);
   if(forced>0)return forced;
-  const cats=await vk('market.getCategories',{count:1000});
-  const items=Array.isArray(cats?.items)?cats.items:[];
   const hay=`${title} ${description}`.toLowerCase();
   let best:any=null,bestScore=-1;
   for(const c of items){
@@ -76,6 +79,7 @@ export async function syncOzonToVk(limit=100){
   if(!vkConfigured())throw new Error('VK_NOT_CONFIGURED');
   const ozon=await getProducts('ozon','',Math.max(1,Math.min(100,limit)));
   const existing=await getVkItems();
+  const categories=await getCategories();
   const bySku=new Map(existing.map((x:any)=>[skuFromVk(x),x]).filter(([sku]:any)=>Boolean(sku)));
   const ownerId=-Math.abs(groupId());
   let created=0,updated=0,failed=0;
@@ -88,11 +92,11 @@ export async function syncOzonToVk(limit=100){
       const title=normalizeText(p.title||sku,100);
       const description=normalizeText(`${p.description||''}\n\nАртикул: ${sku}`,4000);
       const price=Math.max(1,Math.round(Number((p as any).price||0)||1));
-      const categoryId=await resolveCategoryId(title,description);
+      const categoryId=resolveCategoryId(title,description,categories);
       let mainPhotoId:number|undefined;
       const image=Array.isArray((p as any).images)?(p as any).images[0]:undefined;
-      if(image){try{mainPhotoId=await uploadMarketPhoto(String(image))}catch{}}
       const current:any=bySku.get(sku);
+      if(image&&!current?.thumb_photo){try{mainPhotoId=await uploadMarketPhoto(String(image))}catch{}}
       if(current){
         await vk('market.edit',{owner_id:ownerId,item_id:current.id,name:title,description,category_id:categoryId,price,main_photo_id:mainPhotoId,deleted:0});
         updated++;

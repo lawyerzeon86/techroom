@@ -92,6 +92,7 @@ case "$MODE" in
   core) URL='http://127.0.0.1:3000/api/internal/marketplace-sync'; OUT=/var/log/duisun-sync-core-last.json; TIMEOUT=240 ;;
   communications) URL='http://127.0.0.1:3000/api/internal/marketplace-sync?force=1&communications=1'; OUT=/var/log/duisun-sync-communications-last.json; TIMEOUT=240 ;;
   transfers) URL='http://127.0.0.1:3000/api/internal/marketplace-sync?force=1&transfers=1'; OUT=/var/log/duisun-sync-transfers-last.json; TIMEOUT=300 ;;
+  vk) URL='http://127.0.0.1:3000/api/internal/marketplace-sync?force=1&vkCatalog=1'; OUT=/var/log/duisun-sync-vk-last.json; TIMEOUT=360 ;;
   *) exit 2 ;;
 esac
 CFG=$(mktemp /run/duisun-curl.XXXXXX)
@@ -111,7 +112,7 @@ fi
 SYNC
 chmod 700 /usr/local/bin/duisun-sync-run
 
-for mode in core communications transfers; do
+for mode in core communications transfers vk; do
 cat >"/usr/local/bin/duisun-sync-$mode" <<EOF
 #!/usr/bin/env bash
 exec /usr/local/bin/duisun-sync-run $mode
@@ -162,10 +163,20 @@ Persistent=true
 [Install]
 WantedBy=timers.target
 UNIT
+cat >/etc/systemd/system/duisun-sync-vk.timer <<'UNIT'
+[Unit]
+Description=Duisun daily VK catalog sync
+[Timer]
+OnCalendar=*-*-* 02:15:00 UTC
+RandomizedDelaySec=5min
+Persistent=true
+[Install]
+WantedBy=timers.target
+UNIT
 
 systemctl disable --now duisun-marketplace-sync.timer 2>/dev/null || true
 systemctl daemon-reload
-systemctl enable --now duisun-sync-core.timer duisun-sync-communications.timer duisun-sync-transfers.timer
+systemctl enable --now duisun-sync-core.timer duisun-sync-communications.timer duisun-sync-transfers.timer duisun-sync-vk.timer
 
 install -d -m 700 /root/duisun-backups
 cat >/usr/local/bin/duisun-backup <<'BACKUP'

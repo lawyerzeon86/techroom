@@ -9,6 +9,7 @@ import { importMarketplaceProducts, runAutoProductTransfers, syncHubCatalogToSit
 import { refreshSiteCatalogFacts } from '../../../../lib/site-catalog-refresh';
 import { runPriceGuard } from '../../../../lib/price-guard';
 import { verifyGitHubActionsToken } from '../../../../lib/github-oidc';
+import { syncOzonToVk, syncVkOrdersToTechRoom, vkConfigured } from '../../../../lib/vk-market';
 import { syncYandexMarketOrders, yandexMarketConfigured } from '../../../../lib/yandex-market';
 
 export const runtime='nodejs';
@@ -110,6 +111,7 @@ export async function POST(request:Request){
     const force=cronAuthorized&&url.searchParams.get('force')==='1';
     const includeCommunications=cronAuthorized&&url.searchParams.get('communications')==='1';
     const includeTransfers=cronAuthorized&&url.searchParams.get('transfers')==='1';
+    const includeVkCatalog=cronAuthorized&&url.searchParams.get('vkCatalog')==='1';
     const last=await pool.query(`SELECT started_at FROM marketplace_sync_runs ORDER BY id DESC LIMIT 1`);
     const lastAt=last.rows[0]?.started_at?new Date(last.rows[0].started_at).getTime():0;
     if(!force&&lastAt&&Date.now()-lastAt<10*60*1000)return NextResponse.json({ok:true,skipped:true,reason:'recent_sync'},{status:202});
@@ -136,6 +138,9 @@ export async function POST(request:Request){
     ]);
     result.stages.wildberries=wb;
     result.stages.ozon=ozon;
+    result.stages.vkOrders=vkConfigured()
+      ? await safeStage('VK_ORDERS',30000,()=>syncVkOrdersToTechRoom())
+      : {skipped:'not_configured'};
     result.stages.yandex=yandexMarketConfigured()
       ? await safeStage('YANDEX_FBS_ORDERS',30000,()=>syncYandexMarketOrders())
       : {skipped:'not_configured'};
@@ -173,6 +178,9 @@ export async function POST(request:Request){
     result.productHub.transfer=includeTransfers
       ? await safeStage('AUTO_PRODUCT_TRANSFER',120000,()=>runAutoProductTransfers())
       : {skipped:'scheduled_separately'};
+    result.stages.vkCatalog=includeVkCatalog
+      ? (vkConfigured()?await safeStage('VK_CATALOG',240000,()=>syncOzonToVk(100)):{skipped:'not_configured'})
+      : {skipped:'daily_schedule'};
 
     const partialErrors=collectErrors(result);
     if(partialErrors.length){result.partial=true;result.partialErrors=partialErrors}

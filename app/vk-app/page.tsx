@@ -14,10 +14,11 @@ export default function VkAppPage(){
   const [checkout,setCheckout]=useState(false);
   const [busy,setBusy]=useState(false);
   const [msg,setMsg]=useState('');
-  const [form,setForm]=useState({customerName:'',phone:'',email:'',deliveryMethod:'courier',address:'',paymentMethod:'qr',comment:''});
+  const [form,setForm]=useState({customerName:'',phone:'',email:'',deliveryMethod:'courier',address:'',paymentMethod:'cash',comment:''});
+  const [qrEnabled,setQrEnabled]=useState(false);
 
-  useEffect(()=>{fetch('/api/products',{cache:'no-store'}).then(r=>r.json()).then(j=>setProducts(Array.isArray(j)?j:[])).catch(()=>setMsg('Не удалось загрузить каталог'));const saved=localStorage.getItem('techroom-vk-cart');if(saved){try{setCart(JSON.parse(saved))}catch{}}},[]);
-  useEffect(()=>{localStorage.setItem('techroom-vk-cart',JSON.stringify(cart))},[cart]);
+  useEffect(()=>{fetch('/api/products',{cache:'no-store'}).then(r=>r.json()).then(j=>setProducts(Array.isArray(j)?j:[])).catch(()=>setMsg('Не удалось загрузить каталог'));fetch('/api/payments/config',{cache:'no-store'}).then(r=>r.json()).then(j=>setQrEnabled(Boolean(j?.configured))).catch(()=>{});const saved=localStorage.getItem('duisun-vk-cart')||localStorage.getItem('techroom-vk-cart');if(saved){try{setCart(JSON.parse(saved))}catch{}}},[]);
+  useEffect(()=>{localStorage.setItem('duisun-vk-cart',JSON.stringify(cart))},[cart]);
 
   const categories=useMemo(()=>Array.from(new Set(products.map(p=>p.category||'Другое'))).sort(),[products]);
   const filtered=useMemo(()=>products.filter(p=>(category==='all'||(p.category||'Другое')===category)&&`${p.title} ${p.description||''} ${p.sku||''}`.toLowerCase().includes(q.toLowerCase())),[products,category,q]);
@@ -40,7 +41,7 @@ export default function VkAppPage(){
 
   return <main style={{maxWidth:980,margin:'0 auto',padding:'16px',fontFamily:'Arial,sans-serif',color:'#111'}}>
     <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',gap:12,position:'sticky',top:0,background:'#fff',padding:'10px 0',zIndex:5,borderBottom:'1px solid #eee'}}>
-      <div><h1 style={{margin:0,fontSize:24}}>TechRoom</h1><small>Магазин во ВКонтакте</small></div>
+      <div><h1 style={{margin:0,fontSize:24}}>Duisun</h1><small>Магазин во ВКонтакте</small></div>
       <button onClick={()=>setCheckout(v=>!v)} style={{border:0,borderRadius:12,padding:'12px 16px',background:'#111',color:'#fff',fontWeight:700}}>Корзина · {count} · {money(total)}</button>
     </div>
 
@@ -61,7 +62,7 @@ export default function VkAppPage(){
           <input placeholder="Email (необязательно)" value={form.email} onChange={e=>setForm({...form,email:e.target.value})}/>
           <select value={form.deliveryMethod} onChange={e=>setForm({...form,deliveryMethod:e.target.value})}><option value="courier">Доставка</option><option value="pickup">Самовывоз</option></select>
           {form.deliveryMethod==='courier'&&<input placeholder="Адрес доставки" value={form.address} onChange={e=>setForm({...form,address:e.target.value})}/>} 
-          <select value={form.paymentMethod} onChange={e=>setForm({...form,paymentMethod:e.target.value})}><option value="qr">Оплата по QR</option><option value="cash">При получении</option></select>
+          <select value={form.paymentMethod} onChange={e=>setForm({...form,paymentMethod:e.target.value})}>{qrEnabled&&<option value="qr">Оплата по QR</option>}<option value="cash">При получении</option></select>
           <textarea placeholder="Комментарий" value={form.comment} onChange={e=>setForm({...form,comment:e.target.value})}/>
           <button disabled={busy} onClick={submit} style={{border:0,borderRadius:12,padding:'14px 16px',background:'#111',color:'#fff',fontWeight:700}}>{busy?'Оформляем…':'Оформить заказ'}</button>
         </div>
