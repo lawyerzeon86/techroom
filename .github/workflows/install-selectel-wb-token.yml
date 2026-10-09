@@ -1,0 +1,89 @@
+name: Install WB token on Selectel
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/install-selectel-wb-token.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  install:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install encrypted WB token on Selectel
+        env:
+          HOST: ${{ secrets.SELECTEL_HOST }}
+          PORT: ${{ secrets.SELECTEL_PORT }}
+          USER: ${{ secrets.SELECTEL_USER }}
+          SSH_KEY: ${{ secrets.SELECTEL_SSH_KEY }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p ~/.ssh
+          chmod 700 ~/.ssh
+          printf '%s\n' "$SSH_KEY" > ~/.ssh/id_ed25519
+          chmod 600 ~/.ssh/id_ed25519
+          ssh-keyscan -p "${PORT:-22}" "$HOST" >> ~/.ssh/known_hosts
+
+          scp -P "${PORT:-22}" ops/wb-token.enc.b64 "$USER@$HOST:/root/.duisun-wb-token.enc.b64"
+
+          ssh -p "${PORT:-22}" "$USER@$HOST" 'bash -s' <<'REMOTE'
+          set -euo pipefail
+          umask 077
+
+          base64 -d /root/.duisun-wb-token.enc.b64 > /root/.duisun-wb-token.enc
+          openssl pkeyutl -decrypt \
+            -inkey /root/.duisun-wb-handoff-private.pem \
+            -in /root/.duisun-wb-token.enc \
+            -out /root/.duisun-wb-token.txt \
+            -pkeyopt rsa_padding_mode:oaep \
+            -pkeyopt rsa_oaep_md:sha256
+
+          python3 - <<'PY'
+from pathlib import Path
+token = Path('/root/.duisun-wb-token.txt').read_text().strip()
+parts = token.split('.')
+if len(parts) != 3 or any(not p for p in parts):
+    raise SystemExit('invalid WB token format')
+
+for target in [Path('/root/duisun-integrations.env'), Path('/var/www/duisun/.env.production')]:
+    lines = target.read_text().splitlines() if target.exists() else []
+    out = []
+    replaced = False
+    for line in lines:
+        if line.startswith('WB_API_TOKEN='):
+            out.append('WB_API_TOKEN=' + token)
+            replaced = True
+        else:
+            out.append(line)
+    if not replaced:
+        out.append('WB_API_TOKEN=' + token)
+    target.write_text('\n'.join(out) + '\n')
+    target.chmod(0o600)
+PY
+
+          cd /var/www/duisun
+          set -a
+          source .env.production
+          set +a
+          pm2 restart duisun --update-env >/dev/null
+
+          STATUS=$(curl -sS -o /tmp/wb-warehouses.json -w '%{http_code}' --max-time 20 \
+            -H "Authorization: $WB_API_TOKEN" \
+            'https://marketplace-api.wildberries.ru/api/v3/warehouses')
+          echo "WB_WAREHOUSES_HTTP=$STATUS"
+          test "$STATUS" = "200"
+
+          rm -f /tmp/wb-warehouses.json \
+            /root/.duisun-wb-token.enc.b64 \
+            /root/.duisun-wb-token.enc \
+            /root/.duisun-wb-token.txt \
+            /root/.duisun-wb-handoff-private.pem \
+            /root/.duisun-wb-handoff-public.pem
+          echo "WB_TOKEN_INSTALL=success"
+          REMOTE
