@@ -43,7 +43,7 @@ async function ozon(month:string){
   const client=process.env.OZON_CLIENT_ID?.trim(),key=process.env.OZON_API_KEY?.trim();
   if(!client||!key)return {status:'missing_credentials'};
   const end=new Date(Date.UTC(Number(month.slice(0,4)),Number(month.slice(5,7)),0,23,59,59)).toISOString();
-  let total=1,page=1,count=0;
+  let total=Number.MAX_SAFE_INTEGER,page=1,count=0;
   // At most 20 pages per call; repeat to complete particularly large months.
   const existing=await getPool().query("SELECT max(page) AS page FROM marketplace_finance_pages WHERE source='ozon' AND month=$1",[month]);
   if(existing.rows[0]?.page)page=Number(existing.rows[0].page)+1;
