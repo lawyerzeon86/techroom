@@ -172,11 +172,11 @@ export async function pushPricesAndStocks(options:{onlyOzonPrices?:boolean;onlyP
       const warehouseId=process.env.OZON_WAREHOUSE_ID?.trim();
       if(!options.onlyOzonPrices && !options.onlyPrices && warehouseId && process.env.SYNC_MARKETPLACE_STOCKS==='1'){
         const liveOzon=await getProducts('ozon','',100);
-        const localStockBySku=new Map(
+        const localStockBySku=new Map<string,number>(
           products
             .filter((p:any)=>p.syncOzon)
-            .map((p:any)=>[String(p.sku||'').trim(),Math.max(0,Math.round(Number(p.stock)||0))])
-            .filter(([sku])=>Boolean(sku))
+            .map((p:any):[string,number]=>[String(p.sku||'').trim(),Math.max(0,Math.round(Number(p.stock)||0))])
+            .filter(([sku]:[string,number])=>Boolean(sku))
         );
         const stocks=liveOzon
           .map((p:any)=>String(p.offerId||p.sku||'').trim())
