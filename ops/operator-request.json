@@ -1,6 +1,4 @@
 {
-  "action": "wb_update_stock_by_nmid",
-  "nmID": 134444872,
-  "amount": 20,
-  "nonce": "2026-10-08T13:41:00+03:00"
+  "action": "wb_get_catalog_with_photos",
+  "nonce": "2026-10-09T21:59:30+03:00"
 }
