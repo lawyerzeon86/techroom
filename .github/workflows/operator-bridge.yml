@@ -66,7 +66,37 @@ jobs:
             }
             return cards;
           }
-          if(req.action==='wb_get_catalog_with_photos'){
+          if(req.action==='wb_catalog_status'){
+            const cards=await allCards();
+            const errors=await post('https://content-api.wildberries.ru/content/v2/cards/error/list',{});
+            const errorItems=Array.isArray(errors?.data?.items)?errors.data.items:[];
+            const warehouseId=String(process.env.WB_WAREHOUSE_ID||'').trim();
+            if(!warehouseId) throw new Error('WB_WAREHOUSE_ID_NOT_CONFIGURED');
+            const chrtIds=cards.flatMap(card=>(Array.isArray(card?.sizes)?card.sizes:[]).map(s=>Number(s?.chrtID)).filter(Number.isFinite));
+            const fbsData=chrtIds.length?await post('https://marketplace-api.wildberries.ru/api/v3/stocks/'+encodeURIComponent(warehouseId),{chrtIds}):{stocks:[]};
+            const fbsMap=new Map((Array.isArray(fbsData?.stocks)?fbsData.stocks:[]).map(x=>[Number(x.chrtId),Number(x.amount)||0]));
+            let fboRaw=null, fboError=null;
+            try{
+              fboRaw=await post('https://seller-analytics-api.wildberries.ru/api/analytics/v1/stocks-report/wb-warehouses',{nmIds:cards.map(x=>Number(x.nmID)).filter(Number.isFinite),limit:1000,offset:0});
+            }catch(e){ fboError=String(e?.message||e); }
+            const rows=Array.isArray(fboRaw)?fboRaw:(Array.isArray(fboRaw?.data)?fboRaw.data:(Array.isArray(fboRaw?.stocks)?fboRaw.stocks:[]));
+            const fboMap=new Map();
+            for(const row of rows){
+              const id=Number(row?.nmId ?? row?.nmID);
+              if(!Number.isFinite(id)) continue;
+              const qty=Number(row?.quantity ?? row?.amount ?? row?.stock ?? row?.stockCount ?? row?.quantityFull ?? 0)||0;
+              fboMap.set(id,(fboMap.get(id)||0)+qty);
+            }
+            const products=cards.map(card=>{
+              const cardErrors=errorItems.filter(e=>Array.isArray(e?.vendorCodes)&&e.vendorCodes.includes(card.vendorCode));
+              const fbs=(Array.isArray(card?.sizes)?card.sizes:[]).reduce((sum,s)=>sum+(fbsMap.get(Number(s?.chrtID))||0),0);
+              const fbo=fboMap.get(Number(card.nmID))||0;
+              return {nmID:card.nmID,vendorCode:card.vendorCode,title:card.title,status:cardErrors.length?'ERROR':'OK',errors:cardErrors.map(e=>e?.errors||e?.errorText||e?.message||e),fbs,fbo};
+            });
+            console.log('OPERATOR_RESULT_BEGIN');
+            console.log(JSON.stringify({ok:true,action:req.action,warehouseId,fboError,fboSample:rows.slice(0,2),products}));
+            console.log('OPERATOR_RESULT_END');
+          } else if(req.action==='wb_get_catalog_with_photos'){
             const cards=await allCards();
             const products=cards.map(card=>({
               nmID:card.nmID,
