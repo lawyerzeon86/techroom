@@ -1,0 +1,65 @@
+name: Repair Selectel env
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/repair-selectel-env.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  repair:
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Repair env files and verify WB access
+        env:
+          HOST: ${{ secrets.SELECTEL_HOST }}
+          PORT: ${{ secrets.SELECTEL_PORT }}
+          USER: ${{ secrets.SELECTEL_USER }}
+          SSH_KEY: ${{ secrets.SELECTEL_SSH_KEY }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p ~/.ssh
+          chmod 700 ~/.ssh
+          printf '%s\n' "$SSH_KEY" > ~/.ssh/id_ed25519
+          chmod 600 ~/.ssh/id_ed25519
+          ssh-keyscan -p "${PORT:-22}" "$HOST" >> ~/.ssh/known_hosts
+
+          ssh -p "${PORT:-22}" "$USER@$HOST" 'bash -s' <<'REMOTE'
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          for name in ['/root/duisun-integrations.env','/var/www/duisun/.env.production']:
+              p=Path(name)
+              if not p.exists():
+                  continue
+              s=p.read_text()
+              if '\\n' in s:
+                  p.write_text(s.replace('\\n','\n'))
+              p.chmod(0o600)
+          PY
+
+          cd /var/www/duisun
+          set -a
+          source .env.production
+          set +a
+          test -n "${WB_API_TOKEN:-}"
+          pm2 restart duisun --update-env >/dev/null
+
+          STATUS=$(curl -sS -o /tmp/wb-check.json -w '%{http_code}' --max-time 20 \
+            -H "Authorization: $WB_API_TOKEN" \
+            'https://marketplace-api.wildberries.ru/api/v3/warehouses')
+          echo "WB_WAREHOUSES_HTTP=$STATUS"
+          test "$STATUS" = "200"
+
+          rm -f /tmp/wb-check.json \
+            /root/.duisun-wb-token.enc.b64 \
+            /root/.duisun-wb-token.enc \
+            /root/.duisun-wb-token.txt \
+            /root/.duisun-wb-handoff-private.pem \
+            /root/.duisun-wb-handoff-public.pem
+          echo "SELECTEL_ENV_REPAIR=success"
+          REMOTE
