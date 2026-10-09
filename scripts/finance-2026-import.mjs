@@ -14,7 +14,9 @@ async function save(source,month,page,data){
 }
 async function request(url,headers,body){
   for(let attempt=0;attempt<5;attempt++){
-    const r=await fetch(url,{method:'POST',headers:{...headers,'Content-Type':'application/json'},body:JSON.stringify(body),signal:AbortSignal.timeout(50000)});
+    const isWb=url.includes('finance-api.wildberries.ru');
+    const endpoint=isWb?url+'?'+new URLSearchParams(Object.entries(body).map(([k,v])=>[k,String(v)])):url;
+    const r=await fetch(endpoint,{method:isWb?'GET':'POST',headers:{...headers,...(isWb?{}:{'Content-Type':'application/json'})},...(isWb?{}:{body:JSON.stringify(body)}),signal:AbortSignal.timeout(50000)});
     if(r.status===204)return [];
     if(r.status===429||r.status===503){
       if(attempt===4)throw Error('HTTP_'+r.status);
