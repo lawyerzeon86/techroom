@@ -68,5 +68,28 @@ try{
   const siteSales=n(site.rows[0]?.sales),siteTax=siteSales*defaultTax/100;
   out.channels.site={orders:n(site.rows[0]?.orders),sales:r(siteSales),marketplaceNet:r(siteSales),tax:r(siteTax),cogs:0,variable:0,profit:r(siteSales-siteTax),profitLabel:'после налога; без себестоимости'};
   out.total={sales:r(wbTotal.sales+ozTotal.sales+siteSales),marketplaceNet:r(wbTotal.marketplaceNet+ozTotal.marketplaceNet+siteSales),tax:r(wbTotal.tax+ozTotal.tax+siteTax),cogs:r(wbTotal.cogs+ozTotal.cogs),variable:r(wbTotal.variable+ozTotal.variable),profit:r(wbTotal.profit+ozTotal.profit+siteSales-siteTax)};
-  console.log(JSON.stringify(out));
+  const compact={
+  generatedAt:out.generatedAt,
+  year:out.year,
+  warning:out.warnings,
+  wildberries:{
+    sales:out.channels.wildberries.sales,
+    marketplaceNet:out.channels.wildberries.marketplaceNet,
+    tax:out.channels.wildberries.tax,
+    cogs:out.channels.wildberries.cogs,
+    profit:out.channels.wildberries.profit,
+    monthly:Object.fromEntries(Object.entries(out.channels.wildberries.monthly).filter(([m,v])=>v.sales||v.marketplaceNet).map(([m,v])=>[m,{sales:v.sales,marketplaceNet:v.marketplaceNet,tax:v.tax,profit:v.profit}]))
+  },
+  ozon:{
+    sales:out.channels.ozon.sales,
+    marketplaceNet:out.channels.ozon.marketplaceNet,
+    tax:out.channels.ozon.tax,
+    cogs:out.channels.ozon.cogs,
+    profit:out.channels.ozon.profit,
+    monthly:Object.fromEntries(Object.entries(out.channels.ozon.monthly).filter(([m,v])=>v.sales||v.marketplaceNet).map(([m,v])=>[m,{sales:v.sales,marketplaceNet:v.marketplaceNet,tax:v.tax,profit:v.profit}]))
+  },
+  site:out.channels.site,
+  total:out.total
+};
+console.log(JSON.stringify(compact));
 }finally{await pool.end();}
