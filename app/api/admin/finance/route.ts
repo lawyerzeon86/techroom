@@ -18,9 +18,7 @@ async function store(source:string,month:string,page:number,rows:any[]){
     DO UPDATE SET payload=EXCLUDED.payload,fetched_at=NOW()`,[source,month,page,JSON.stringify(rows)]);
 }
 async function fetchRows(url:string,headers:Record<string,string>,body:any){
-  const isWb=url.includes('finance-api.wildberries.ru');
-  const endpoint=isWb?url+'?'+new URLSearchParams(Object.entries(body).map(([k,v])=>[k,String(v)])):url;
-  const r=await fetch(endpoint,{method:isWb?'GET':'POST',headers:{...headers,...(isWb?{}:{'Content-Type':'application/json'})},...(isWb?{}:{body:JSON.stringify(body)}),cache:'no-store',signal:AbortSignal.timeout(25000)});
+  const r=await fetch(url,{method:'POST',headers:{...headers,'Content-Type':'application/json'},body:JSON.stringify(body),cache:'no-store',signal:AbortSignal.timeout(25000)});
   if(r.status===204)return [];
   if(!r.ok)throw new Error('MARKETPLACE_HTTP_'+r.status);
   return await r.json();
