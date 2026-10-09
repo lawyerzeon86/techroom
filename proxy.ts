@@ -8,6 +8,9 @@ const ALIAS_HOSTS=new Set([
 ]);
 
 export function proxy(request:NextRequest){
+  if(process.env.RENDER_DISABLED==='1'){
+    return NextResponse.json({error:'Service migrated to Selectel'},{status:410});
+  }
   const host=(request.headers.get('host')||'').split(':')[0].toLowerCase();
   if(ALIAS_HOSTS.has(host)){
     const url=request.nextUrl.clone();
