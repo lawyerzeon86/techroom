@@ -116,5 +116,4 @@ jobs:
         run: |
           set -euo pipefail
           test -n "$HOST"
-          ssh -o BatchMode=yes -p "${PORT:-22}" "${USER:-root}@$HOST" \
-            'bash -lc '\''set -euo pipefail; cd /var/www/duisun; set -a; source .env.production; set +a; node scripts/finance-2026-import.mjs'\''
+          ssh -o BatchMode=yes -p "${PORT:-22}" "${USER:-root}@$HOST" "cd /var/www/duisun && set -a && source .env.production && set +a && node scripts/finance-2026-import.mjs"
