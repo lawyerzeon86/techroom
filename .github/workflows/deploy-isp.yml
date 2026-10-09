@@ -200,3 +200,26 @@ jobs:
             set -a; source .env.production; set +a
             node -e "console.log('APP_ADMIN_PASSWORD_LENGTH='+String(process.env.ADMIN_PASSWORD||'').length)"
           '
+
+      - name: Verify admin password wiring
+        if: contains(github.event.head_commit.message, '[admin-auth-verify]')
+        env:
+          HOST: ${{ secrets.SELECTEL_HOST }}
+          PORT: ${{ secrets.SELECTEL_PORT }}
+          USER: ${{ secrets.SELECTEL_USER }}
+        run: |
+          set -euo pipefail
+          ssh -o BatchMode=yes -p "${PORT:-22}" "${USER:-root}@$HOST" '
+            set -euo pipefail
+            ROOT_PASS=$(sed -n "s/^ADMIN_PASSWORD=//p" /root/duisun-admin.env | head -n1)
+            APP_PASS=$(sed -n "s/^ADMIN_PASSWORD=//p" /var/www/duisun/.env.production | head -n1)
+            test -n "$ROOT_PASS"
+            test -n "$APP_PASS"
+            if [ "$ROOT_PASS" = "$APP_PASS" ]; then echo "ADMIN_PASSWORD_WIRING=match"; else echo "ADMIN_PASSWORD_WIRING=mismatch"; fi
+            ROOT_HASH=$(printf "%s" "$ROOT_PASS" | sha256sum | cut -d" " -f1)
+            APP_HASH=$(printf "%s" "$APP_PASS" | sha256sum | cut -d" " -f1)
+            if [ "$ROOT_HASH" = "$APP_HASH" ]; then echo "ADMIN_PASSWORD_HASH=match"; else echo "ADMIN_PASSWORD_HASH=mismatch"; fi
+            STATUS=$(curl -sS -o /tmp/admin-login-test.json -w "%{http_code}" -X POST http://127.0.0.1:3000/api/admin/login -H "Content-Type: application/json" --data "{\"password\":\"__definitely_wrong_password__\"}")
+            echo "WRONG_PASSWORD_HTTP=$STATUS"
+            cat /tmp/admin-login-test.json
+          '
