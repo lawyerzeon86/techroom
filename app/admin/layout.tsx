@@ -7,7 +7,7 @@ export default function AdminLayout({children}:{children:ReactNode}){
         <b style={{whiteSpace:'nowrap'}}>Duisun Admin</b>
         <a href="/admin" style={{color:'#fff',textDecoration:'none',whiteSpace:'nowrap'}}>Товары</a>
         <a href="/admin/prices" style={{color:'#ffd27a',textDecoration:'none',whiteSpace:'nowrap'}}>Лист цен</a>
-        <a href="/admin/orders" style={{color:'#fff',textDecoration:'none',whiteSpace:'nowrap'}}>Заказы</a>
+        <a href="/admin/orders" style={{color:'#fff',textDecoration:'none',whiteSpace:'nowrap'}}>Заказы</a>\n        <a href="/admin/finance" style={{color:'#8fe3a5',textDecoration:'none',whiteSpace:'nowrap'}}>KPI &amp; P&amp;L</a>
         <a href="/admin/communications" style={{color:'#fff',textDecoration:'none',whiteSpace:'nowrap'}}>Отзывы и вопросы</a>
         <a href="/admin/whatsapp" style={{color:'#7ee2a8',textDecoration:'none',whiteSpace:'nowrap'}}>WhatsApp</a>
         <a href="/admin/marketplaces" style={{color:'#ffb07a',textDecoration:'none',whiteSpace:'nowrap'}}>AI Маркетплейсы</a>
