@@ -223,3 +223,33 @@ jobs:
             echo "WRONG_PASSWORD_HTTP=$STATUS"
             cat /tmp/admin-login-test.json
           '
+
+      - name: Finance dashboard diagnostics
+        if: contains(github.event.head_commit.message, '[finance-dash-diagnose]')
+        env:
+          HOST: ${{ secrets.SELECTEL_HOST }}
+          PORT: ${{ secrets.SELECTEL_PORT }}
+          USER: ${{ secrets.SELECTEL_USER }}
+        run: |
+          set -euo pipefail
+          ssh -o BatchMode=yes -p "${PORT:-22}" "${USER:-root}@$HOST" '
+            set -euo pipefail
+            echo "=== finance dashboard errors ==="
+            pm2 logs duisun --nostream --lines 200 2>&1 | grep -A8 -B3 "FINANCE_DASHBOARD_FAILED" | tail -n 80 || true
+            echo "=== finance table shape ==="
+            cd /var/www/duisun
+            set -a; source .env.production; set +a
+            node - <<'NODE'
+const {Client}=require("pg");
+(async()=>{
+ const c=new Client({connectionString:process.env.DATABASE_URL,ssl:process.env.DATABASE_URL.includes("localhost")?false:{rejectUnauthorized:false}});
+ await c.connect();
+ for(const q of [
+  "select count(*)::int n from marketplace_finance_pages",
+  "select source,month,count(*)::int n from marketplace_finance_pages group by 1,2 order by 1,2",
+  "select column_name,data_type from information_schema.columns where table_name='orders' order by ordinal_position"
+ ]){const r=await c.query(q); console.log(JSON.stringify(r.rows));}
+ await c.end();
+})().catch(e=>{console.error(e.message);process.exit(1)});
+NODE
+          '
