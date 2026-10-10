@@ -35,7 +35,7 @@ export default function FinancePage(){
    setCostBusy(true);setCostStatus('Сохраняю себестоимость…');
    const r=await fetch('/api/admin/prices',{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify({items:costItems.map(x=>({
      sku:x.sku,price:Number(x.price)||0,minPrice:Number(x.minPrice)||0,costPrice:Number(x.costPrice)||0,taxRate:Number(x.taxRate)||7,variableCost:Number(x.variableCost)||0,
-     syncOzon:x.syncOzon,syncWb:x.syncWb,syncYandex,syncAvito:x.syncAvito,avitoItemId:x.avitoItemId
+     syncOzon:x.syncOzon,syncWb:x.syncWb,syncYandex:x.syncYandex,syncAvito:x.syncAvito,avitoItemId:x.avitoItemId
    }))})});
    const j=await r.json().catch(()=>({}));
    if(!r.ok){setCostStatus(j.error||'Ошибка сохранения');setCostBusy(false);return}
