@@ -14,12 +14,12 @@ try{
   await c.connect();
 
   const counts=await c.query(`
-    SELECT source,btrim(month) AS month_key,count(*)::int pages,
-           coalesce(sum(jsonb_array_length(payload)),0)::int rows,
-           max(fetched_at) fetched_at
+    SELECT source,btrim("month") AS month_key,count(*)::int AS page_count,
+           coalesce(sum(jsonb_array_length(payload)),0)::int AS row_count,
+           max(fetched_at) AS fetched_at
     FROM marketplace_finance_pages
-    GROUP BY source,month
-    ORDER BY source,month
+    GROUP BY source,"month"
+    ORDER BY source,"month"
   `);
   out.db.financePages=counts.rows;
 
@@ -60,7 +60,7 @@ try{
   }catch(e){out.db.fxRatesError=e.message;out.issues.push('FX_RATES_TABLE_OR_QUERY_ERROR')}
 
   const avito=counts.rows.filter(x=>x.source==='avito');
-  out.db.avito={months:avito.length,rows:avito.reduce((s,x)=>s+Number(x.rows||0),0),lastFetched:avito.map(x=>x.fetched_at).filter(Boolean).sort().at(-1)||null};
+  out.db.avito={months:avito.length,rows:avito.reduce((s,x)=>s+Number(x.row_count||0),0),lastFetched:avito.map(x=>x.fetched_at).filter(Boolean).sort().at(-1)||null};
   if(!avito.length)out.issues.push('AVITO:NO_DATA');
 
   await c.end();
