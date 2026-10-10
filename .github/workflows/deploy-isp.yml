@@ -77,6 +77,41 @@ jobs:
           status="$(curl --silent --show-error --output /dev/null --write-out '%{http_code}' --max-time 30 https://duisun.ru/admin/whatsapp)"
           test "$status" = 200
 
+      - name: Capture finance dashboard diagnostic
+        if: contains(github.event.head_commit.message, '[finance-dash-diagnose]')
+        env:
+          HOST: ${{ secrets.SELECTEL_HOST }}
+          PORT: ${{ secrets.SELECTEL_PORT }}
+          USER: ${{ secrets.SELECTEL_USER }}
+        run: |
+          set -euo pipefail
+          mkdir -p ops
+          ssh -o BatchMode=yes -p "${PORT:-22}" "${USER:-root}@$HOST" '
+            set -euo pipefail
+            echo "=== PM2 FINANCE ERROR ==="
+            pm2 logs duisun --nostream --lines 250 2>&1 | grep -A12 -B4 "FINANCE_DASHBOARD_FAILED" | tail -n 120 || true
+            echo "=== DB SHAPE ==="
+            cd /var/www/duisun
+            set -a; source .env.production; set +a
+            node - <<'NODE'
+const {Client}=require("pg");
+(async()=>{
+ const c=new Client({connectionString:process.env.DATABASE_URL,ssl:process.env.DATABASE_URL.includes("localhost")?false:{rejectUnauthorized:false}});
+ await c.connect();
+ const queries=[
+  ["finance_pages","select count(*)::int n from marketplace_finance_pages"],
+  ["months","select source,month,count(*)::int n from marketplace_finance_pages group by 1,2 order by 1,2"],
+  ["order_columns","select column_name,data_type from information_schema.columns where table_name='orders' and column_name in ('created_at','total_amount','payment_status','paid_at') order by column_name"]
+ ];
+ for(const [name,q] of queries){
+   try{const r=await c.query(q); console.log(name+"="+JSON.stringify(r.rows));}
+   catch(e){console.log(name+"_ERROR="+e.message);}
+ }
+ await c.end();
+})().catch(e=>{console.log("DB_CONNECT_ERROR="+e.message);process.exit(0)});
+NODE
+          ' > ops/finance-dashboard-diagnostic.txt 2>&1 || true
+
       - name: Record deploy status
         if: always()
         continue-on-error: true
@@ -92,8 +127,10 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add ops/deploy-last-status.txt
+          [ -f ops/finance-dashboard-diagnostic.txt ] && git add ops/finance-dashboard-diagnostic.txt || true
           git diff --cached --quiet || git commit -m "Record Selectel deploy status [skip ci]"
-          git push origin HEAD:main
+          git pull --rebase origin main || true
+          git push origin HEAD:main || true
 
       - name: Fail if deployment failed
         if: steps.deploy.outcome != 'success' || steps.verify.outcome != 'success'
