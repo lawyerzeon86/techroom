@@ -1,4 +1,5 @@
 import fs from 'node:fs';
+import { spawnSync } from 'node:child_process';
 import pg from 'pg';
 
 const quote=s=>'"'+s.replaceAll('"','""')+'"';
@@ -21,3 +22,30 @@ try{
   }
   console.log('Historical table defaults verified');
 }finally{await pool.end()}
+
+
+const historySentinel='/root/duisun-finance-history-bootstrap.done';
+if(!fs.existsSync(historySentinel)){
+  const run=(args,logFile)=>{
+    const r=spawnSync(process.execPath,args,{cwd:'/var/www/duisun',env:process.env,encoding:'utf8',timeout:45*60*1000,maxBuffer:16*1024*1024});
+    fs.writeFileSync(logFile,(r.stdout||'')+(r.stderr?'\nSTDERR\n'+r.stderr:''));
+    if(r.error)throw r.error;
+    if(r.status!==0)throw new Error(args.join(' ')+' exited '+r.status);
+    return r.stdout||'';
+  };
+
+  console.log('Running one-time historical finance bootstrap...');
+  const historyOut=run(['scripts/finance-history-import.mjs','--from-year=2024'],'/var/log/duisun-finance-history-last.json');
+  let historyJson=null;
+  try{historyJson=JSON.parse(historyOut)}catch{}
+  if(historyJson?.ok!==true)throw new Error('Historical finance import incomplete');
+
+  const fxOut=run(['scripts/fx-cbr-sync.mjs','--backfill','--from-year=2024'],'/var/log/duisun-fx-backfill-last.json');
+  const fxLines=fxOut.trim().split('\n').filter(Boolean);
+  let fxJson=null;
+  try{fxJson=JSON.parse(fxLines.at(-1)||'{}')}catch{}
+  if(fxJson?.ok!==true)throw new Error('FX backfill incomplete');
+
+  fs.writeFileSync(historySentinel,new Date().toISOString()+'\n');
+  console.log('Historical finance bootstrap completed');
+}
