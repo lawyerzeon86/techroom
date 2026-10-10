@@ -36,6 +36,7 @@ export async function financeDashboard(year:number){
   const bySource:any={
     wildberries:Object.fromEntries(months.map(m=>[m,blank()])),
     ozon:Object.fromEntries(months.map(m=>[m,blank()])),
+    avito:Object.fromEntries(months.map(m=>[m,blank()])),
     site:Object.fromEntries(months.map(m=>[m,blank()]))
   };
 
@@ -55,6 +56,8 @@ export async function financeDashboard(year:number){
         const date=detectDate(x,m);
         const sale=moneyToRub(fx,x.retailAmount,x,date,'RUB');
         z.sales+=sale;
+        const rowNetRaw=x.forPay??x.ppvz_for_pay;
+        if(rowNetRaw!==undefined&&rowNetRaw!==null)z.net+=moneyToRub(fx,rowNetRaw,x,date,'RUB');
         const sku=String(x.vendorCode||x.sku||'');
         const qty=Math.abs(num(x.quantity));
         const key=String(x.srid||x.orderUid||x.rrdId||'')+'|'+sku+'|'+String(x.saleDt||'');
@@ -77,7 +80,7 @@ export async function financeDashboard(year:number){
       for(const x of (Array.isArray(q.payload)?q.payload:[])){
         if(!x||typeof x!=='object')continue;
         const date=detectDate(x,m);
-        bySource.wildberries[m].net+=moneyToRub(fx,x.bankPaymentSum,x,date,'RUB');
+        if(!bySource.wildberries[m].net)bySource.wildberries[m].net+=moneyToRub(fx,x.bankPaymentSum,x,date,'RUB');
       }
     }
   }catch(e){
@@ -126,6 +129,40 @@ export async function financeDashboard(year:number){
     }
   }catch(e){
     errors.ozon=e instanceof Error?e.message:String(e);
+  }
+
+  try{
+    const av=await pool.query(
+      "SELECT month,payload FROM marketplace_finance_pages WHERE source='avito' AND month LIKE $1 ORDER BY month,page",
+      [year+'-%']
+    );
+    const seenAvito=new Set<string>();
+    for(const q of av.rows){
+      const m=cleanMonth(q.month);
+      if(!monthSet.has(m))continue;
+      const z=bySource.avito[m];
+      for(const x of (Array.isArray(q.payload)?q.payload:[])){
+        if(!x||typeof x!=='object')continue;
+        const status=String(x.status||x.state||'').toLowerCase();
+        if(status&&/(cancel|отмен|refund|возврат)/i.test(status))continue;
+        const date=detectDate(x,m);
+        const gross=moneyToRub(fx,x.amount??x.sales??x.price,x,date,String(x.currency||x.currency_code||'RUB'));
+        const net=moneyToRub(fx,x.net??x.payout??x.amount??x.sales??x.price,x,date,String(x.currency||x.currency_code||'RUB'));
+        const qty=Math.abs(num(x.quantity))||1;
+        const key=String(x.orderId||x.order_id||x.id||x.itemId||x.item_id||'')+'|'+String(x.sku||x.title||'')+'|'+date;
+        if(seenAvito.has(key))continue;
+        seenAvito.add(key);
+        z.records++;
+        z.sales+=gross;
+        z.net+=net;
+        z.units+=qty;
+        const sku=String(x.sku||'');
+        const cost=costs.get(sku);
+        if(cost){z.cogs+=cost.cost*qty;z.variable+=cost.variable*qty;}
+      }
+    }
+  }catch(e){
+    errors.avito=e instanceof Error?e.message:String(e);
   }
 
   try{
@@ -178,6 +215,7 @@ export async function financeDashboard(year:number){
   const channels={
     wildberries:channelTotal('wildberries'),
     ozon:channelTotal('ozon'),
+    avito:channelTotal('avito'),
     site:channelTotal('site')
   };
 
@@ -211,9 +249,10 @@ export async function financeDashboard(year:number){
       month:m,
       wildberries:bySource.wildberries[m],
       ozon:bySource.ozon[m],
+      avito:bySource.avito[m],
       site:bySource.site[m],
       total:Object.keys(blank()).reduce((a:any,k)=>{
-        a[k]=round(bySource.wildberries[m][k]+bySource.ozon[m][k]+bySource.site[m][k]);
+        a[k]=round(bySource.wildberries[m][k]+bySource.ozon[m][k]+bySource.avito[m][k]+bySource.site[m][k]);
         return a;
       },{})
     })),
