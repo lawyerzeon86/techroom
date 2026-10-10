@@ -143,7 +143,7 @@ jobs:
             set -euo pipefail
             cd /var/www/duisun
             set -a; source .env.production; set +a
-            timeout 3600s node scripts/fx-cbr-sync.mjs --backfill --from-year=2024
+            timeout 3600s node scripts/fx-cbr-sync.mjs --backfill --from-year=2022
           '
 
       - name: Import multi-year marketplace finance
@@ -155,7 +155,7 @@ jobs:
         run: |
           set -euo pipefail
           mkdir -p ops
-          ssh -o BatchMode=yes -o ServerAliveInterval=30 -o ServerAliveCountMax=120 -p "${PORT:-22}" "${USER:-root}@$HOST" 'cd /var/www/duisun && set -a && source .env.production && set +a && timeout 7200s node scripts/finance-history-import.mjs --from-year=2024' > ops/finance-history-last.json
+          ssh -o BatchMode=yes -o ServerAliveInterval=30 -o ServerAliveCountMax=120 -p "${PORT:-22}" "${USER:-root}@$HOST" 'cd /var/www/duisun && set -a && source .env.production && set +a && timeout 7200s node scripts/finance-history-import.mjs --from-year=2022' > ops/finance-history-last.json
           cat ops/finance-history-last.json
 
       - name: Record deploy status
