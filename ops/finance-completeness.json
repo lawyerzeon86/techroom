@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-10-10T08:50:53.549Z",
+  "generatedAt": "2026-10-10T13:18:34.818Z",
   "sync": {
     "ok": true,
     "import": {
@@ -144,8 +144,1071 @@
       }
     ]
   },
-  "db": {},
+  "db": {
+    "financePages": [
+      {
+        "source": "ozon",
+        "month_key": "2026-08",
+        "page_count": 1,
+        "row_count": 18,
+        "fetched_at": "2026-10-10T13:14:23.769Z"
+      },
+      {
+        "source": "ozon",
+        "month_key": "2026-09",
+        "page_count": 1,
+        "row_count": 14,
+        "fetched_at": "2026-10-10T13:14:23.769Z"
+      },
+      {
+        "source": "ozon",
+        "month_key": "2026-10",
+        "page_count": 1,
+        "row_count": 15,
+        "fetched_at": "2026-10-10T13:14:23.769Z"
+      },
+      {
+        "source": "wildberries",
+        "month_key": "2024-01",
+        "page_count": 1,
+        "row_count": 259,
+        "fetched_at": "2026-10-10T13:10:27.139Z"
+      },
+      {
+        "source": "wildberries",
+        "month_key": "2024-02",
+        "page_count": 1,
+        "row_count": 1433,
+        "fetched_at": "2026-10-10T13:10:27.139Z"
+      },
+      {
+        "source": "wildberries",
+        "month_key": "2024-03",
+        "page_count": 1,
+        "row_count": 2224,
+        "fetched_at": "2026-10-10T13:10:27.139Z"
+      },
+      {
+        "source": "wildberries",
+        "month_key": "2024-04",
+        "page_count": 1,
+        "row_count": 2703,
+        "fetched_at": "2026-10-10T13:10:27.139Z"
+      },
+      {
+        "source": "wildberries",
+        "month_key": "2024-05",
+        "page_count": 1,
+        "row_count": 1992,
+        "fetched_at": "2026-10-10T13:10:27.139Z"
+      },
+      {
+        "source": "wildberries",
+        "month_key": "2024-06",
+        "page_count": 1,
+        "row_count": 1694,
+        "fetched_at": "2026-10-10T13:10:27.139Z"
+      },
+      {
+        "source": "wildberries",
+        "month_key": "2024-07",
+        "page_count": 1,
+        "row_count": 2055,
+        "fetched_at": "2026-10-10T13:10:27.139Z"
+      },
+      {
+        "source": "wildberries",
+        "month_key": "2024-08",
+        "page_count": 1,
+        "row_count": 2817,
+        "fetched_at": "2026-10-10T13:10:27.139Z"
+      },
+      {
+        "source": "wildberries",
+        "month_key": "2024-09",
+        "page_count": 1,
+        "row_count": 2591,
+        "fetched_at": "2026-10-10T13:10:27.139Z"
+      },
+      {
+        "source": "wildberries",
+        "month_key": "2024-10",
+        "page_count": 1,
+        "row_count": 3065,
+        "fetched_at": "2026-10-10T13:10:27.139Z"
+      },
+      {
+        "source": "wildberries",
+        "month_key": "2024-11",
+        "page_count": 1,
+        "row_count": 3658,
+        "fetched_at": "2026-10-10T13:10:27.139Z"
+      },
+      {
+        "source": "wildberries",
+        "month_key": "2024-12",
+        "page_count": 1,
+        "row_count": 2296,
+        "fetched_at": "2026-10-10T13:10:27.139Z"
+      },
+      {
+        "source": "wildberries",
+        "month_key": "2025-01",
+        "page_count": 1,
+        "row_count": 1777,
+        "fetched_at": "2026-10-10T13:11:52.742Z"
+      },
+      {
+        "source": "wildberries",
+        "month_key": "2025-02",
+        "page_count": 1,
+        "row_count": 1435,
+        "fetched_at": "2026-10-10T13:11:52.742Z"
+      },
+      {
+        "source": "wildberries",
+        "month_key": "2025-03",
+        "page_count": 1,
+        "row_count": 2498,
+        "fetched_at": "2026-10-10T13:11:52.742Z"
+      },
+      {
+        "source": "wildberries",
+        "month_key": "2025-04",
+        "page_count": 1,
+        "row_count": 2351,
+        "fetched_at": "2026-10-10T13:11:52.742Z"
+      },
+      {
+        "source": "wildberries",
+        "month_key": "2025-05",
+        "page_count": 1,
+        "row_count": 2464,
+        "fetched_at": "2026-10-10T13:11:52.742Z"
+      },
+      {
+        "source": "wildberries",
+        "month_key": "2025-06",
+        "page_count": 1,
+        "row_count": 2424,
+        "fetched_at": "2026-10-10T13:11:52.742Z"
+      },
+      {
+        "source": "wildberries",
+        "month_key": "2025-07",
+        "page_count": 1,
+        "row_count": 2675,
+        "fetched_at": "2026-10-10T13:11:52.742Z"
+      },
+      {
+        "source": "wildberries",
+        "month_key": "2025-08",
+        "page_count": 1,
+        "row_count": 2024,
+        "fetched_at": "2026-10-10T13:11:52.742Z"
+      },
+      {
+        "source": "wildberries",
+        "month_key": "2025-09",
+        "page_count": 1,
+        "row_count": 4087,
+        "fetched_at": "2026-10-10T13:11:52.742Z"
+      },
+      {
+        "source": "wildberries",
+        "month_key": "2025-10",
+        "page_count": 1,
+        "row_count": 2134,
+        "fetched_at": "2026-10-10T13:11:52.742Z"
+      },
+      {
+        "source": "wildberries",
+        "month_key": "2025-11",
+        "page_count": 1,
+        "row_count": 1748,
+        "fetched_at": "2026-10-10T13:11:52.742Z"
+      },
+      {
+        "source": "wildberries",
+        "month_key": "2025-12",
+        "page_count": 1,
+        "row_count": 1186,
+        "fetched_at": "2026-10-10T13:11:52.742Z"
+      },
+      {
+        "source": "wildberries",
+        "month_key": "2026-01",
+        "page_count": 1,
+        "row_count": 957,
+        "fetched_at": "2026-10-10T13:13:12.711Z"
+      },
+      {
+        "source": "wildberries",
+        "month_key": "2026-02",
+        "page_count": 1,
+        "row_count": 786,
+        "fetched_at": "2026-10-10T13:13:12.711Z"
+      },
+      {
+        "source": "wildberries",
+        "month_key": "2026-03",
+        "page_count": 1,
+        "row_count": 793,
+        "fetched_at": "2026-10-10T13:13:12.711Z"
+      },
+      {
+        "source": "wildberries",
+        "month_key": "2026-04",
+        "page_count": 1,
+        "row_count": 623,
+        "fetched_at": "2026-10-10T13:13:12.711Z"
+      },
+      {
+        "source": "wildberries",
+        "month_key": "2026-05",
+        "page_count": 1,
+        "row_count": 510,
+        "fetched_at": "2026-10-10T13:13:12.711Z"
+      },
+      {
+        "source": "wildberries",
+        "month_key": "2026-06",
+        "page_count": 1,
+        "row_count": 433,
+        "fetched_at": "2026-10-10T13:13:12.711Z"
+      },
+      {
+        "source": "wildberries",
+        "month_key": "2026-07",
+        "page_count": 1,
+        "row_count": 392,
+        "fetched_at": "2026-10-10T13:13:12.711Z"
+      },
+      {
+        "source": "wildberries",
+        "month_key": "2026-08",
+        "page_count": 1,
+        "row_count": 327,
+        "fetched_at": "2026-10-10T13:13:12.711Z"
+      },
+      {
+        "source": "wildberries",
+        "month_key": "2026-09",
+        "page_count": 1,
+        "row_count": 194,
+        "fetched_at": "2026-10-10T13:13:12.711Z"
+      },
+      {
+        "source": "wildberries",
+        "month_key": "2026-10",
+        "page_count": 1,
+        "row_count": 21,
+        "fetched_at": "2026-10-10T13:13:12.711Z"
+      },
+      {
+        "source": "wildberries_reports",
+        "month_key": "2025-01",
+        "page_count": 1,
+        "row_count": 56,
+        "fetched_at": "2026-10-10T13:12:56.955Z"
+      },
+      {
+        "source": "wildberries_reports",
+        "month_key": "2025-02",
+        "page_count": 1,
+        "row_count": 46,
+        "fetched_at": "2026-10-10T13:12:56.955Z"
+      },
+      {
+        "source": "wildberries_reports",
+        "month_key": "2025-03",
+        "page_count": 1,
+        "row_count": 51,
+        "fetched_at": "2026-10-10T13:12:56.955Z"
+      },
+      {
+        "source": "wildberries_reports",
+        "month_key": "2025-04",
+        "page_count": 1,
+        "row_count": 49,
+        "fetched_at": "2026-10-10T13:12:56.955Z"
+      },
+      {
+        "source": "wildberries_reports",
+        "month_key": "2025-05",
+        "page_count": 1,
+        "row_count": 55,
+        "fetched_at": "2026-10-10T13:12:56.955Z"
+      },
+      {
+        "source": "wildberries_reports",
+        "month_key": "2025-06",
+        "page_count": 1,
+        "row_count": 50,
+        "fetched_at": "2026-10-10T13:12:56.955Z"
+      },
+      {
+        "source": "wildberries_reports",
+        "month_key": "2025-07",
+        "page_count": 1,
+        "row_count": 53,
+        "fetched_at": "2026-10-10T13:12:56.955Z"
+      },
+      {
+        "source": "wildberries_reports",
+        "month_key": "2025-08",
+        "page_count": 1,
+        "row_count": 49,
+        "fetched_at": "2026-10-10T13:12:56.955Z"
+      },
+      {
+        "source": "wildberries_reports",
+        "month_key": "2025-09",
+        "page_count": 1,
+        "row_count": 51,
+        "fetched_at": "2026-10-10T13:12:56.955Z"
+      },
+      {
+        "source": "wildberries_reports",
+        "month_key": "2025-10",
+        "page_count": 1,
+        "row_count": 49,
+        "fetched_at": "2026-10-10T13:12:56.955Z"
+      },
+      {
+        "source": "wildberries_reports",
+        "month_key": "2025-11",
+        "page_count": 1,
+        "row_count": 47,
+        "fetched_at": "2026-10-10T13:12:56.955Z"
+      },
+      {
+        "source": "wildberries_reports",
+        "month_key": "2025-12",
+        "page_count": 1,
+        "row_count": 48,
+        "fetched_at": "2026-10-10T13:12:56.955Z"
+      },
+      {
+        "source": "wildberries_reports",
+        "month_key": "2026-01",
+        "page_count": 1,
+        "row_count": 43,
+        "fetched_at": "2026-10-10T13:14:14.435Z"
+      },
+      {
+        "source": "wildberries_reports",
+        "month_key": "2026-02",
+        "page_count": 1,
+        "row_count": 36,
+        "fetched_at": "2026-10-10T13:14:14.435Z"
+      },
+      {
+        "source": "wildberries_reports",
+        "month_key": "2026-03",
+        "page_count": 1,
+        "row_count": 38,
+        "fetched_at": "2026-10-10T13:14:14.435Z"
+      },
+      {
+        "source": "wildberries_reports",
+        "month_key": "2026-04",
+        "page_count": 1,
+        "row_count": 41,
+        "fetched_at": "2026-10-10T13:14:14.435Z"
+      },
+      {
+        "source": "wildberries_reports",
+        "month_key": "2026-05",
+        "page_count": 1,
+        "row_count": 38,
+        "fetched_at": "2026-10-10T13:14:14.435Z"
+      },
+      {
+        "source": "wildberries_reports",
+        "month_key": "2026-06",
+        "page_count": 1,
+        "row_count": 42,
+        "fetched_at": "2026-10-10T13:14:14.435Z"
+      },
+      {
+        "source": "wildberries_reports",
+        "month_key": "2026-07",
+        "page_count": 1,
+        "row_count": 40,
+        "fetched_at": "2026-10-10T13:14:14.435Z"
+      },
+      {
+        "source": "wildberries_reports",
+        "month_key": "2026-08",
+        "page_count": 1,
+        "row_count": 36,
+        "fetched_at": "2026-10-10T13:14:14.435Z"
+      },
+      {
+        "source": "wildberries_reports",
+        "month_key": "2026-09",
+        "page_count": 1,
+        "row_count": 36,
+        "fetched_at": "2026-10-10T13:14:14.435Z"
+      },
+      {
+        "source": "wildberries_reports",
+        "month_key": "2026-10",
+        "page_count": 1,
+        "row_count": 13,
+        "fetched_at": "2026-10-10T13:14:14.435Z"
+      }
+    ],
+    "coverage": [
+      {
+        "source": "ozon",
+        "year": 2022,
+        "status": "complete",
+        "date_from": "2022-01-01T00:00:00.000Z",
+        "date_to": "2022-12-31T00:00:00.000Z",
+        "rows_count": 0,
+        "pages_count": 365,
+        "errors_count": 0,
+        "details": {
+          "end": "2022-12-31",
+          "days": 365,
+          "rows": 0,
+          "year": 2022,
+          "pages": 365,
+          "start": "2022-01-01",
+          "errors": 0,
+          "status": "complete"
+        },
+        "updated_at": "2026-10-10T13:10:06.078Z"
+      },
+      {
+        "source": "wildberries",
+        "year": 2022,
+        "status": "source_unavailable",
+        "date_from": null,
+        "date_to": null,
+        "rows_count": 0,
+        "pages_count": 0,
+        "errors_count": 0,
+        "details": {
+          "year": 2022,
+          "reason": "WB finance detailed history starts 2024-01-29",
+          "status": "source_unavailable"
+        },
+        "updated_at": "2026-10-10T13:09:52.883Z"
+      },
+      {
+        "source": "wildberries_reports",
+        "year": 2022,
+        "status": "source_unavailable",
+        "date_from": null,
+        "date_to": null,
+        "rows_count": 0,
+        "pages_count": 0,
+        "errors_count": 0,
+        "details": {
+          "year": 2022,
+          "reason": "WB finance report list starts 2025-01-01",
+          "status": "source_unavailable"
+        },
+        "updated_at": "2026-10-10T13:09:52.885Z"
+      },
+      {
+        "source": "ozon",
+        "year": 2023,
+        "status": "error",
+        "date_from": null,
+        "date_to": null,
+        "rows_count": 0,
+        "pages_count": 0,
+        "errors_count": 1,
+        "details": {
+          "errors": 1,
+          "reason": "OZON_2023_ERRORS_1"
+        },
+        "updated_at": "2026-10-10T13:10:19.026Z"
+      },
+      {
+        "source": "wildberries",
+        "year": 2023,
+        "status": "source_unavailable",
+        "date_from": null,
+        "date_to": null,
+        "rows_count": 0,
+        "pages_count": 0,
+        "errors_count": 0,
+        "details": {
+          "year": 2023,
+          "reason": "WB finance detailed history starts 2024-01-29",
+          "status": "source_unavailable"
+        },
+        "updated_at": "2026-10-10T13:10:06.080Z"
+      },
+      {
+        "source": "wildberries_reports",
+        "year": 2023,
+        "status": "source_unavailable",
+        "date_from": null,
+        "date_to": null,
+        "rows_count": 0,
+        "pages_count": 0,
+        "errors_count": 0,
+        "details": {
+          "year": 2023,
+          "reason": "WB finance report list starts 2025-01-01",
+          "status": "source_unavailable"
+        },
+        "updated_at": "2026-10-10T13:10:06.081Z"
+      },
+      {
+        "source": "ozon",
+        "year": 2024,
+        "status": "complete",
+        "date_from": "2024-01-01T00:00:00.000Z",
+        "date_to": "2024-12-31T00:00:00.000Z",
+        "rows_count": 0,
+        "pages_count": 366,
+        "errors_count": 0,
+        "details": {
+          "end": "2024-12-31",
+          "days": 366,
+          "rows": 0,
+          "year": 2024,
+          "pages": 366,
+          "start": "2024-01-01",
+          "errors": 0,
+          "status": "complete"
+        },
+        "updated_at": "2026-10-10T13:10:43.975Z"
+      },
+      {
+        "source": "wildberries",
+        "year": 2024,
+        "status": "complete_available_range",
+        "date_from": "2024-01-29T00:00:00.000Z",
+        "date_to": "2024-12-31T00:00:00.000Z",
+        "rows_count": 26790,
+        "pages_count": 1,
+        "errors_count": 0,
+        "details": {
+          "end": "2024-12-31",
+          "rows": 26790,
+          "year": 2024,
+          "pages": 1,
+          "start": "2024-01-29",
+          "status": "complete_available_range",
+          "detailRows": 26790,
+          "reportRows": 0,
+          "detailPages": 1
+        },
+        "updated_at": "2026-10-10T13:10:30.554Z"
+      },
+      {
+        "source": "wildberries_reports",
+        "year": 2024,
+        "status": "source_unavailable",
+        "date_from": "2024-01-29T00:00:00.000Z",
+        "date_to": "2024-12-31T00:00:00.000Z",
+        "rows_count": 0,
+        "pages_count": 0,
+        "errors_count": 0,
+        "details": {
+          "end": "2024-12-31",
+          "rows": 0,
+          "year": 2024,
+          "pages": 0,
+          "start": "2024-01-29",
+          "status": "complete_available_range",
+          "detailRows": 26790,
+          "reportRows": 0,
+          "detailPages": 1
+        },
+        "updated_at": "2026-10-10T13:10:30.555Z"
+      },
+      {
+        "source": "ozon",
+        "year": 2025,
+        "status": "complete",
+        "date_from": "2025-01-01T00:00:00.000Z",
+        "date_to": "2025-12-31T00:00:00.000Z",
+        "rows_count": 0,
+        "pages_count": 365,
+        "errors_count": 0,
+        "details": {
+          "end": "2025-12-31",
+          "days": 365,
+          "rows": 0,
+          "year": 2025,
+          "pages": 365,
+          "start": "2025-01-01",
+          "errors": 0,
+          "status": "complete"
+        },
+        "updated_at": "2026-10-10T13:13:10.054Z"
+      },
+      {
+        "source": "wildberries",
+        "year": 2025,
+        "status": "complete",
+        "date_from": "2025-01-01T00:00:00.000Z",
+        "date_to": "2025-12-31T00:00:00.000Z",
+        "rows_count": 26808,
+        "pages_count": 1,
+        "errors_count": 0,
+        "details": {
+          "end": "2025-12-31",
+          "rows": 26808,
+          "year": 2025,
+          "pages": 1,
+          "start": "2025-01-01",
+          "status": "complete",
+          "detailRows": 26808,
+          "reportRows": 604,
+          "detailPages": 1
+        },
+        "updated_at": "2026-10-10T13:12:56.977Z"
+      },
+      {
+        "source": "wildberries_reports",
+        "year": 2025,
+        "status": "complete",
+        "date_from": "2025-01-01T00:00:00.000Z",
+        "date_to": "2025-12-31T00:00:00.000Z",
+        "rows_count": 604,
+        "pages_count": 0,
+        "errors_count": 0,
+        "details": {
+          "end": "2025-12-31",
+          "rows": 604,
+          "year": 2025,
+          "pages": 0,
+          "start": "2025-01-01",
+          "status": "complete",
+          "detailRows": 26808,
+          "reportRows": 604,
+          "detailPages": 1
+        },
+        "updated_at": "2026-10-10T13:12:56.978Z"
+      },
+      {
+        "source": "ozon",
+        "year": 2026,
+        "status": "complete",
+        "date_from": "2026-01-01T00:00:00.000Z",
+        "date_to": "2026-10-10T00:00:00.000Z",
+        "rows_count": 47,
+        "pages_count": 283,
+        "errors_count": 0,
+        "details": {
+          "end": "2026-10-10",
+          "days": 283,
+          "rows": 47,
+          "year": 2026,
+          "pages": 283,
+          "start": "2026-01-01",
+          "errors": 0,
+          "status": "complete"
+        },
+        "updated_at": "2026-10-10T13:14:23.774Z"
+      },
+      {
+        "source": "wildberries",
+        "year": 2026,
+        "status": "complete",
+        "date_from": "2026-01-01T00:00:00.000Z",
+        "date_to": "2026-10-10T00:00:00.000Z",
+        "rows_count": 5038,
+        "pages_count": 1,
+        "errors_count": 0,
+        "details": {
+          "end": "2026-10-10",
+          "rows": 5038,
+          "year": 2026,
+          "pages": 1,
+          "start": "2026-01-01",
+          "status": "complete",
+          "detailRows": 5038,
+          "reportRows": 363,
+          "detailPages": 1
+        },
+        "updated_at": "2026-10-10T13:14:14.450Z"
+      },
+      {
+        "source": "wildberries_reports",
+        "year": 2026,
+        "status": "complete",
+        "date_from": "2026-01-01T00:00:00.000Z",
+        "date_to": "2026-10-10T00:00:00.000Z",
+        "rows_count": 363,
+        "pages_count": 0,
+        "errors_count": 0,
+        "details": {
+          "end": "2026-10-10",
+          "rows": 363,
+          "year": 2026,
+          "pages": 0,
+          "start": "2026-01-01",
+          "status": "complete",
+          "detailRows": 5038,
+          "reportRows": 363,
+          "detailPages": 1
+        },
+        "updated_at": "2026-10-10T13:14:14.451Z"
+      }
+    ],
+    "costCoverage": {
+      "total": 78,
+      "with_cost": 0,
+      "without_cost": 78
+    },
+    "fxRates": [
+      {
+        "currency_code": "AED",
+        "days": 1361,
+        "first_date": "2023-01-19T00:00:00.000Z",
+        "last_date": "2026-10-10T00:00:00.000Z"
+      },
+      {
+        "currency_code": "AMD",
+        "days": 1744,
+        "first_date": "2022-01-01T00:00:00.000Z",
+        "last_date": "2026-10-10T00:00:00.000Z"
+      },
+      {
+        "currency_code": "AUD",
+        "days": 1744,
+        "first_date": "2022-01-01T00:00:00.000Z",
+        "last_date": "2026-10-10T00:00:00.000Z"
+      },
+      {
+        "currency_code": "AZN",
+        "days": 1744,
+        "first_date": "2022-01-01T00:00:00.000Z",
+        "last_date": "2026-10-10T00:00:00.000Z"
+      },
+      {
+        "currency_code": "BDT",
+        "days": 457,
+        "first_date": "2025-07-11T00:00:00.000Z",
+        "last_date": "2026-10-10T00:00:00.000Z"
+      },
+      {
+        "currency_code": "BGN",
+        "days": 1473,
+        "first_date": "2022-01-01T00:00:00.000Z",
+        "last_date": "2026-01-12T00:00:00.000Z"
+      },
+      {
+        "currency_code": "BHD",
+        "days": 457,
+        "first_date": "2025-07-11T00:00:00.000Z",
+        "last_date": "2026-10-10T00:00:00.000Z"
+      },
+      {
+        "currency_code": "BOB",
+        "days": 457,
+        "first_date": "2025-07-11T00:00:00.000Z",
+        "last_date": "2026-10-10T00:00:00.000Z"
+      },
+      {
+        "currency_code": "BRL",
+        "days": 1744,
+        "first_date": "2022-01-01T00:00:00.000Z",
+        "last_date": "2026-10-10T00:00:00.000Z"
+      },
+      {
+        "currency_code": "BYN",
+        "days": 1744,
+        "first_date": "2022-01-01T00:00:00.000Z",
+        "last_date": "2026-10-10T00:00:00.000Z"
+      },
+      {
+        "currency_code": "CAD",
+        "days": 1744,
+        "first_date": "2022-01-01T00:00:00.000Z",
+        "last_date": "2026-10-10T00:00:00.000Z"
+      },
+      {
+        "currency_code": "CHF",
+        "days": 1744,
+        "first_date": "2022-01-01T00:00:00.000Z",
+        "last_date": "2026-10-10T00:00:00.000Z"
+      },
+      {
+        "currency_code": "CNY",
+        "days": 1744,
+        "first_date": "2022-01-01T00:00:00.000Z",
+        "last_date": "2026-10-10T00:00:00.000Z"
+      },
+      {
+        "currency_code": "CUP",
+        "days": 457,
+        "first_date": "2025-07-11T00:00:00.000Z",
+        "last_date": "2026-10-10T00:00:00.000Z"
+      },
+      {
+        "currency_code": "CZK",
+        "days": 1744,
+        "first_date": "2022-01-01T00:00:00.000Z",
+        "last_date": "2026-10-10T00:00:00.000Z"
+      },
+      {
+        "currency_code": "DKK",
+        "days": 1744,
+        "first_date": "2022-01-01T00:00:00.000Z",
+        "last_date": "2026-10-10T00:00:00.000Z"
+      },
+      {
+        "currency_code": "DZD",
+        "days": 457,
+        "first_date": "2025-07-11T00:00:00.000Z",
+        "last_date": "2026-10-10T00:00:00.000Z"
+      },
+      {
+        "currency_code": "EGP",
+        "days": 1361,
+        "first_date": "2023-01-19T00:00:00.000Z",
+        "last_date": "2026-10-10T00:00:00.000Z"
+      },
+      {
+        "currency_code": "ETB",
+        "days": 457,
+        "first_date": "2025-07-11T00:00:00.000Z",
+        "last_date": "2026-10-10T00:00:00.000Z"
+      },
+      {
+        "currency_code": "EUR",
+        "days": 1744,
+        "first_date": "2022-01-01T00:00:00.000Z",
+        "last_date": "2026-10-10T00:00:00.000Z"
+      },
+      {
+        "currency_code": "GBP",
+        "days": 1744,
+        "first_date": "2022-01-01T00:00:00.000Z",
+        "last_date": "2026-10-10T00:00:00.000Z"
+      },
+      {
+        "currency_code": "GEL",
+        "days": 1361,
+        "first_date": "2023-01-19T00:00:00.000Z",
+        "last_date": "2026-10-10T00:00:00.000Z"
+      },
+      {
+        "currency_code": "HKD",
+        "days": 1744,
+        "first_date": "2022-01-01T00:00:00.000Z",
+        "last_date": "2026-10-10T00:00:00.000Z"
+      },
+      {
+        "currency_code": "HUF",
+        "days": 1744,
+        "first_date": "2022-01-01T00:00:00.000Z",
+        "last_date": "2026-10-10T00:00:00.000Z"
+      },
+      {
+        "currency_code": "IDR",
+        "days": 1361,
+        "first_date": "2023-01-19T00:00:00.000Z",
+        "last_date": "2026-10-10T00:00:00.000Z"
+      },
+      {
+        "currency_code": "INR",
+        "days": 1744,
+        "first_date": "2022-01-01T00:00:00.000Z",
+        "last_date": "2026-10-10T00:00:00.000Z"
+      },
+      {
+        "currency_code": "IRR",
+        "days": 457,
+        "first_date": "2025-07-11T00:00:00.000Z",
+        "last_date": "2026-10-10T00:00:00.000Z"
+      },
+      {
+        "currency_code": "JPY",
+        "days": 1744,
+        "first_date": "2022-01-01T00:00:00.000Z",
+        "last_date": "2026-10-10T00:00:00.000Z"
+      },
+      {
+        "currency_code": "KGS",
+        "days": 1744,
+        "first_date": "2022-01-01T00:00:00.000Z",
+        "last_date": "2026-10-10T00:00:00.000Z"
+      },
+      {
+        "currency_code": "KRW",
+        "days": 1744,
+        "first_date": "2022-01-01T00:00:00.000Z",
+        "last_date": "2026-10-10T00:00:00.000Z"
+      },
+      {
+        "currency_code": "KZT",
+        "days": 1744,
+        "first_date": "2022-01-01T00:00:00.000Z",
+        "last_date": "2026-10-10T00:00:00.000Z"
+      },
+      {
+        "currency_code": "MDL",
+        "days": 1744,
+        "first_date": "2022-01-01T00:00:00.000Z",
+        "last_date": "2026-10-10T00:00:00.000Z"
+      },
+      {
+        "currency_code": "MMK",
+        "days": 457,
+        "first_date": "2025-07-11T00:00:00.000Z",
+        "last_date": "2026-10-10T00:00:00.000Z"
+      },
+      {
+        "currency_code": "MNT",
+        "days": 457,
+        "first_date": "2025-07-11T00:00:00.000Z",
+        "last_date": "2026-10-10T00:00:00.000Z"
+      },
+      {
+        "currency_code": "NGN",
+        "days": 457,
+        "first_date": "2025-07-11T00:00:00.000Z",
+        "last_date": "2026-10-10T00:00:00.000Z"
+      },
+      {
+        "currency_code": "NOK",
+        "days": 1744,
+        "first_date": "2022-01-01T00:00:00.000Z",
+        "last_date": "2026-10-10T00:00:00.000Z"
+      },
+      {
+        "currency_code": "NZD",
+        "days": 1361,
+        "first_date": "2023-01-19T00:00:00.000Z",
+        "last_date": "2026-10-10T00:00:00.000Z"
+      },
+      {
+        "currency_code": "OMR",
+        "days": 457,
+        "first_date": "2025-07-11T00:00:00.000Z",
+        "last_date": "2026-10-10T00:00:00.000Z"
+      },
+      {
+        "currency_code": "PLN",
+        "days": 1744,
+        "first_date": "2022-01-01T00:00:00.000Z",
+        "last_date": "2026-10-10T00:00:00.000Z"
+      },
+      {
+        "currency_code": "QAR",
+        "days": 1361,
+        "first_date": "2023-01-19T00:00:00.000Z",
+        "last_date": "2026-10-10T00:00:00.000Z"
+      },
+      {
+        "currency_code": "RON",
+        "days": 1744,
+        "first_date": "2022-01-01T00:00:00.000Z",
+        "last_date": "2026-10-10T00:00:00.000Z"
+      },
+      {
+        "currency_code": "RSD",
+        "days": 1361,
+        "first_date": "2023-01-19T00:00:00.000Z",
+        "last_date": "2026-10-10T00:00:00.000Z"
+      },
+      {
+        "currency_code": "RUB",
+        "days": 1744,
+        "first_date": "2022-01-01T00:00:00.000Z",
+        "last_date": "2026-10-10T00:00:00.000Z"
+      },
+      {
+        "currency_code": "SAR",
+        "days": 457,
+        "first_date": "2025-07-11T00:00:00.000Z",
+        "last_date": "2026-10-10T00:00:00.000Z"
+      },
+      {
+        "currency_code": "SEK",
+        "days": 1744,
+        "first_date": "2022-01-01T00:00:00.000Z",
+        "last_date": "2026-10-10T00:00:00.000Z"
+      },
+      {
+        "currency_code": "SGD",
+        "days": 1744,
+        "first_date": "2022-01-01T00:00:00.000Z",
+        "last_date": "2026-10-10T00:00:00.000Z"
+      },
+      {
+        "currency_code": "THB",
+        "days": 1361,
+        "first_date": "2023-01-19T00:00:00.000Z",
+        "last_date": "2026-10-10T00:00:00.000Z"
+      },
+      {
+        "currency_code": "TJS",
+        "days": 1744,
+        "first_date": "2022-01-01T00:00:00.000Z",
+        "last_date": "2026-10-10T00:00:00.000Z"
+      },
+      {
+        "currency_code": "TMT",
+        "days": 1744,
+        "first_date": "2022-01-01T00:00:00.000Z",
+        "last_date": "2026-10-10T00:00:00.000Z"
+      },
+      {
+        "currency_code": "TRY",
+        "days": 1744,
+        "first_date": "2022-01-01T00:00:00.000Z",
+        "last_date": "2026-10-10T00:00:00.000Z"
+      },
+      {
+        "currency_code": "UAH",
+        "days": 1744,
+        "first_date": "2022-01-01T00:00:00.000Z",
+        "last_date": "2026-10-10T00:00:00.000Z"
+      },
+      {
+        "currency_code": "USD",
+        "days": 1744,
+        "first_date": "2022-01-01T00:00:00.000Z",
+        "last_date": "2026-10-10T00:00:00.000Z"
+      },
+      {
+        "currency_code": "UZS",
+        "days": 1744,
+        "first_date": "2022-01-01T00:00:00.000Z",
+        "last_date": "2026-10-10T00:00:00.000Z"
+      },
+      {
+        "currency_code": "VND",
+        "days": 1361,
+        "first_date": "2023-01-19T00:00:00.000Z",
+        "last_date": "2026-10-10T00:00:00.000Z"
+      },
+      {
+        "currency_code": "XDR",
+        "days": 1744,
+        "first_date": "2022-01-01T00:00:00.000Z",
+        "last_date": "2026-10-10T00:00:00.000Z"
+      },
+      {
+        "currency_code": "ZAR",
+        "days": 1744,
+        "first_date": "2022-01-01T00:00:00.000Z",
+        "last_date": "2026-10-10T00:00:00.000Z"
+      }
+    ],
+    "avito": {
+      "months": 0,
+      "rows": 0,
+      "lastFetched": null
+    }
+  },
   "issues": [
-    "DB_ERROR:syntax error at or near \"month\""
+    "COVERAGE:ozon:2023:error",
+    "COST_PRICE_INCOMPLETE:78",
+    "AVITO:NO_DATA"
   ]
 }

@@ -1,0 +1,14 @@
+ozon[].item_fees.fees[].fees[].accrued.currency=RUB
+ozon[].non_item_fee.accrued.currency=RUB
+ozon[].posting.products[].commission.bonus.currency=RUB
+ozon[].posting.products[].commission.coinvestment.currency=RUB
+ozon[].posting.products[].commission.commission.currency=RUB
+ozon[].posting.products[].commission.sale_amount.currency=RUB
+ozon[].posting.products[].commission.sale_commission.currency=RUB
+ozon[].posting.products[].commission.sale_price.currency=RUB
+ozon[].posting.products[].commission.seller_price.currency=RUB
+ozon[].posting.products[].delivery.services[].accrued.currency=RUB
+ozon[].posting.products[].delivery.total_accrued.currency=RUB
+ozon[].total_amount.currency=RUB
+wildberries_reports[].currency=RUB
+wildberries[].currency=RUB

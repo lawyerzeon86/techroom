@@ -1,0 +1,392 @@
+{
+  "ok": false,
+  "fromYear": 2022,
+  "toYear": 2026,
+  "wildberries": [
+    {
+      "year": 2022,
+      "status": "source_unavailable",
+      "reason": "WB finance detailed history starts 2024-01-29"
+    },
+    {
+      "year": 2023,
+      "status": "source_unavailable",
+      "reason": "WB finance detailed history starts 2024-01-29"
+    },
+    {
+      "year": 2024,
+      "status": "complete_available_range",
+      "start": "2024-01-29",
+      "end": "2024-12-31",
+      "detailRows": 26790,
+      "detailPages": 1,
+      "reportRows": 0
+    },
+    {
+      "year": 2025,
+      "status": "complete",
+      "start": "2025-01-01",
+      "end": "2025-12-31",
+      "detailRows": 26808,
+      "detailPages": 1,
+      "reportRows": 604
+    },
+    {
+      "year": 2026,
+      "status": "complete",
+      "start": "2026-01-01",
+      "end": "2026-10-10",
+      "detailRows": 5038,
+      "detailPages": 1,
+      "reportRows": 363
+    }
+  ],
+  "ozon": [
+    {
+      "year": 2022,
+      "status": "complete",
+      "days": 365,
+      "rows": 0,
+      "pages": 365,
+      "errors": 0,
+      "start": "2022-01-01",
+      "end": "2022-12-31"
+    },
+    {
+      "year": 2023,
+      "status": "error",
+      "reason": "OZON_2023_ERRORS_1"
+    },
+    {
+      "year": 2024,
+      "status": "complete",
+      "days": 366,
+      "rows": 0,
+      "pages": 366,
+      "errors": 0,
+      "start": "2024-01-01",
+      "end": "2024-12-31"
+    },
+    {
+      "year": 2025,
+      "status": "complete",
+      "days": 365,
+      "rows": 0,
+      "pages": 365,
+      "errors": 0,
+      "start": "2025-01-01",
+      "end": "2025-12-31"
+    },
+    {
+      "year": 2026,
+      "status": "complete",
+      "days": 283,
+      "rows": 47,
+      "pages": 283,
+      "errors": 0,
+      "start": "2026-01-01",
+      "end": "2026-10-10"
+    }
+  ],
+  "stored": [
+    {
+      "source": "ozon",
+      "month_key": "2026-08",
+      "rows": 18
+    },
+    {
+      "source": "ozon",
+      "month_key": "2026-09",
+      "rows": 14
+    },
+    {
+      "source": "ozon",
+      "month_key": "2026-10",
+      "rows": 15
+    },
+    {
+      "source": "wildberries",
+      "month_key": "2024-01",
+      "rows": 259
+    },
+    {
+      "source": "wildberries",
+      "month_key": "2024-02",
+      "rows": 1433
+    },
+    {
+      "source": "wildberries",
+      "month_key": "2024-03",
+      "rows": 2224
+    },
+    {
+      "source": "wildberries",
+      "month_key": "2024-04",
+      "rows": 2703
+    },
+    {
+      "source": "wildberries",
+      "month_key": "2024-05",
+      "rows": 1992
+    },
+    {
+      "source": "wildberries",
+      "month_key": "2024-06",
+      "rows": 1694
+    },
+    {
+      "source": "wildberries",
+      "month_key": "2024-07",
+      "rows": 2055
+    },
+    {
+      "source": "wildberries",
+      "month_key": "2024-08",
+      "rows": 2817
+    },
+    {
+      "source": "wildberries",
+      "month_key": "2024-09",
+      "rows": 2591
+    },
+    {
+      "source": "wildberries",
+      "month_key": "2024-10",
+      "rows": 3065
+    },
+    {
+      "source": "wildberries",
+      "month_key": "2024-11",
+      "rows": 3658
+    },
+    {
+      "source": "wildberries",
+      "month_key": "2024-12",
+      "rows": 2296
+    },
+    {
+      "source": "wildberries",
+      "month_key": "2025-01",
+      "rows": 1777
+    },
+    {
+      "source": "wildberries",
+      "month_key": "2025-02",
+      "rows": 1435
+    },
+    {
+      "source": "wildberries",
+      "month_key": "2025-03",
+      "rows": 2498
+    },
+    {
+      "source": "wildberries",
+      "month_key": "2025-04",
+      "rows": 2351
+    },
+    {
+      "source": "wildberries",
+      "month_key": "2025-05",
+      "rows": 2464
+    },
+    {
+      "source": "wildberries",
+      "month_key": "2025-06",
+      "rows": 2424
+    },
+    {
+      "source": "wildberries",
+      "month_key": "2025-07",
+      "rows": 2675
+    },
+    {
+      "source": "wildberries",
+      "month_key": "2025-08",
+      "rows": 2024
+    },
+    {
+      "source": "wildberries",
+      "month_key": "2025-09",
+      "rows": 4087
+    },
+    {
+      "source": "wildberries",
+      "month_key": "2025-10",
+      "rows": 2134
+    },
+    {
+      "source": "wildberries",
+      "month_key": "2025-11",
+      "rows": 1748
+    },
+    {
+      "source": "wildberries",
+      "month_key": "2025-12",
+      "rows": 1186
+    },
+    {
+      "source": "wildberries",
+      "month_key": "2026-01",
+      "rows": 957
+    },
+    {
+      "source": "wildberries",
+      "month_key": "2026-02",
+      "rows": 786
+    },
+    {
+      "source": "wildberries",
+      "month_key": "2026-03",
+      "rows": 793
+    },
+    {
+      "source": "wildberries",
+      "month_key": "2026-04",
+      "rows": 623
+    },
+    {
+      "source": "wildberries",
+      "month_key": "2026-05",
+      "rows": 510
+    },
+    {
+      "source": "wildberries",
+      "month_key": "2026-06",
+      "rows": 433
+    },
+    {
+      "source": "wildberries",
+      "month_key": "2026-07",
+      "rows": 392
+    },
+    {
+      "source": "wildberries",
+      "month_key": "2026-08",
+      "rows": 327
+    },
+    {
+      "source": "wildberries",
+      "month_key": "2026-09",
+      "rows": 194
+    },
+    {
+      "source": "wildberries",
+      "month_key": "2026-10",
+      "rows": 21
+    },
+    {
+      "source": "wildberries_reports",
+      "month_key": "2025-01",
+      "rows": 56
+    },
+    {
+      "source": "wildberries_reports",
+      "month_key": "2025-02",
+      "rows": 46
+    },
+    {
+      "source": "wildberries_reports",
+      "month_key": "2025-03",
+      "rows": 51
+    },
+    {
+      "source": "wildberries_reports",
+      "month_key": "2025-04",
+      "rows": 49
+    },
+    {
+      "source": "wildberries_reports",
+      "month_key": "2025-05",
+      "rows": 55
+    },
+    {
+      "source": "wildberries_reports",
+      "month_key": "2025-06",
+      "rows": 50
+    },
+    {
+      "source": "wildberries_reports",
+      "month_key": "2025-07",
+      "rows": 53
+    },
+    {
+      "source": "wildberries_reports",
+      "month_key": "2025-08",
+      "rows": 49
+    },
+    {
+      "source": "wildberries_reports",
+      "month_key": "2025-09",
+      "rows": 51
+    },
+    {
+      "source": "wildberries_reports",
+      "month_key": "2025-10",
+      "rows": 49
+    },
+    {
+      "source": "wildberries_reports",
+      "month_key": "2025-11",
+      "rows": 47
+    },
+    {
+      "source": "wildberries_reports",
+      "month_key": "2025-12",
+      "rows": 48
+    },
+    {
+      "source": "wildberries_reports",
+      "month_key": "2026-01",
+      "rows": 43
+    },
+    {
+      "source": "wildberries_reports",
+      "month_key": "2026-02",
+      "rows": 36
+    },
+    {
+      "source": "wildberries_reports",
+      "month_key": "2026-03",
+      "rows": 38
+    },
+    {
+      "source": "wildberries_reports",
+      "month_key": "2026-04",
+      "rows": 41
+    },
+    {
+      "source": "wildberries_reports",
+      "month_key": "2026-05",
+      "rows": 38
+    },
+    {
+      "source": "wildberries_reports",
+      "month_key": "2026-06",
+      "rows": 42
+    },
+    {
+      "source": "wildberries_reports",
+      "month_key": "2026-07",
+      "rows": 40
+    },
+    {
+      "source": "wildberries_reports",
+      "month_key": "2026-08",
+      "rows": 36
+    },
+    {
+      "source": "wildberries_reports",
+      "month_key": "2026-09",
+      "rows": 36
+    },
+    {
+      "source": "wildberries_reports",
+      "month_key": "2026-10",
+      "rows": 13
+    }
+  ],
+  "errors": [
+    "OZON:2023:2023-12-10:HTTP_502:<html>\r\n<head><title>502 Bad Gateway</title></head>\r\n<body>\r\n<center><h1>502 Bad Gateway</h1></center>\r\n<hr><center>nginx</center>\r\n</body>\r\n</html>\r\n",
+    "OZON:2023:OZON_2023_ERRORS_1"
+  ]
+}
