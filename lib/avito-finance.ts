@@ -99,7 +99,7 @@ export function normalizeAvitoRows(input:any[]){
       pick(raw,['itemId','item_id','Avito ID','ID объявления']) ??
       getAny(raw,[/id.*объяв/i,/avito.*id/i]) ?? ''
     ).trim();
-    const row={date,amount,net,quantity:qty,currency:cur,status,sku,title,orderId,itemId,source:'avito_browser'};
+    const row:any={date,amount,net,quantity:qty,currency:cur,status,sku,title,orderId,itemId,source:'avito_browser'};
     row.fingerprint=createHash('sha256').update(JSON.stringify([date,amount,net,qty,cur,status,sku,title,orderId,itemId])).digest('hex');
     out.push(row);
   }
