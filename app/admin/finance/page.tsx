@@ -80,7 +80,7 @@ export default function FinancePage(){
    </div>
 
    <section className="admin-card finance-overview">
-     <div className="finance-head"><h2>Канал</h2><p>Отдельный P&amp;L по каждому каналу продаж</p></div>
+     <div className="finance-head"><h2>Вкладки по каналам</h2><p>Сводка, Wildberries, Ozon и Duisun.ru</p></div>
      <div style={{display:'flex',gap:8,flexWrap:'wrap'}}>
        {(['all','wildberries','ozon','site'] as const).map(k=><button key={k} type="button" onClick={()=>setChannel(k)}
          style={{padding:'10px 16px',borderRadius:10,border:channel===k?'2px solid #231f1b':'1px solid #ded4ca',background:channel===k?'#231f1b':'#fff',color:channel===k?'#fff':'#231f1b',fontWeight:700,cursor:'pointer'}}>
