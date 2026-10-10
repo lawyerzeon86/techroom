@@ -79,6 +79,7 @@ jobs:
 
       - name: Record deploy status
         if: always()
+        continue-on-error: true
         run: |
           mkdir -p ops
           {
