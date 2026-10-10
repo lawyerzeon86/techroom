@@ -1,4 +1,5 @@
 'use client';
+// cost-editor-deploy
 import { useEffect,useMemo,useState } from 'react';
 
 const rub=(n:number)=>new Intl.NumberFormat('ru-RU',{style:'currency',currency:'RUB',maximumFractionDigits:0}).format(Number(n)||0);
