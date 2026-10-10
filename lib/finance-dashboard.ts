@@ -1,5 +1,6 @@
 import { ensurePriceSheetSchema } from './price-sheet';
 import { getPool } from './db';
+import { detectDate, loadFxBook, moneyToRub } from './fx';
 
 const num=(v:any)=>Number(v?.amount??v??0)||0;
 const round=(v:number)=>Math.round(v*100)/100;
@@ -9,6 +10,7 @@ const cleanMonth=(v:any)=>String(v??'').trim();
 export async function financeDashboard(year:number){
   await ensurePriceSheetSchema();
   const pool=getPool();
+  const fx=await loadFxBook(year);
 
   await pool.query(`
     CREATE TABLE IF NOT EXISTS marketplace_finance_pages(
@@ -50,7 +52,8 @@ export async function financeDashboard(year:number){
         if(!x||typeof x!=='object')continue;
         const z=bySource.wildberries[m];
         z.records++;
-        const sale=num(x.retailAmount);
+        const date=detectDate(x,m);
+        const sale=moneyToRub(fx,x.retailAmount,x,date,'RUB');
         z.sales+=sale;
         const sku=String(x.vendorCode||x.sku||'');
         const qty=Math.abs(num(x.quantity));
@@ -73,7 +76,8 @@ export async function financeDashboard(year:number){
       if(!monthSet.has(m))continue;
       for(const x of (Array.isArray(q.payload)?q.payload:[])){
         if(!x||typeof x!=='object')continue;
-        bySource.wildberries[m].net+=num(x.bankPaymentSum);
+        const date=detectDate(x,m);
+        bySource.wildberries[m].net+=moneyToRub(fx,x.bankPaymentSum,x,date,'RUB');
       }
     }
   }catch(e){
@@ -95,11 +99,13 @@ export async function financeDashboard(year:number){
       for(const a of (Array.isArray(q.payload)?q.payload:[])){
         if(!a||typeof a!=='object')continue;
         z.records++;
-        z.net+=num(a.total_amount);
+        const date=detectDate(a,m);
+        z.net+=moneyToRub(fx,a.total_amount,a,date,'RUB');
         for(const p of (Array.isArray(a?.posting?.products)?a.posting.products:[])){
           if(!p||typeof p!=='object')continue;
           const com=p?.commission||{};
-          const gross=num(com.sale_amount||com.seller_price||com.sale_price);
+          const rawGross=com.sale_amount??com.seller_price??com.sale_price;
+          const gross=moneyToRub(fx,rawGross,{...a,...p,...com},date,'RUB');
           if(gross<=0)continue;
           const sku=String(p.sku||p.offer_id||'');
           const qty=Math.abs(num(p.quantity))||1;
@@ -125,25 +131,32 @@ export async function financeDashboard(year:number){
   try{
     const site=await pool.query(`
       SELECT to_char(created_at,'YYYY-MM') month,
+             to_char(created_at,'YYYY-MM-DD') day,
+             COALESCE(NULLIF(BTRIM(currency_code),''),'RUB') currency_code,
              COUNT(*)::int orders,
              COALESCE(SUM(total_amount),0)::numeric sales
       FROM orders
       WHERE created_at >= $1::date
         AND created_at < ($1::date+interval '1 year')
         AND (payment_status='succeeded' OR paid_at IS NOT NULL)
-      GROUP BY 1
+      GROUP BY 1,2,3
     `,[year+'-01-01']);
     for(const x of site.rows){
       const m=cleanMonth(x.month);
       if(!monthSet.has(m))continue;
       const z=bySource.site[m];
-      z.sales=num(x.sales);
-      z.net=z.sales;
-      z.records=num(x.orders);
-      z.units=num(x.orders);
+      const rub=moneyToRub(fx,x.sales,{currency_code:x.currency_code},String(x.day),String(x.currency_code||'RUB'));
+      z.sales+=rub;
+      z.net+=rub;
+      z.records+=num(x.orders);
+      z.units+=num(x.orders);
     }
   }catch(e){
     errors.site=e instanceof Error?e.message:String(e);
+  }
+
+  if(fx.quality.missingRates.length){
+    errors.fx='Нет курса для: '+fx.quality.missingRates.slice(0,20).join(', ');
   }
 
   for(const source of Object.keys(bySource)){
@@ -189,6 +202,8 @@ export async function financeDashboard(year:number){
   return {
     year,
     generatedAt:new Date().toISOString(),
+    currency:'RUB',
+    fx:fx.quality,
     partial:Object.keys(errors).length>0,
     errors,
     months,
@@ -217,8 +232,9 @@ export async function financeDashboard(year:number){
       costFilled,
       costTotal:ps.rows.length,
       costCoverage:ps.rows.length?round(costFilled/ps.rows.length*100):0,
-      profitFinal:costFilled===ps.rows.length&&ps.rows.length>0,
-      sourceErrors:errors
+      profitFinal:costFilled===ps.rows.length&&ps.rows.length>0&&fx.quality.missingRates.length===0,
+      sourceErrors:errors,
+      fx:fx.quality
     },
     updated
   };
