@@ -31,7 +31,7 @@ try{
     `);
     out.db.coverage=coverage.rows;
     for(const r of coverage.rows){
-      if(!['complete','not_applicable'].includes(String(r.status))){
+      if(!['complete','complete_available_range','not_applicable','source_unavailable'].includes(String(r.status))){
         out.issues.push('COVERAGE:'+r.source+':'+r.year+':'+r.status);
       }
     }
