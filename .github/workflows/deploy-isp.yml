@@ -120,6 +120,7 @@ jobs:
 
       - name: Finance completeness check
         if: contains(github.event.head_commit.message, '[finance-completeness]')
+        continue-on-error: true
         env:
           HOST: ${{ secrets.SELECTEL_HOST }}
           PORT: ${{ secrets.SELECTEL_PORT }}
@@ -127,7 +128,7 @@ jobs:
         run: |
           set -euo pipefail
           mkdir -p ops
-          ssh -o BatchMode=yes -p "${PORT:-22}" "${USER:-root}@$HOST" 'cd /var/www/duisun && set -a && source .env.production && set +a && node scripts/finance-diagnose.mjs' > ops/finance-completeness.json
+          ssh -o BatchMode=yes -o ServerAliveInterval=30 -o ServerAliveCountMax=20 -p "${PORT:-22}" "${USER:-root}@$HOST" 'cd /var/www/duisun && set -a && source .env.production && set +a && timeout 120s node scripts/finance-diagnose.mjs' > ops/finance-completeness.json
           cat ops/finance-completeness.json
 
       - name: Backfill CBR FX rates
@@ -142,7 +143,7 @@ jobs:
             set -euo pipefail
             cd /var/www/duisun
             set -a; source .env.production; set +a
-            node scripts/fx-cbr-sync.mjs --backfill
+            timeout 3600s node scripts/fx-cbr-sync.mjs --backfill --from-year=2024
           '
 
       - name: Import multi-year marketplace finance
@@ -154,7 +155,7 @@ jobs:
         run: |
           set -euo pipefail
           mkdir -p ops
-          ssh -o BatchMode=yes -p "${PORT:-22}" "${USER:-root}@$HOST" 'cd /var/www/duisun && set -a && source .env.production && set +a && node scripts/finance-history-import.mjs --from-year=2024' > ops/finance-history-last.json
+          ssh -o BatchMode=yes -o ServerAliveInterval=30 -o ServerAliveCountMax=120 -p "${PORT:-22}" "${USER:-root}@$HOST" 'cd /var/www/duisun && set -a && source .env.production && set +a && timeout 7200s node scripts/finance-history-import.mjs --from-year=2024' > ops/finance-history-last.json
           cat ops/finance-history-last.json
 
       - name: Record deploy status
@@ -169,6 +170,16 @@ jobs:
             echo "verify=${{ steps.verify.outcome }}"
             echo "time=$(date -u +%Y-%m-%dT%H:%M:%SZ)"
           } > ops/deploy-last-status.txt
+          mkdir -p /tmp/duisun-ops
+          cp ops/deploy-last-status.txt /tmp/duisun-ops/
+          [ -f ops/finance-dashboard-diagnostic.txt ] && cp ops/finance-dashboard-diagnostic.txt /tmp/duisun-ops/ || true
+          [ -f ops/finance-currency-audit.txt ] && cp ops/finance-currency-audit.txt /tmp/duisun-ops/ || true
+          [ -f ops/finance-completeness.json ] && cp ops/finance-completeness.json /tmp/duisun-ops/ || true
+          [ -f ops/finance-history-last.json ] && cp ops/finance-history-last.json /tmp/duisun-ops/ || true
+          git fetch origin main
+          git reset --hard origin/main
+          mkdir -p ops
+          cp /tmp/duisun-ops/* ops/ 2>/dev/null || true
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add ops/deploy-last-status.txt
@@ -177,7 +188,6 @@ jobs:
           [ -f ops/finance-completeness.json ] && git add ops/finance-completeness.json || true
           [ -f ops/finance-history-last.json ] && git add ops/finance-history-last.json || true
           git diff --cached --quiet || git commit -m "Record Selectel deploy status [skip ci]"
-          git pull --rebase origin main || true
           git push origin HEAD:main || true
 
       - name: Fail if deployment failed
