@@ -242,6 +242,32 @@ UNIT
 systemctl daemon-reload
 systemctl enable --now duisun-finance-sync.timer
 
+cat >/etc/systemd/system/duisun-fx-sync.service <<'UNIT'
+[Unit]
+Description=Duisun CBR FX rate sync
+After=network-online.target
+Wants=network-online.target
+[Service]
+Type=oneshot
+WorkingDirectory=/var/www/duisun
+ExecStart=/bin/bash -c 'set -a; source .env.production; set +a; flock -n /run/duisun-fx-sync.lock node scripts/fx-cbr-sync.mjs'
+User=root
+TimeoutStartSec=900
+UNIT
+cat >/etc/systemd/system/duisun-fx-sync.timer <<'UNIT'
+[Unit]
+Description=Duisun daily CBR FX rate sync
+[Timer]
+OnCalendar=*-*-* 00:20:00 UTC
+RandomizedDelaySec=10min
+Persistent=true
+[Install]
+WantedBy=timers.target
+UNIT
+systemctl daemon-reload
+systemctl enable --now duisun-fx-sync.timer
+systemctl start --no-block duisun-fx-sync.service || true
+
 cat >/etc/systemd/system/duisun-email.service <<'UNIT'
 [Unit]
 Description=Duisun queued email delivery
