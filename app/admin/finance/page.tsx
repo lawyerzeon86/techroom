@@ -9,7 +9,7 @@ const labels:any={wildberries:'Wildberries',ozon:'Ozon',site:'Duisun.ru'};
 export default function FinancePage(){
  const [year,setYear]=useState(new Date().getFullYear());
  const [data,setData]=useState<any>(null); const [loading,setLoading]=useState(true); const [error,setError]=useState('');
- const load=async()=>{setLoading(true);setError('');const r=await fetch('/api/admin/finance/dashboard?year='+year,{cache:'no-store'});const j=await r.json().catch(()=>({}));if(r.status===401){location.href='/admin?next=/admin/finance';return}if(!r.ok){setError(j.error||'Ошибка загрузки');setLoading(false);return}setData(j);setLoading(false)};
+ const load=async()=>{setLoading(true);setError('');const r=await fetch('/api/admin/finance/dashboard?year='+year,{cache:'no-store'});const j=await r.json().catch(()=>({}));if(r.status===401){location.href='/admin?next=/admin/finance';return}if(!r.ok){setError([j.error,j.detail].filter(Boolean).join(': ')||'Ошибка загрузки');setLoading(false);return}setData(j);setLoading(false)};
  useEffect(()=>{load();const t=setInterval(load,300000);return()=>clearInterval(t)},[year]);
  const maxMonthly=useMemo(()=>Math.max(1,...(data?.monthly||[]).map((x:any)=>Math.abs(Number(x.total?.sales)||0))),[data]);
  if(loading&&!data)return <main className="admin-shell"><section className="admin-card finance-overview"><h1>Финансы</h1><p>Загрузка KPI и P&amp;L…</p></section></main>;
