@@ -74,6 +74,76 @@ export async function ensureFxSchema(){
   `);
 }
 
+function parseCbrDate(raw:string,fallback:string){
+  const m=String(raw||'').match(/^(\d{2})\.(\d{2})\.(\d{4})$/);
+  return m?`${m[3]}-${m[2]}-${m[1]}`:fallback;
+}
+
+async function fetchCbrRatesForDate(date:string){
+  const [y,m,d]=date.split('-');
+  const url=`https://www.cbr.ru/scripts/XML_daily.asp?date_req=${d}/${m}/${y}`;
+  const r=await fetch(url,{cache:'no-store',signal:AbortSignal.timeout(15000),headers:{'User-Agent':'Duisun-Finance/1.0'}});
+  if(!r.ok)throw new Error('CBR_HTTP_'+r.status);
+  const xml=await r.text();
+  const sourceDate=parseCbrDate(xml.match(/<ValCurs[^>]*Date="([^"]+)"/i)?.[1]||'',date);
+  const rows:Array<{currency:string;rate:number;nominal:number}>=[];
+  for(const block of xml.match(/<Valute\b[\s\S]*?<\/Valute>/gi)||[]){
+    const code=normalizeCurrency(block.match(/<CharCode>([^<]+)<\/CharCode>/i)?.[1]||'');
+    const nominal=Number((block.match(/<Nominal>([^<]+)<\/Nominal>/i)?.[1]||'1').replace(',','.'));
+    const value=Number((block.match(/<Value>([^<]+)<\/Value>/i)?.[1]||'').replace(',','.'));
+    if(code&&Number.isFinite(nominal)&&nominal>0&&Number.isFinite(value)&&value>0)rows.push({currency:code,rate:value/nominal,nominal});
+  }
+  if(!rows.length)throw new Error('CBR_EMPTY_RATES');
+  const pool=getPool();
+  const client=await pool.connect();
+  try{
+    await client.query('BEGIN');
+    for(const x of rows){
+      await client.query(`
+        INSERT INTO fx_rates(rate_date,currency_code,rate_to_rub,nominal,source,fetched_at)
+        VALUES($1,$2,$3,$4,'CBR',NOW())
+        ON CONFLICT(rate_date,currency_code) DO UPDATE SET
+          rate_to_rub=EXCLUDED.rate_to_rub,
+          nominal=EXCLUDED.nominal,
+          source='CBR',
+          fetched_at=NOW()
+      `,[date,x.currency,x.rate,x.nominal]);
+    }
+    await client.query('COMMIT');
+  }catch(e){await client.query('ROLLBACK');throw e}finally{client.release()}
+  return {date,sourceDate,count:rows.length};
+}
+
+export async function ensureFxRates(items:Array<{currency:string;date:string}>){
+  await ensureFxSchema();
+  const need=new Map<string,Set<string>>();
+  for(const item of items){
+    const currency=normalizeCurrency(item.currency);
+    const date=String(item.date||'').slice(0,10);
+    if(!currency||currency==='RUB'||!/^\d{4}-\d{2}-\d{2}$/.test(date))continue;
+    if(!need.has(date))need.set(date,new Set());
+    need.get(date)!.add(currency);
+  }
+  if(!need.size)return {requestedDates:0,fetchedDates:0,errors:[] as string[]};
+
+  const pool=getPool();
+  const missing:string[]=[];
+  for(const [date,currencies] of need){
+    const q=await pool.query('SELECT btrim(currency_code) currency_code FROM fx_rates WHERE rate_date=$1',[date]);
+    const have=new Set(q.rows.map((r:any)=>normalizeCurrency(r.currency_code)));
+    if([...currencies].some(c=>!have.has(c)))missing.push(date);
+  }
+
+  const errors:string[]=[];
+  let fetched=0;
+  for(let i=0;i<missing.length;i+=4){
+    const batch=missing.slice(i,i+4);
+    const results=await Promise.allSettled(batch.map(fetchCbrRatesForDate));
+    results.forEach((r,idx)=>{if(r.status==='fulfilled')fetched++;else errors.push(batch[idx]+':'+String(r.reason?.message||r.reason))});
+  }
+  return {requestedDates:need.size,fetchedDates:fetched,errors};
+}
+
 export async function loadFxBook(year:number):Promise<FxBook>{
   await ensureFxSchema();
   const pool=getPool();
