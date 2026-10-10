@@ -86,12 +86,13 @@ jobs:
         continue-on-error: true
         run: |
           set -euo pipefail
-          git fetch origin main
-          git reset --hard origin/main
-          mkdir -p ops /tmp/finance-results
+          mkdir -p /tmp/finance-results
           [ -f ops/finance-history-last.json ] && cp ops/finance-history-last.json /tmp/finance-results/ || true
           [ -f ops/finance-currency-audit.txt ] && cp ops/finance-currency-audit.txt /tmp/finance-results/ || true
           [ -f ops/finance-completeness.json ] && cp ops/finance-completeness.json /tmp/finance-results/ || true
+          git fetch origin main
+          git reset --hard origin/main
+          mkdir -p ops
           cp /tmp/finance-results/* ops/ 2>/dev/null || true
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
