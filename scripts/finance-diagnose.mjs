@@ -53,3 +53,5 @@ try{
   await c.end();
 }catch(e){out.issues.push('DB_ERROR:'+e.message)}
 console.log(JSON.stringify(out,null,2));
+
+// completeness-trigger
