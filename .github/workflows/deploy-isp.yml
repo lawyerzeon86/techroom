@@ -70,6 +70,8 @@ jobs:
         continue-on-error: true
         run: |
           set -euo pipefail
+          git fetch origin main
+          git reset --hard origin/main
           mkdir -p ops
           {
             echo "commit=${GITHUB_SHA}"
@@ -82,8 +84,6 @@ jobs:
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add ops/deploy-last-status.txt
           git diff --cached --quiet || git commit -m "Record Selectel deploy status [skip ci]"
-          git fetch origin main
-          git rebase origin/main || true
           git push origin HEAD:main || true
 
       - name: Fail if deployment failed
