@@ -90,10 +90,10 @@ export default function FinancePage(){
    </section>
 
    <section className="admin-card finance-overview">
-     <div className="finance-head"><h2>Период</h2><p>Весь год или отдельный месяц</p></div>
+     <div className="finance-head"><h2>Вкладки по месяцам</h2><p>Годовой итог или отдельный месяц</p></div>
      <div style={{display:'flex',gap:7,flexWrap:'wrap'}}>
        <button type="button" onClick={()=>setMonth('all')}
-         style={{padding:'8px 13px',borderRadius:9,border:month==='all'?'2px solid #231f1b':'1px solid #ded4ca',background:month==='all'?'#f1ece5':'#fff',fontWeight:700}}>Весь год</button>
+         style={{padding:'8px 13px',borderRadius:9,border:month==='all'?'2px solid #231f1b':'1px solid #ded4ca',background:month==='all'?'#f1ece5':'#fff',fontWeight:700}}>Год</button>
        {(data?.months||[]).map((m:string)=><button key={m} type="button" onClick={()=>setMonth(m)}
          style={{padding:'8px 12px',borderRadius:9,border:month===m?'2px solid #231f1b':'1px solid #ded4ca',background:month===m?'#f1ece5':'#fff',fontWeight:month===m?700:500}}>
          {monthName(m)}
