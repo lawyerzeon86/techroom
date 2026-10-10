@@ -17,6 +17,9 @@ export default function FinancePage(){
  const [costItems,setCostItems]=useState<any[]>([]);
  const [costBusy,setCostBusy]=useState(false);
  const [costStatus,setCostStatus]=useState('');
+ const [avitoBusy,setAvitoBusy]=useState(false);
+ const [avitoStatus,setAvitoStatus]=useState('');
+ const [avitoText,setAvitoText]=useState('');
 
  const load=async()=>{
    setLoading(true);setError('');
@@ -40,6 +43,20 @@ export default function FinancePage(){
    const j=await r.json().catch(()=>({}));
    if(!r.ok){setCostStatus(j.error||'Ошибка сохранения');setCostBusy(false);return}
    setCostItems(j.items||costItems);setCostStatus('✓ Себестоимость сохранена');setCostBusy(false);await load();
+ };
+
+ const importAvito=async(file?:File)=>{
+   setAvitoBusy(true);setAvitoStatus('Импортирую данные Avito…');
+   const fd=new FormData();
+   if(file)fd.append('file',file);
+   if(!file&&avitoText.trim())fd.append('text',avitoText);
+   const r=await fetch('/api/admin/finance/avito-import',{method:'POST',body:fd});
+   const j=await r.json().catch(()=>({}));
+   if(!r.ok){setAvitoStatus(j.error||'Ошибка импорта Avito');setAvitoBusy(false);return}
+   setAvitoStatus('✓ Импортировано: '+(j.valid||0)+' строк · '+(j.months||[]).join(', '));
+   setAvitoText('');
+   setAvitoBusy(false);
+   await load();
  };
 
  useEffect(()=>{load();const t=setInterval(load,300000);return()=>clearInterval(t)},[year]);
@@ -104,6 +121,25 @@ export default function FinancePage(){
    {error&&<section className="admin-card finance-error"><b>{error}</b><div>Попробуйте обновить страницу.</div></section>}
    {data&&<>
     {data.partial&&<section className="admin-card finance-error"><b>Часть источников рассчитана не полностью</b><div>{Object.keys(data.errors||{}).map(k=>labels[k]||k).join(', ')}</div></section>}
+
+    {channel==='avito'&&<section className="admin-card finance-overview">
+      <div className="finance-head"><h2>Импорт Avito без API</h2><p>CSV/JSON из личного кабинета или данные, собранные браузером</p></div>
+      <div style={{display:'grid',gap:12}}>
+        <label style={{display:'inline-flex',alignItems:'center',gap:10,flexWrap:'wrap'}}>
+          <span style={{fontWeight:700}}>Файл CSV / JSON</span>
+          <input type="file" accept=".csv,.txt,.json,text/csv,application/json" disabled={avitoBusy}
+            onChange={e=>{const file=e.target.files?.[0];if(file)importAvito(file);e.currentTarget.value=''}}/>
+        </label>
+        <textarea value={avitoText} onChange={e=>setAvitoText(e.target.value)} rows={7}
+          placeholder={'Или вставьте CSV / JSON из истории заказов Avito\nДата заказа;Номер заказа;Товар;Сумма;К выплате;Валюта;Статус'}
+          style={{width:'100%',padding:12,border:'1px solid #ded4ca',borderRadius:10,fontFamily:'inherit'}}/>
+        <div style={{display:'flex',gap:10,alignItems:'center',flexWrap:'wrap'}}>
+          <button className="save-btn" disabled={avitoBusy||!avitoText.trim()} onClick={()=>importAvito()}>{avitoBusy?'Импорт…':'Импортировать Avito'}</button>
+          <small style={{color:'#756c64'}}>Повторный импорт безопасен: дубли удаляются по отпечатку операции.</small>
+        </div>
+        {avitoStatus&&<p style={{margin:0}}><b>{avitoStatus}</b></p>}
+      </div>
+    </section>}
 
     <section className="finance-kpis">
       <div className="finance-kpi"><span>Выручка</span><strong>{rub(selected.sales)}</strong><small>{labels[channel]} · {scopeTitle}</small></div>
