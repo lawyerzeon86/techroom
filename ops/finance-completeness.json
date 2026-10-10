@@ -1,0 +1,151 @@
+{
+  "generatedAt": "2026-10-10T08:50:53.549Z",
+  "sync": {
+    "ok": true,
+    "import": {
+      "year": 2026,
+      "wildberries": [
+        {
+          "details": "complete",
+          "pages": 1,
+          "rows": 5038
+        },
+        {
+          "reports": "complete",
+          "pages": 1,
+          "rows": 363
+        }
+      ],
+      "ozon": [
+        {
+          "status": "complete",
+          "days": 283,
+          "rows": 47,
+          "pages": 283,
+          "errors": 0
+        }
+      ]
+    },
+    "stored": [
+      {
+        "source": "ozon",
+        "month": "2026-08",
+        "rows": 18
+      },
+      {
+        "source": "ozon",
+        "month": "2026-09",
+        "rows": 14
+      },
+      {
+        "source": "ozon",
+        "month": "2026-10",
+        "rows": 15
+      },
+      {
+        "source": "wildberries",
+        "month": "2026-01",
+        "rows": 957
+      },
+      {
+        "source": "wildberries",
+        "month": "2026-02",
+        "rows": 786
+      },
+      {
+        "source": "wildberries",
+        "month": "2026-03",
+        "rows": 793
+      },
+      {
+        "source": "wildberries",
+        "month": "2026-04",
+        "rows": 623
+      },
+      {
+        "source": "wildberries",
+        "month": "2026-05",
+        "rows": 510
+      },
+      {
+        "source": "wildberries",
+        "month": "2026-06",
+        "rows": 433
+      },
+      {
+        "source": "wildberries",
+        "month": "2026-07",
+        "rows": 392
+      },
+      {
+        "source": "wildberries",
+        "month": "2026-08",
+        "rows": 327
+      },
+      {
+        "source": "wildberries",
+        "month": "2026-09",
+        "rows": 194
+      },
+      {
+        "source": "wildberries",
+        "month": "2026-10",
+        "rows": 21
+      },
+      {
+        "source": "wildberries_reports",
+        "month": "2026-01",
+        "rows": 43
+      },
+      {
+        "source": "wildberries_reports",
+        "month": "2026-02",
+        "rows": 36
+      },
+      {
+        "source": "wildberries_reports",
+        "month": "2026-03",
+        "rows": 38
+      },
+      {
+        "source": "wildberries_reports",
+        "month": "2026-04",
+        "rows": 41
+      },
+      {
+        "source": "wildberries_reports",
+        "month": "2026-05",
+        "rows": 38
+      },
+      {
+        "source": "wildberries_reports",
+        "month": "2026-06",
+        "rows": 42
+      },
+      {
+        "source": "wildberries_reports",
+        "month": "2026-07",
+        "rows": 40
+      },
+      {
+        "source": "wildberries_reports",
+        "month": "2026-08",
+        "rows": 36
+      },
+      {
+        "source": "wildberries_reports",
+        "month": "2026-09",
+        "rows": 36
+      },
+      {
+        "source": "wildberries_reports",
+        "month": "2026-10",
+        "rows": 13
+      }
+    ]
+  },
+  "db": {},
+  "issues": [
+    "DB_ERROR:syntax error at or near \"month\""
+  ]
+}
