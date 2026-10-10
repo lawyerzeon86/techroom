@@ -38,7 +38,7 @@ export default function PricesPage(){
     const j=await r.json().catch(()=>({}));
     if(!r.ok){setStatus(j.error||'Ошибка сохранения');setBusy(false);return}
     setItems(j.items||items);
-    setStatus('✓ Цены сохранены в TechRoom');
+    setStatus('✓ Данные сохранены в Duisun');
     if(syncAfter)await syncNow();
     else setBusy(false);
   };
@@ -63,7 +63,7 @@ export default function PricesPage(){
 
   return <main className="admin-shell">
     <div className="admin-top">
-      <div><h1>Лист цен</h1><p>Единая цена TechRoom → Ozon, Wildberries и Яндекс Маркет</p></div>
+      <div><h1>Лист цен</h1><p>Единая цена Duisun → Ozon, Wildberries и Яндекс Маркет</p></div>
       <div style={{display:'flex',gap:10,flexWrap:'wrap'}}>
         <button className="edit-btn" disabled={busy} onClick={load}>Обновить</button>
         <button className="save-btn" disabled={busy||!items.length} onClick={()=>save(false)}>Сохранить</button>
@@ -80,6 +80,38 @@ export default function PricesPage(){
       </div>
       <p style={{marginBottom:0,color:'#756c64'}}>Цена из этого листа является главной. Минимальная цена — нижний предел: ниже него выгрузка не уйдёт.</p>
       {status&&<p style={{marginBottom:0}}><b>{status}</b></p>}
+    </section>
+
+    <section className="admin-card list-card" id="cost-price">
+      <div className="list-head">
+        <div><h2>Себестоимость товаров</h2><span>{items.filter(x=>Number(x.costPrice)>0).length} из {items.length} SKU заполнено</span></div>
+        <button className="save-btn" disabled={busy||!items.length} onClick={()=>save(false)}>{busy?'Сохраняю…':'Сохранить себестоимость'}</button>
+      </div>
+      <p style={{marginTop:0,color:'#756c64'}}>Введите закупочную/производственную себестоимость одной единицы товара в рублях. Эти значения используются в KPI &amp; P&amp;L для расчёта COGS и прибыли.</p>
+      <div className="admin-table-wrap">
+        <table className="admin-table" style={{minWidth:760}}>
+          <thead><tr><th>SKU</th><th>Товар</th><th>Себестоимость / шт.</th><th>Налог</th><th>Переменные / шт.</th></tr></thead>
+          <tbody>
+            {filtered.map(x=><tr key={'cost-'+x.sku}>
+              <td><b>{x.sku}</b></td>
+              <td>{x.title||'Без названия'}</td>
+              <td>
+                <input
+                  aria-label={'Себестоимость '+x.sku}
+                  type="number"
+                  min="0"
+                  step="1"
+                  value={x.costPrice}
+                  onChange={e=>patch(x.sku,{costPrice:Number(e.target.value)})}
+                  style={{width:150,padding:'10px 12px',border:'1px solid #cdbfae',borderRadius:9,fontWeight:700}}
+                /> ₽
+              </td>
+              <td><input aria-label={'Налог '+x.sku} type="number" min="0" max="100" step="0.1" value={x.taxRate} onChange={e=>patch(x.sku,{taxRate:Number(e.target.value)})} style={{width:95,padding:'9px 10px',border:'1px solid #ded4ca',borderRadius:9}}/> %</td>
+              <td><input aria-label={'Переменные расходы '+x.sku} type="number" min="0" value={x.variableCost} onChange={e=>patch(x.sku,{variableCost:Number(e.target.value)})} style={{width:130,padding:'9px 10px',border:'1px solid #ded4ca',borderRadius:9}}/> ₽</td>
+            </tr>)}
+          </tbody>
+        </table>
+      </div>
     </section>
 
     <section className="admin-card list-card">
