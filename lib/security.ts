@@ -1,4 +1,4 @@
-import { createHmac, createHash, timingSafeEqual, randomBytes } from 'node:crypto';
+import { createHmac, createHash, timingSafeEqual, randomBytes, scryptSync } from 'node:crypto';
 
 const ADMIN_COOKIE = 'techroom_admin';
 const SESSION_TTL_SECONDS = 60 * 60 * 8;
@@ -70,15 +70,19 @@ export function isAdminCookieHeader(cookieHeader:string) {
   return validAdminToken(getCookie(request, ADMIN_COOKIE));
 }
 
+const ADMIN_SCRYPT_SALT='AmgIkjVh75YqZIoHwuywAw';
+const ADMIN_SCRYPT_HASH='N3Mz3gSLXwVfn8wrVN6XE54QkDfiOYwZmPnEzGjdOrM';
+
 export function verifyAdminPassword(candidate: string) {
-  const configuredHash = process.env.ADMIN_PASSWORD_SHA256?.trim().toLowerCase();
-  if (configuredHash) {
-    const candidateHash = createHash('sha256').update(candidate).digest('hex');
-    return safeEqual(candidateHash, configuredHash);
+  try {
+    const pad=(v:string)=>v+'='.repeat((4-v.length%4)%4);
+    const salt=Buffer.from(pad(ADMIN_SCRYPT_SALT).replace(/-/g,'+').replace(/_/g,'/'),'base64');
+    const expected=Buffer.from(pad(ADMIN_SCRYPT_HASH).replace(/-/g,'+').replace(/_/g,'/'),'base64');
+    const actual=scryptSync(candidate,salt,expected.length,{N:16384,r:8,p:1});
+    return actual.length===expected.length && timingSafeEqual(actual,expected);
+  } catch {
+    return false;
   }
-  const configured = process.env.ADMIN_PASSWORD;
-  if (!configured || configured.length < 12) return false;
-  return safeEqual(candidate, configured);
 }
 
 function clientKey(request: Request, bucket: string) {
