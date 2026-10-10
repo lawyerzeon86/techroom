@@ -5,7 +5,9 @@ const pool=new Pool({connectionString:process.env.DATABASE_URL,ssl:process.env.D
 const sleep=ms=>new Promise(r=>setTimeout(r,ms));
 const args=new Set(process.argv.slice(2));
 const now=new Date();
-const start=args.has('--backfill')?new Date(Date.UTC(now.getUTCFullYear(),0,1)):new Date(Date.now()-14*86400000);
+const fromYearArg=process.argv.find(x=>x.startsWith('--from-year='));
+const fromYear=fromYearArg?Math.max(1992,Number(fromYearArg.split('=')[1])||2024):2024;
+const start=args.has('--backfill')?new Date(Date.UTC(fromYear,0,1)):new Date(Date.now()-14*86400000);
 const end=now;
 const parse=v=>Number(String(v||'').replace(/\s/g,'').replace(',','.'))||0;
 function xmlRows(xml){
