@@ -124,6 +124,12 @@ async function replaceYear(source,year,groups){
 }
 
 async function importWb(year){
+  if(year<2024){
+    const r={year,status:'source_unavailable',reason:'WB finance detailed history starts 2024-01-29'};
+    await markCoverage('wildberries',year,'source_unavailable',r);
+    await markCoverage('wildberries_reports',year,'source_unavailable',{...r,reason:'WB finance report list starts 2025-01-01'});
+    return r;
+  }
   const token=process.env.WB_FINANCE_TOKEN||process.env.WB_API_TOKEN;
   if(!token){const r={year,status:'missing_token'};await markCoverage('wildberries',year,r.status,r);return r}
   const headers={Authorization:token};
@@ -166,9 +172,10 @@ async function importWb(year){
     }
     await replaceYear('wildberries_reports',year,groupByMonth(year,reportRows));
   }
-  const result={year,status:'complete',start,end,detailRows:total,detailPages:pages,reportRows:reportRows.length};
-  await markCoverage('wildberries',year,'complete',{...result,rows:total,pages});
-  await markCoverage('wildberries_reports',year,year>=2025?'complete':'not_applicable',{...result,rows:reportRows.length,pages:0});
+  const status=year===2024?'complete_available_range':'complete';
+  const result={year,status,start,end,detailRows:total,detailPages:pages,reportRows:reportRows.length};
+  await markCoverage('wildberries',year,status,{...result,rows:total,pages});
+  await markCoverage('wildberries_reports',year,year>=2025?'complete':'source_unavailable',{...result,rows:reportRows.length,pages:0});
   return result;
 }
 
