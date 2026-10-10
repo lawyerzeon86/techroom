@@ -103,6 +103,7 @@ export async function ensureSchema() {
       await pool.query(`ALTER TABLE orders ADD COLUMN IF NOT EXISTS payment_error TEXT`);
       await pool.query(`ALTER TABLE orders ADD COLUMN IF NOT EXISTS paid_at TIMESTAMPTZ`);
       await pool.query(`ALTER TABLE orders ADD COLUMN IF NOT EXISTS payment_updated_at TIMESTAMPTZ`);
+      await pool.query(`ALTER TABLE orders ADD COLUMN IF NOT EXISTS currency_code CHAR(3) NOT NULL DEFAULT 'RUB'`);
 
       await pool.query(`
         CREATE TABLE IF NOT EXISTS marketplace_orders (
