@@ -30,6 +30,17 @@ export default function FinancePage(){
       <div className="finance-kpi"><span>Себестоимость заполнена</span><strong>{pct(data.dataQuality.costCoverage)}</strong><small>{data.dataQuality.costFilled} из {data.dataQuality.costTotal} SKU</small></div>
     </section>
 
+    <section className="admin-card finance-overview"><div className="finance-head"><h2>Валюта отчёта</h2><p>Все суммы приводятся к российским рублям</p></div>
+      <div className="finance-flow">
+        <div><span>Базовая валюта</span><b>{data.currency||'RUB'}</b></div>
+        <div><span>Источник курсов</span><b>{data.fx?.source||'CBR'}</b></div>
+        <div><span>Валюты в данных</span><b>{(data.fx?.currencies||['RUB']).join(', ')}</b></div>
+        <div><span>Конвертировано операций</span><b>{data.fx?.convertedRecords||0}</b></div>
+      </div>
+      {data.fx?.approximateRates&&<p><small>Для части операций использован ближайший доступный курс; после backfill исторических курсов расчёт уточнится автоматически.</small></p>}
+      {!!data.fx?.missingRates?.length&&<div className="finance-error"><b>Не хватает курсов</b><div>{data.fx.missingRates.slice(0,10).join(', ')}</div></div>}
+    </section>
+
     {!data.dataQuality.profitFinal&&<section className="admin-card finance-error"><b>Прибыль пока предварительная</b><div>Не у всех SKU заполнена себестоимость. Дашборд автоматически пересчитает P&amp;L после заполнения cost_price в «Листе цен».</div></section>}
 
     <section className="admin-card finance-overview"><div className="finance-head"><h2>P&amp;L</h2><p>Управленческий отчёт за {year} год</p></div>
