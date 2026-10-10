@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
-import { isAdminSession, rateLimit } from '../../../../../../lib/security';
-import { importAvitoFinanceRows, parseDelimited } from '../../../../../../lib/avito-finance';
+import { isAdminSession, rateLimit } from '../../../../../lib/security';
+import { importAvitoFinanceRows, parseDelimited } from '../../../../../lib/avito-finance';
 
 export const runtime='nodejs';
 export const dynamic='force-dynamic';
