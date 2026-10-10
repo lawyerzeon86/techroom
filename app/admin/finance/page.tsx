@@ -4,7 +4,7 @@ import { useEffect,useMemo,useState } from 'react';
 const rub=(n:number)=>new Intl.NumberFormat('ru-RU',{style:'currency',currency:'RUB',maximumFractionDigits:0}).format(Number(n)||0);
 const pct=(n:number)=>new Intl.NumberFormat('ru-RU',{maximumFractionDigits:1}).format(Number(n)||0)+'%';
 const monthName=(m:string,short=true)=>new Date(m+'-01T00:00:00Z').toLocaleDateString('ru-RU',{month:short?'short':'long'}).replace('.','');
-const labels:any={all:'Общее',wildberries:'Wildberries',ozon:'Ozon',site:'Duisun.ru'};
+const labels:any={all:'Сводка',wildberries:'Wildberries',ozon:'Ozon',site:'Duisun.ru'};
 const empty=()=>({sales:0,net:0,tax:0,cogs:0,variable:0,profit:0,records:0,units:0});
 
 export default function FinancePage(){
@@ -82,7 +82,7 @@ export default function FinancePage(){
    <section className="admin-card finance-overview">
      <div className="finance-head"><h2>Вкладки по каналам</h2><p>Сводка, Wildberries, Ozon и Duisun.ru</p></div>
      <div style={{display:'flex',gap:8,flexWrap:'wrap'}}>
-       {(['all','wildberries','ozon','site'] as const).map(k=><button key={k} type="button" onClick={()=>setChannel(k)}
+       {(['all','wildberries','ozon','site'] as const).map(k=><button key={k} type="button" onClick={()=>{setChannel(k);setMonth('all')}}
          style={{padding:'10px 16px',borderRadius:10,border:channel===k?'2px solid #231f1b':'1px solid #ded4ca',background:channel===k?'#231f1b':'#fff',color:channel===k?'#fff':'#231f1b',fontWeight:700,cursor:'pointer'}}>
          {labels[k]}
        </button>)}
