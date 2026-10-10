@@ -13,7 +13,7 @@ try{
   const c=new Client({connectionString:process.env.DATABASE_URL,ssl:process.env.DATABASE_URL?.includes('localhost')?false:{rejectUnauthorized:false}});
   await c.connect();
   const counts=await c.query(`
-    SELECT source,btrim(month) month,count(*)::int pages,
+    SELECT source,btrim(month) AS month_key,count(*)::int pages,
            coalesce(sum(jsonb_array_length(payload)),0)::int rows,
            max(fetched_at) fetched_at
     FROM marketplace_finance_pages
@@ -27,7 +27,7 @@ try{
   for(const [s,ms] of Object.entries(expected)){
     const rows=counts.rows.filter(x=>x.source===s);
     if(!rows.length)out.issues.push(s.toUpperCase()+':NO_DATA');
-    const months=new Set(rows.map(x=>x.month));
+    const months=new Set(rows.map(x=>x.month_key));
     for(const m of ms){
       const mm='2026-'+String(m).padStart(2,'0');
       if(!months.has(mm))out.issues.push(s.toUpperCase()+':MISSING_MONTH:'+mm);
