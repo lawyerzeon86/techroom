@@ -18,6 +18,7 @@ export default function FinancePage(){
     <div className="finance-filter"><input type="number" min="2022" max="2100" value={year} onChange={e=>setYear(Number(e.target.value))}/><button onClick={load} disabled={loading}>{loading?'Обновление…':'Обновить'}</button></div></div>
    {error&&<section className="admin-card finance-error"><b>{error}</b><div>Попробуйте обновить страницу.</div></section>}
    {data&&<>
+    {data.partial&&<section className="admin-card finance-error"><b>Часть источников рассчитана не полностью</b><div>{Object.keys(data.errors||{}).map(k=>k==='wildberries'?'Wildberries':k==='ozon'?'Ozon':k==='site'?'Duisun.ru':k).join(', ')}</div></section>}
     <section className="finance-kpis">
       <div className="finance-kpi"><span>Выручка</span><strong>{rub(data.total.sales)}</strong><small>Продажи по всем каналам</small></div>
       <div className="finance-kpi"><span>К выплате / net</span><strong>{rub(data.total.net)}</strong><small>После расчётов маркетплейсов</small></div>
