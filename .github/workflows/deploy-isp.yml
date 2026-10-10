@@ -118,6 +118,21 @@ jobs:
           ' > ops/finance-currency-audit.txt
           cat ops/finance-currency-audit.txt
 
+      - name: Backfill CBR FX rates
+        if: contains(github.event.head_commit.message, '[fx-backfill-now]')
+        env:
+          HOST: ${{ secrets.SELECTEL_HOST }}
+          PORT: ${{ secrets.SELECTEL_PORT }}
+          USER: ${{ secrets.SELECTEL_USER }}
+        run: |
+          set -euo pipefail
+          ssh -o BatchMode=yes -p "${PORT:-22}" "${USER:-root}@$HOST" '
+            set -euo pipefail
+            cd /var/www/duisun
+            set -a; source .env.production; set +a
+            node scripts/fx-cbr-sync.mjs --backfill
+          '
+
       - name: Record deploy status
         if: always()
         continue-on-error: true
