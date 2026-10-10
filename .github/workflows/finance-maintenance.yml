@@ -1,0 +1,100 @@
+name: Finance maintenance
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - 'ops/finance-run.txt'
+
+permissions:
+  contents: write
+
+concurrency:
+  group: finance-selectel-maintenance
+  cancel-in-progress: false
+
+jobs:
+  finance:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 180
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Configure SSH
+        env:
+          HOST: ${{ secrets.SELECTEL_HOST }}
+          PORT: ${{ secrets.SELECTEL_PORT }}
+          USER: ${{ secrets.SELECTEL_USER }}
+          SSH_KEY: ${{ secrets.SELECTEL_SSH_KEY }}
+        run: |
+          set -euo pipefail
+          test -n "$HOST"
+          test -n "$USER"
+          test -n "$SSH_KEY"
+          mkdir -p ~/.ssh
+          chmod 700 ~/.ssh
+          printf '%s\n' "$SSH_KEY" > ~/.ssh/id_ed25519
+          chmod 600 ~/.ssh/id_ed25519
+          ssh-keyscan -p "${PORT:-22}" "$HOST" >> ~/.ssh/known_hosts
+
+      - name: Import marketplace history 2022-current
+        env:
+          HOST: ${{ secrets.SELECTEL_HOST }}
+          PORT: ${{ secrets.SELECTEL_PORT }}
+          USER: ${{ secrets.SELECTEL_USER }}
+        run: |
+          set -euo pipefail
+          mkdir -p ops
+          ssh -o ServerAliveInterval=30 -o ServerAliveCountMax=120 -p "${PORT:-22}" "${USER:-root}@$HOST"             'cd /var/www/duisun && set -a && source .env.production && set +a && timeout 7200s node scripts/finance-history-import.mjs --from-year=2022'             > ops/finance-history-last.json
+          cat ops/finance-history-last.json
+
+      - name: Backfill CBR FX rates
+        env:
+          HOST: ${{ secrets.SELECTEL_HOST }}
+          PORT: ${{ secrets.SELECTEL_PORT }}
+          USER: ${{ secrets.SELECTEL_USER }}
+        run: |
+          set -euo pipefail
+          ssh -o ServerAliveInterval=30 -o ServerAliveCountMax=120 -p "${PORT:-22}" "${USER:-root}@$HOST"             'cd /var/www/duisun && set -a && source .env.production && set +a && timeout 3600s node scripts/fx-cbr-sync.mjs --backfill --from-year=2022'
+
+      - name: Currency audit
+        continue-on-error: true
+        env:
+          HOST: ${{ secrets.SELECTEL_HOST }}
+          PORT: ${{ secrets.SELECTEL_PORT }}
+          USER: ${{ secrets.SELECTEL_USER }}
+        run: |
+          set -euo pipefail
+          ssh -p "${PORT:-22}" "${USER:-root}@$HOST"             'cd /var/www/duisun && set -a && source .env.production && set +a && node scripts/finance-currency-audit.mjs'             > ops/finance-currency-audit.txt
+          cat ops/finance-currency-audit.txt
+
+      - name: Completeness audit
+        continue-on-error: true
+        env:
+          HOST: ${{ secrets.SELECTEL_HOST }}
+          PORT: ${{ secrets.SELECTEL_PORT }}
+          USER: ${{ secrets.SELECTEL_USER }}
+        run: |
+          set -euo pipefail
+          ssh -p "${PORT:-22}" "${USER:-root}@$HOST"             'cd /var/www/duisun && set -a && source .env.production && set +a && timeout 120s node scripts/finance-diagnose.mjs'             > ops/finance-completeness.json
+          cat ops/finance-completeness.json
+
+      - name: Store finance results
+        if: always()
+        continue-on-error: true
+        run: |
+          set -euo pipefail
+          git fetch origin main
+          git reset --hard origin/main
+          mkdir -p ops /tmp/finance-results
+          [ -f ops/finance-history-last.json ] && cp ops/finance-history-last.json /tmp/finance-results/ || true
+          [ -f ops/finance-currency-audit.txt ] && cp ops/finance-currency-audit.txt /tmp/finance-results/ || true
+          [ -f ops/finance-completeness.json ] && cp ops/finance-completeness.json /tmp/finance-results/ || true
+          cp /tmp/finance-results/* ops/ 2>/dev/null || true
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add ops/finance-history-last.json ops/finance-currency-audit.txt ops/finance-completeness.json 2>/dev/null || true
+          git diff --cached --quiet || git commit -m "Record finance maintenance results [skip ci]"
+          git push origin HEAD:main || true
