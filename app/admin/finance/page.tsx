@@ -1,17 +1,25 @@
 'use client';
-// cost-editor-deploy
 import { useEffect,useMemo,useState } from 'react';
 
 const rub=(n:number)=>new Intl.NumberFormat('ru-RU',{style:'currency',currency:'RUB',maximumFractionDigits:0}).format(Number(n)||0);
 const pct=(n:number)=>new Intl.NumberFormat('ru-RU',{maximumFractionDigits:1}).format(Number(n)||0)+'%';
-const monthName=(m:string)=>new Date(m+'-01T00:00:00Z').toLocaleDateString('ru-RU',{month:'short'}).replace('.','');
-const labels:any={wildberries:'Wildberries',ozon:'Ozon',site:'Duisun.ru'};
+const monthName=(m:string,short=true)=>new Date(m+'-01T00:00:00Z').toLocaleDateString('ru-RU',{month:short?'short':'long'}).replace('.','');
+const labels:any={all:'Общее',wildberries:'Wildberries',ozon:'Ozon',site:'Duisun.ru'};
+const empty=()=>({sales:0,net:0,tax:0,cogs:0,variable:0,profit:0,records:0,units:0});
 
 export default function FinancePage(){
  const [year,setYear]=useState(new Date().getFullYear());
- const [data,setData]=useState<any>(null); const [loading,setLoading]=useState(true); const [error,setError]=useState('');
- const [costItems,setCostItems]=useState<any[]>([]); const [costBusy,setCostBusy]=useState(false); const [costStatus,setCostStatus]=useState('');
- const load=async()=>{setLoading(true);setError('');
+ const [channel,setChannel]=useState<'all'|'wildberries'|'ozon'|'site'>('all');
+ const [month,setMonth]=useState('all');
+ const [data,setData]=useState<any>(null);
+ const [loading,setLoading]=useState(true);
+ const [error,setError]=useState('');
+ const [costItems,setCostItems]=useState<any[]>([]);
+ const [costBusy,setCostBusy]=useState(false);
+ const [costStatus,setCostStatus]=useState('');
+
+ const load=async()=>{
+   setLoading(true);setError('');
    const [r,p]=await Promise.all([
      fetch('/api/admin/finance/dashboard?year='+year,{cache:'no-store'}),
      fetch('/api/admin/prices',{cache:'no-store'})
@@ -19,37 +27,133 @@ export default function FinancePage(){
    const j=await r.json().catch(()=>({})); const pj=await p.json().catch(()=>({}));
    if(r.status===401||p.status===401){location.href='/admin?next=/admin/finance';return}
    if(!r.ok){setError([j.error,j.detail].filter(Boolean).join(': ')||'Ошибка загрузки');setLoading(false);return}
-   setData(j); if(p.ok)setCostItems(pj.items||[]); setLoading(false)
+   setData(j); if(p.ok)setCostItems(pj.items||[]); setLoading(false);
  };
+
  const patchCost=(sku:string,v:number)=>setCostItems(prev=>prev.map(x=>x.sku===sku?{...x,costPrice:v}:x));
- const saveCosts=async()=>{setCostBusy(true);setCostStatus('Сохраняю себестоимость…');
+ const saveCosts=async()=>{
+   setCostBusy(true);setCostStatus('Сохраняю себестоимость…');
    const r=await fetch('/api/admin/prices',{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify({items:costItems.map(x=>({
      sku:x.sku,price:Number(x.price)||0,minPrice:Number(x.minPrice)||0,costPrice:Number(x.costPrice)||0,taxRate:Number(x.taxRate)||7,variableCost:Number(x.variableCost)||0,
-     syncOzon:x.syncOzon,syncWb:x.syncWb,syncYandex:x.syncYandex,syncAvito:x.syncAvito,avitoItemId:x.avitoItemId
+     syncOzon:x.syncOzon,syncWb:x.syncWb,syncYandex,syncAvito:x.syncAvito,avitoItemId:x.avitoItemId
    }))})});
    const j=await r.json().catch(()=>({}));
    if(!r.ok){setCostStatus(j.error||'Ошибка сохранения');setCostBusy(false);return}
    setCostItems(j.items||costItems);setCostStatus('✓ Себестоимость сохранена');setCostBusy(false);await load();
  };
+
  useEffect(()=>{load();const t=setInterval(load,300000);return()=>clearInterval(t)},[year]);
- const maxMonthly=useMemo(()=>Math.max(1,...(data?.monthly||[]).map((x:any)=>Math.abs(Number(x.total?.sales)||0))),[data]);
+
+ const selected=useMemo(()=>{
+   if(!data)return empty();
+   let v:any;
+   if(month==='all') v=channel==='all'?data.total:data.channels?.[channel];
+   else{
+     const row=(data.monthly||[]).find((x:any)=>x.month===month);
+     v=channel==='all'?row?.total:row?.[channel];
+   }
+   const z={...empty(),...(v||{})};
+   z.deductions=Number(z.sales||0)-Number(z.net||0);
+   z.margin=z.sales?Number(z.profit||0)/Number(z.sales)*100:0;
+   z.avgCheck=z.units?Number(z.sales||0)/Number(z.units):0;
+   return z;
+ },[data,channel,month]);
+
+ const visibleMonthly=useMemo(()=>{
+   if(!data)return[];
+   const rows=month==='all'?(data.monthly||[]):(data.monthly||[]).filter((x:any)=>x.month===month);
+   return rows.map((x:any)=>({month:x.month,value:channel==='all'?x.total:x[channel]}));
+ },[data,channel,month]);
+
+ const maxMonthly=useMemo(()=>Math.max(1,...visibleMonthly.map((x:any)=>Math.abs(Number(x.value?.sales)||0))),[visibleMonthly]);
+ const scopeTitle=month==='all'?year+' год':monthName(month,false)+' '+year;
+
  if(loading&&!data)return <main className="admin-shell"><section className="admin-card finance-overview"><h1>Финансы</h1><p>Загрузка KPI и P&amp;L…</p></section></main>;
+
  return <main className="admin-shell">
-   <div className="admin-top"><div><h1>Финансы · KPI &amp; P&amp;L</h1><p>Wildberries + Ozon + Duisun.ru · автоматическая сводка</p></div>
-    <div className="finance-filter"><input type="number" min="2022" max="2100" value={year} onChange={e=>setYear(Number(e.target.value))}/><button onClick={load} disabled={loading}>{loading?'Обновление…':'Обновить'}</button></div></div>
+   <div className="admin-top">
+     <div><h1>Финансы · KPI &amp; P&amp;L</h1><p>{labels[channel]} · {scopeTitle} · все суммы в RUB</p></div>
+     <div className="finance-filter">
+       <input type="number" min="2022" max="2100" value={year} onChange={e=>{setYear(Number(e.target.value));setMonth('all')}}/>
+       <button onClick={load} disabled={loading}>{loading?'Обновление…':'Обновить'}</button>
+     </div>
+   </div>
+
+   <section className="admin-card finance-overview">
+     <div className="finance-head"><h2>Канал</h2><p>Отдельный P&amp;L по каждому каналу продаж</p></div>
+     <div style={{display:'flex',gap:8,flexWrap:'wrap'}}>
+       {(['all','wildberries','ozon','site'] as const).map(k=><button key={k} type="button" onClick={()=>setChannel(k)}
+         style={{padding:'10px 16px',borderRadius:10,border:channel===k?'2px solid #231f1b':'1px solid #ded4ca',background:channel===k?'#231f1b':'#fff',color:channel===k?'#fff':'#231f1b',fontWeight:700,cursor:'pointer'}}>
+         {labels[k]}
+       </button>)}
+     </div>
+   </section>
+
+   <section className="admin-card finance-overview">
+     <div className="finance-head"><h2>Период</h2><p>Весь год или отдельный месяц</p></div>
+     <div style={{display:'flex',gap:7,flexWrap:'wrap'}}>
+       <button type="button" onClick={()=>setMonth('all')}
+         style={{padding:'8px 13px',borderRadius:9,border:month==='all'?'2px solid #231f1b':'1px solid #ded4ca',background:month==='all'?'#f1ece5':'#fff',fontWeight:700}}>Весь год</button>
+       {(data?.months||[]).map((m:string)=><button key={m} type="button" onClick={()=>setMonth(m)}
+         style={{padding:'8px 12px',borderRadius:9,border:month===m?'2px solid #231f1b':'1px solid #ded4ca',background:month===m?'#f1ece5':'#fff',fontWeight:month===m?700:500}}>
+         {monthName(m)}
+       </button>)}
+     </div>
+   </section>
+
    {error&&<section className="admin-card finance-error"><b>{error}</b><div>Попробуйте обновить страницу.</div></section>}
    {data&&<>
-    {data.partial&&<section className="admin-card finance-error"><b>Часть источников рассчитана не полностью</b><div>{Object.keys(data.errors||{}).map(k=>k==='wildberries'?'Wildberries':k==='ozon'?'Ozon':k==='site'?'Duisun.ru':k).join(', ')}</div></section>}
+    {data.partial&&<section className="admin-card finance-error"><b>Часть источников рассчитана не полностью</b><div>{Object.keys(data.errors||{}).map(k=>labels[k]||k).join(', ')}</div></section>}
+
     <section className="finance-kpis">
-      <div className="finance-kpi"><span>Выручка</span><strong>{rub(data.total.sales)}</strong><small>Продажи по всем каналам</small></div>
-      <div className="finance-kpi"><span>К выплате / net</span><strong>{rub(data.total.net)}</strong><small>После расчётов маркетплейсов</small></div>
-      <div className="finance-kpi"><span>Прибыль</span><strong>{rub(data.total.profit)}</strong><small>{data.dataQuality.profitFinal?'После всех учтённых затрат':'До незаполненной себестоимости'}</small></div>
-      <div className="finance-kpi"><span>Маржа</span><strong>{pct(data.total.margin)}</strong><small>Прибыль / выручка</small></div>
-      <div className="finance-kpi"><span>Удержания площадок</span><strong>{rub(data.total.deductions)}</strong><small>Продажи − net с учётом корректировок</small></div>
-      <div className="finance-kpi"><span>Налог</span><strong>{rub(data.total.tax)}</strong><small>Расчёт по ставке 7%</small></div>
-      <div className="finance-kpi"><span>Средний чек</span><strong>{rub(data.total.avgCheck)}</strong><small>Выручка / проданные единицы</small></div>
-      <div className="finance-kpi"><span>Себестоимость заполнена</span><strong>{pct(data.dataQuality.costCoverage)}</strong><small>{data.dataQuality.costFilled} из {data.dataQuality.costTotal} SKU</small></div>
+      <div className="finance-kpi"><span>Выручка</span><strong>{rub(selected.sales)}</strong><small>{labels[channel]} · {scopeTitle}</small></div>
+      <div className="finance-kpi"><span>К выплате / net</span><strong>{rub(selected.net)}</strong><small>После удержаний и корректировок</small></div>
+      <div className="finance-kpi"><span>Прибыль</span><strong>{rub(selected.profit)}</strong><small>{data.dataQuality.profitFinal?'После учтённых затрат':'Предварительно, не вся себестоимость заполнена'}</small></div>
+      <div className="finance-kpi"><span>Маржа</span><strong>{pct(selected.margin)}</strong><small>Прибыль / выручка</small></div>
+      <div className="finance-kpi"><span>Удержания</span><strong>{rub(selected.deductions)}</strong><small>Выручка − net</small></div>
+      <div className="finance-kpi"><span>Налог</span><strong>{rub(selected.tax)}</strong><small>По учтённой ставке</small></div>
+      <div className="finance-kpi"><span>Продано единиц</span><strong>{Number(selected.units||0).toLocaleString('ru-RU')}</strong><small>{selected.records||0} финансовых записей</small></div>
+      <div className="finance-kpi"><span>Средний чек</span><strong>{rub(selected.avgCheck)}</strong><small>Выручка / единицы</small></div>
     </section>
+
+    <section className="admin-card finance-overview"><div className="finance-head"><h2>P&amp;L · {labels[channel]}</h2><p>{scopeTitle}</p></div>
+      <div className="admin-table-wrap"><table className="admin-table"><tbody>
+       <tr><td><b>Выручка (Gross sales)</b></td><td style={{textAlign:'right'}}><b>{rub(selected.sales)}</b></td></tr>
+       <tr><td>Удержания / комиссии / корректировки</td><td style={{textAlign:'right'}}>- {rub(selected.deductions)}</td></tr>
+       <tr><td><b>Поступления после площадки (Net)</b></td><td style={{textAlign:'right'}}><b>{rub(selected.net)}</b></td></tr>
+       <tr><td>Налог</td><td style={{textAlign:'right'}}>- {rub(selected.tax)}</td></tr>
+       <tr><td>Себестоимость проданного товара (COGS)</td><td style={{textAlign:'right'}}>- {rub(selected.cogs)}</td></tr>
+       <tr><td>Переменные расходы</td><td style={{textAlign:'right'}}>- {rub(selected.variable)}</td></tr>
+       <tr><td style={{fontSize:16}}><b>Операционная прибыль</b></td><td style={{textAlign:'right',fontSize:18}}><b>{rub(selected.profit)}</b></td></tr>
+      </tbody></table></div>
+    </section>
+
+    <section className="admin-card finance-overview"><div className="finance-head"><h2>По месяцам · {labels[channel]}</h2><p>Выручка, net, себестоимость и прибыль</p></div>
+      <div className="admin-table-wrap"><table className="admin-table">
+        <thead><tr><th>Месяц</th><th>Выручка</th><th>Net</th><th>Удержания</th><th>Налог</th><th>COGS</th><th>Переменные</th><th>Прибыль</th><th>Маржа</th></tr></thead>
+        <tbody>{visibleMonthly.map((x:any)=>{
+          const v=x.value||empty(); const deductions=Number(v.sales||0)-Number(v.net||0); const margin=v.sales?Number(v.profit||0)/Number(v.sales)*100:0;
+          return <tr key={x.month}><td><b>{monthName(x.month,false)} {x.month.slice(0,4)}</b></td><td>{rub(v.sales)}</td><td>{rub(v.net)}</td><td>{rub(deductions)}</td><td>{rub(v.tax)}</td><td>{rub(v.cogs)}</td><td>{rub(v.variable)}</td><td><b>{rub(v.profit)}</b></td><td>{pct(margin)}</td></tr>
+        })}</tbody>
+      </table></div>
+    </section>
+
+    <section className="admin-card finance-overview"><div className="finance-head"><h2>Динамика · {labels[channel]}</h2><p>Выручка и прибыль по месяцам</p></div>
+      <div className="finance-bars">{visibleMonthly.map((x:any)=><div className="finance-bar-row" key={x.month}>
+       <div className="finance-bar-label"><b>{monthName(x.month)} {x.month.slice(0,4)}</b><small>Прибыль {rub(x.value?.profit)}</small></div>
+       <div className="finance-bar-track"><i style={{width:Math.max(0,Math.min(100,Math.abs(Number(x.value?.sales)||0)/maxMonthly*100))+'%'}}/></div>
+       <strong>{rub(x.value?.sales)}</strong>
+      </div>)}</div>
+    </section>
+
+    {channel==='all'&&<section className="admin-card finance-overview"><div className="finance-head"><h2>Сравнение каналов</h2><p>{scopeTitle}</p></div>
+      <div className="admin-table-wrap"><table className="admin-table"><thead><tr><th>Канал</th><th>Продажи</th><th>Net</th><th>Налог</th><th>COGS</th><th>Прибыль</th><th>Маржа</th></tr></thead><tbody>
+       {(['wildberries','ozon','site'] as const).map(key=>{
+         const v=month==='all'?data.channels[key]:(data.monthly.find((x:any)=>x.month===month)?.[key]||empty());
+         return <tr key={key}><td><b>{labels[key]}</b></td><td>{rub(v.sales)}</td><td>{rub(v.net)}</td><td>{rub(v.tax)}</td><td>{rub(v.cogs)}</td><td><b>{rub(v.profit)}</b></td><td>{pct(v.sales?v.profit/v.sales*100:0)}</td></tr>
+       })}
+      </tbody></table></div>
+    </section>}
 
     <section className="admin-card finance-overview"><div className="finance-head"><h2>Валюта отчёта</h2><p>Все суммы приводятся к российским рублям</p></div>
       <div className="finance-flow">
@@ -58,54 +162,21 @@ export default function FinancePage(){
         <div><span>Валюты в данных</span><b>{(data.fx?.currencies||['RUB']).join(', ')}</b></div>
         <div><span>Конвертировано операций</span><b>{data.fx?.convertedRecords||0}</b></div>
       </div>
-      {data.fx?.approximateRates&&<p><small>Для части операций использован ближайший доступный курс; после backfill исторических курсов расчёт уточнится автоматически.</small></p>}
       {!!data.fx?.missingRates?.length&&<div className="finance-error"><b>Не хватает курсов</b><div>{data.fx.missingRates.slice(0,10).join(', ')}</div></div>}
     </section>
 
     {!data.dataQuality.profitFinal&&<section className="admin-card finance-error"><b>Прибыль пока предварительная</b><div>Не у всех SKU заполнена себестоимость. Заполни её ниже — P&amp;L пересчитается автоматически.</div></section>}
 
     <section className="admin-card finance-overview">
-      <div className="finance-head">
-        <div><h2>Себестоимость товаров</h2><p>Введите закупочную / производственную себестоимость за 1 шт. в рублях</p></div>
-        <button className="save-btn" disabled={costBusy||!costItems.length} onClick={saveCosts}>{costBusy?'Сохраняю…':'Сохранить себестоимость'}</button>
-      </div>
+      <div className="finance-head"><div><h2>Себестоимость товаров</h2><p>Закупочная / производственная себестоимость за 1 шт. в рублях</p></div>
+        <button className="save-btn" disabled={costBusy||!costItems.length} onClick={saveCosts}>{costBusy?'Сохраняю…':'Сохранить себестоимость'}</button></div>
       {costStatus&&<p><b>{costStatus}</b></p>}
       <div className="admin-table-wrap"><table className="admin-table" style={{minWidth:760}}>
         <thead><tr><th>SKU</th><th>Товар</th><th>Себестоимость / шт.</th><th>Цена продажи</th><th>Статус</th></tr></thead>
-        <tbody>{costItems.map((x:any)=><tr key={x.sku}>
-          <td><b>{x.sku}</b></td>
-          <td>{x.title||'Без названия'}</td>
+        <tbody>{costItems.map((x:any)=><tr key={x.sku}><td><b>{x.sku}</b></td><td>{x.title||'Без названия'}</td>
           <td><input aria-label={'Себестоимость '+x.sku} type="number" min="0" step="1" value={x.costPrice??0} onChange={e=>patchCost(x.sku,Number(e.target.value))} style={{width:150,padding:'9px 10px',border:'1px solid #ded4ca',borderRadius:9}}/> ₽</td>
-          <td>{rub(x.price||0)}</td>
-          <td>{Number(x.costPrice)>0?'Заполнено':'Нужно заполнить'}</td>
-        </tr>)}</tbody>
+          <td>{rub(x.price||0)}</td><td>{Number(x.costPrice)>0?'Заполнено':'Нужно заполнить'}</td></tr>)}</tbody>
       </table></div>
-    </section>
-
-    <section className="admin-card finance-overview"><div className="finance-head"><h2>P&amp;L</h2><p>Управленческий отчёт за {year} год</p></div>
-      <div className="admin-table-wrap"><table className="admin-table"><tbody>
-       <tr><td><b>Выручка (Gross sales)</b></td><td style={{textAlign:'right'}}><b>{rub(data.pAndL.sales)}</b></td></tr>
-       <tr><td>Удержания / комиссии / корректировки площадок</td><td style={{textAlign:'right'}}>- {rub(data.pAndL.marketplaceDeductions)}</td></tr>
-       <tr><td><b>Поступления после площадок (Net)</b></td><td style={{textAlign:'right'}}><b>{rub(data.pAndL.net)}</b></td></tr>
-       <tr><td>Налог 7%</td><td style={{textAlign:'right'}}>- {rub(data.pAndL.tax)}</td></tr>
-       <tr><td>Себестоимость проданного товара (COGS)</td><td style={{textAlign:'right'}}>- {rub(data.pAndL.cogs)}</td></tr>
-       <tr><td>Переменные расходы</td><td style={{textAlign:'right'}}>- {rub(data.pAndL.variable)}</td></tr>
-       <tr><td style={{fontSize:16}}><b>Операционная прибыль</b></td><td style={{textAlign:'right',fontSize:18}}><b>{rub(data.pAndL.profit)}</b></td></tr>
-      </tbody></table></div>
-    </section>
-
-    <section className="admin-card finance-overview"><div className="finance-head"><h2>Каналы продаж</h2><p>Сравнение эффективности каналов</p></div>
-      <div className="admin-table-wrap"><table className="admin-table"><thead><tr><th>Канал</th><th>Продажи</th><th>Net</th><th>Налог</th><th>COGS</th><th>Прибыль</th><th>Маржа</th></tr></thead><tbody>
-       {Object.entries(data.channels).map(([key,v]:any)=><tr key={key}><td><b>{labels[key]||key}</b></td><td>{rub(v.sales)}</td><td>{rub(v.net)}</td><td>{rub(v.tax)}</td><td>{rub(v.cogs)}</td><td><b>{rub(v.profit)}</b></td><td>{pct(v.sales?v.profit/v.sales*100:0)}</td></tr>)}
-      </tbody></table></div>
-    </section>
-
-    <section className="admin-card finance-overview"><div className="finance-head"><h2>Динамика по месяцам</h2><p>Выручка и прибыль</p></div>
-      <div className="finance-bars">{data.monthly.map((x:any)=><div className="finance-bar-row" key={x.month}>
-       <div className="finance-bar-label"><b>{monthName(x.month)} {x.month.slice(0,4)}</b><small>Прибыль {rub(x.total.profit)}</small></div>
-       <div className="finance-bar-track"><i style={{width:Math.max(0,Math.min(100,Math.abs(x.total.sales)/maxMonthly*100))+'%'}}/></div>
-       <strong>{rub(x.total.sales)}</strong>
-      </div>)}</div>
     </section>
 
     <section className="admin-card finance-overview"><div className="finance-head"><h2>Состояние данных</h2><p>Последняя синхронизация финансовых источников</p></div>
