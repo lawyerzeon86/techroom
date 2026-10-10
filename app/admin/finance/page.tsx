@@ -4,12 +4,12 @@ import { useEffect,useMemo,useState } from 'react';
 const rub=(n:number)=>new Intl.NumberFormat('ru-RU',{style:'currency',currency:'RUB',maximumFractionDigits:0}).format(Number(n)||0);
 const pct=(n:number)=>new Intl.NumberFormat('ru-RU',{maximumFractionDigits:1}).format(Number(n)||0)+'%';
 const monthName=(m:string,short=true)=>new Date(m+'-01T00:00:00Z').toLocaleDateString('ru-RU',{month:short?'short':'long'}).replace('.','');
-const labels:any={all:'Сводка',wildberries:'Wildberries',ozon:'Ozon',site:'Duisun.ru'};
+const labels:any={all:'Сводка',wildberries:'Wildberries',ozon:'Ozon',avito:'Avito',site:'Duisun.ru'};
 const empty=()=>({sales:0,net:0,tax:0,cogs:0,variable:0,profit:0,records:0,units:0});
 
 export default function FinancePage(){
  const [year,setYear]=useState(new Date().getFullYear());
- const [channel,setChannel]=useState<'all'|'wildberries'|'ozon'|'site'>('all');
+ const [channel,setChannel]=useState<'all'|'wildberries'|'ozon'|'avito'|'site'>('all');
  const [month,setMonth]=useState('all');
  const [data,setData]=useState<any>(null);
  const [loading,setLoading]=useState(true);
@@ -82,7 +82,7 @@ export default function FinancePage(){
    <section className="admin-card finance-overview">
      <div className="finance-head"><h2>Вкладки по каналам</h2><p>Сводка, Wildberries, Ozon и Duisun.ru</p></div>
      <div style={{display:'flex',gap:8,flexWrap:'wrap'}}>
-       {(['all','wildberries','ozon','site'] as const).map(k=><button key={k} type="button" onClick={()=>{setChannel(k);setMonth('all')}}
+       {(['all','wildberries','ozon','avito','site'] as const).map(k=><button key={k} type="button" onClick={()=>{setChannel(k);setMonth('all')}}
          style={{padding:'10px 16px',borderRadius:10,border:channel===k?'2px solid #231f1b':'1px solid #ded4ca',background:channel===k?'#231f1b':'#fff',color:channel===k?'#fff':'#231f1b',fontWeight:700,cursor:'pointer'}}>
          {labels[k]}
        </button>)}
@@ -148,7 +148,7 @@ export default function FinancePage(){
 
     {channel==='all'&&<section className="admin-card finance-overview"><div className="finance-head"><h2>Сравнение каналов</h2><p>{scopeTitle}</p></div>
       <div className="admin-table-wrap"><table className="admin-table"><thead><tr><th>Канал</th><th>Продажи</th><th>Net</th><th>Налог</th><th>COGS</th><th>Прибыль</th><th>Маржа</th></tr></thead><tbody>
-       {(['wildberries','ozon','site'] as const).map(key=>{
+       {(['wildberries','ozon','avito','site'] as const).map(key=>{
          const v=month==='all'?data.channels[key]:(data.monthly.find((x:any)=>x.month===month)?.[key]||empty());
          return <tr key={key}><td><b>{labels[key]}</b></td><td>{rub(v.sales)}</td><td>{rub(v.net)}</td><td>{rub(v.tax)}</td><td>{rub(v.cogs)}</td><td><b>{rub(v.profit)}</b></td><td>{pct(v.sales?v.profit/v.sales*100:0)}</td></tr>
        })}
@@ -180,7 +180,7 @@ export default function FinancePage(){
     </section>
 
     <section className="admin-card finance-overview"><div className="finance-head"><h2>Состояние данных</h2><p>Последняя синхронизация финансовых источников</p></div>
-      <div className="finance-flow">{['wildberries','wildberries_reports','ozon'].map(k=><div key={k}><span>{k==='wildberries_reports'?'WB выплаты':labels[k]||k}</span><b>{data.updated?.[k]?new Date(data.updated[k]).toLocaleString('ru-RU'):'Нет данных'}</b></div>)}</div>
+      <div className="finance-flow">{['wildberries','wildberries_reports','ozon','avito'].map(k=><div key={k}><span>{k==='wildberries_reports'?'WB выплаты':labels[k]||k}</span><b>{data.updated?.[k]?new Date(data.updated[k]).toLocaleString('ru-RU'):'Нет данных'}</b></div>)}</div>
     </section>
    </>}
  </main>
