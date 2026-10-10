@@ -5,7 +5,10 @@ on:
     branches: [main]
     paths-ignore:
       - 'ops/deploy-last-status.txt'
-      - 'ops/finance-2026-last.json'
+      - 'ops/finance-run.txt'
+      - 'ops/finance-history-last.json'
+      - 'ops/finance-completeness.json'
+      - 'ops/finance-currency-audit.txt'
   workflow_dispatch:
 
 permissions:
@@ -13,11 +16,12 @@ permissions:
 
 concurrency:
   group: deploy-selectel-production
-  cancel-in-progress: false
+  cancel-in-progress: true
 
 jobs:
   deploy:
     runs-on: ubuntu-24.04
+    timeout-minutes: 15
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -48,23 +52,7 @@ jobs:
           printf '%s\n' "$SSH_KEY" > ~/.ssh/id_ed25519
           chmod 600 ~/.ssh/id_ed25519
           ssh-keyscan -p "$PORT" "$HOST" >> ~/.ssh/known_hosts
-          ssh -p "$PORT" "$USER@$HOST" 'bash -s' < scripts/deploy-selectel.sh
-
-      - name: Configure Telegram shop
-        if: steps.deploy.outcome == 'success'
-        env:
-          HOST: ${{ secrets.SELECTEL_HOST }}
-          PORT: ${{ secrets.SELECTEL_PORT }}
-        run: |
-          set -euo pipefail
-          for attempt in 1 2 3; do
-            if ssh -p "${PORT:-22}" "root@$HOST" 'cd /var/www/duisun; set -a; source .env.production; set +a; node scripts/telegram-config-export.mjs' | node scripts/configure-telegram.mjs; then
-              exit 0
-            fi
-            echo "::warning::Telegram API configuration attempt $attempt failed"
-            sleep $((attempt * 5))
-          done
-          echo "::warning::Telegram API is temporarily unreachable; deploy continues with the existing webhook configuration"
+          ssh -o ServerAliveInterval=30 -o ServerAliveCountMax=20 -p "$PORT" "$USER@$HOST" 'bash -s' < scripts/deploy-selectel.sh
 
       - name: Verify production
         id: verify
@@ -72,96 +60,16 @@ jobs:
         continue-on-error: true
         run: |
           set -euo pipefail
-          health="$(curl --fail --silent --show-error --max-time 30 https://duisun.ru/api/health)"
+          health="$(curl --fail --silent --show-error --max-time 20 https://duisun.ru/api/health)"
           echo "$health" | jq -e '.ok == true and .database == "up"'
-          status="$(curl --silent --show-error --output /dev/null --write-out '%{http_code}' --max-time 30 https://duisun.ru/admin/whatsapp)"
+          status="$(curl --silent --show-error --output /dev/null --write-out '%{http_code}' --max-time 20 https://duisun.ru/admin/whatsapp)"
           test "$status" = 200
-
-      - name: Capture finance dashboard diagnostic
-        if: contains(github.event.head_commit.message, '[finance-dash-diagnose]')
-        env:
-          HOST: ${{ secrets.SELECTEL_HOST }}
-          PORT: ${{ secrets.SELECTEL_PORT }}
-          USER: ${{ secrets.SELECTEL_USER }}
-        run: |
-          set -euo pipefail
-          mkdir -p ops
-          ssh -o BatchMode=yes -p "${PORT:-22}" "${USER:-root}@$HOST" '
-            set -euo pipefail
-            echo "=== PM2 FINANCE ERROR ==="
-            pm2 logs duisun --nostream --lines 250 2>&1 | grep -A12 -B4 "FINANCE_DASHBOARD_FAILED" | tail -n 120 || true
-            echo "=== DB SHAPE ==="
-            cd /var/www/duisun
-            set -a; source .env.production; set +a
-            echo -n "finance_pages="
-            psql "$DATABASE_URL" -Atc "select count(*) from marketplace_finance_pages" 2>&1 || true
-            echo "months:"
-            psql "$DATABASE_URL" -Atc "select source||'''|'''||month||'''|'''||count(*) from marketplace_finance_pages group by source,month order by source,month" 2>&1 || true
-            echo "order_columns:"
-            psql "$DATABASE_URL" -Atc "select column_name||'''|'''||data_type from information_schema.columns where table_name='''orders''' and column_name in ('''created_at''','''total_amount''','''payment_status''','''paid_at''') order by column_name" 2>&1 || true
-          ' > ops/finance-dashboard-diagnostic.txt 2>&1 || true
-
-      - name: Finance currency audit
-        if: contains(github.event.head_commit.message, '[finance-currency-audit]')
-        env:
-          HOST: ${{ secrets.SELECTEL_HOST }}
-          PORT: ${{ secrets.SELECTEL_PORT }}
-          USER: ${{ secrets.SELECTEL_USER }}
-        run: |
-          set -euo pipefail
-          mkdir -p ops
-          ssh -o BatchMode=yes -p "${PORT:-22}" "${USER:-root}@$HOST" '
-            set -euo pipefail
-            cd /var/www/duisun
-            set -a; source .env.production; set +a
-            node scripts/finance-currency-audit.mjs
-          ' > ops/finance-currency-audit.txt
-          cat ops/finance-currency-audit.txt
-
-      - name: Finance completeness check
-        if: contains(github.event.head_commit.message, '[finance-completeness]')
-        continue-on-error: true
-        env:
-          HOST: ${{ secrets.SELECTEL_HOST }}
-          PORT: ${{ secrets.SELECTEL_PORT }}
-          USER: ${{ secrets.SELECTEL_USER }}
-        run: |
-          set -euo pipefail
-          mkdir -p ops
-          ssh -o BatchMode=yes -o ServerAliveInterval=30 -o ServerAliveCountMax=20 -p "${PORT:-22}" "${USER:-root}@$HOST" 'cd /var/www/duisun && set -a && source .env.production && set +a && timeout 120s node scripts/finance-diagnose.mjs' > ops/finance-completeness.json
-          cat ops/finance-completeness.json
-
-      - name: Backfill CBR FX rates
-        if: contains(github.event.head_commit.message, '[fx-backfill-now]')
-        env:
-          HOST: ${{ secrets.SELECTEL_HOST }}
-          PORT: ${{ secrets.SELECTEL_PORT }}
-          USER: ${{ secrets.SELECTEL_USER }}
-        run: |
-          set -euo pipefail
-          ssh -o BatchMode=yes -p "${PORT:-22}" "${USER:-root}@$HOST" '
-            set -euo pipefail
-            cd /var/www/duisun
-            set -a; source .env.production; set +a
-            timeout 3600s node scripts/fx-cbr-sync.mjs --backfill --from-year=2022
-          '
-
-      - name: Import multi-year marketplace finance
-        if: contains(github.event.head_commit.message, '[finance-history]')
-        env:
-          HOST: ${{ secrets.SELECTEL_HOST }}
-          PORT: ${{ secrets.SELECTEL_PORT }}
-          USER: ${{ secrets.SELECTEL_USER }}
-        run: |
-          set -euo pipefail
-          mkdir -p ops
-          ssh -o BatchMode=yes -o ServerAliveInterval=30 -o ServerAliveCountMax=120 -p "${PORT:-22}" "${USER:-root}@$HOST" 'cd /var/www/duisun && set -a && source .env.production && set +a && timeout 7200s node scripts/finance-history-import.mjs --from-year=2022' > ops/finance-history-last.json
-          cat ops/finance-history-last.json
 
       - name: Record deploy status
         if: always()
         continue-on-error: true
         run: |
+          set -euo pipefail
           mkdir -p ops
           {
             echo "commit=${GITHUB_SHA}"
@@ -170,152 +78,14 @@ jobs:
             echo "verify=${{ steps.verify.outcome }}"
             echo "time=$(date -u +%Y-%m-%dT%H:%M:%SZ)"
           } > ops/deploy-last-status.txt
-          mkdir -p /tmp/duisun-ops
-          cp ops/deploy-last-status.txt /tmp/duisun-ops/
-          [ -f ops/finance-dashboard-diagnostic.txt ] && cp ops/finance-dashboard-diagnostic.txt /tmp/duisun-ops/ || true
-          [ -f ops/finance-currency-audit.txt ] && cp ops/finance-currency-audit.txt /tmp/duisun-ops/ || true
-          [ -f ops/finance-completeness.json ] && cp ops/finance-completeness.json /tmp/duisun-ops/ || true
-          [ -f ops/finance-history-last.json ] && cp ops/finance-history-last.json /tmp/duisun-ops/ || true
-          git fetch origin main
-          git reset --hard origin/main
-          mkdir -p ops
-          cp /tmp/duisun-ops/* ops/ 2>/dev/null || true
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add ops/deploy-last-status.txt
-          [ -f ops/finance-dashboard-diagnostic.txt ] && git add ops/finance-dashboard-diagnostic.txt || true
-          [ -f ops/finance-currency-audit.txt ] && git add ops/finance-currency-audit.txt || true
-          [ -f ops/finance-completeness.json ] && git add ops/finance-completeness.json || true
-          [ -f ops/finance-history-last.json ] && git add ops/finance-history-last.json || true
           git diff --cached --quiet || git commit -m "Record Selectel deploy status [skip ci]"
+          git fetch origin main
+          git rebase origin/main || true
           git push origin HEAD:main || true
 
       - name: Fail if deployment failed
         if: steps.deploy.outcome != 'success' || steps.verify.outcome != 'success'
         run: exit 1
-
-      - name: Audit catalog and verify checkout on Selectel
-        if: contains(github.event.head_commit.message, '[launch-audit]')
-        env:
-          HOST: ${{ secrets.SELECTEL_HOST }}
-          PORT: ${{ secrets.SELECTEL_PORT }}
-        run: |
-          set -euo pipefail
-          ssh -p "${PORT:-22}" "root@$HOST" 'set -euo pipefail; cd /var/www/duisun; set -a; source .env.production; set +a; bash scripts/verify-backup.sh; node scripts/audit-store.mjs; node scripts/verify-checkout.mjs'
-          ssh -p "${PORT:-22}" "root@$HOST" 'cd /var/www/duisun; set -a; source .env.production; set +a; node scripts/telegram-outbox.mjs export' | node scripts/deliver-telegram-outbox.mjs | ssh -p "${PORT:-22}" "root@$HOST" 'cd /var/www/duisun; set -a; source .env.production; set +a; node scripts/telegram-outbox.mjs ack'
-
-      - name: Import 2026 marketplace finance on Selectel
-        if: contains(github.event.head_commit.message, '[finance-import-2026]')
-        env:
-          HOST: ${{ secrets.SELECTEL_HOST }}
-          PORT: ${{ secrets.SELECTEL_PORT }}
-          USER: ${{ secrets.SELECTEL_USER }}
-        run: |
-          set -euo pipefail
-          test -n "$HOST"
-          ssh -o BatchMode=yes -p "${PORT:-22}" "${USER:-root}@$HOST" "cd /var/www/duisun && set -a && source .env.production && set +a && node scripts/finance-2026-import.mjs"
-
-      - name: Encrypt 2026 finance summary
-        if: contains(github.event.head_commit.message, '[finance-import-2026]') || contains(github.event.head_commit.message, '[finance-summary-only]')
-        env:
-          HOST: ${{ secrets.SELECTEL_HOST }}
-          PORT: ${{ secrets.SELECTEL_PORT }}
-          USER: ${{ secrets.SELECTEL_USER }}
-          FINANCE_PUB_B64: LS0tLS1CRUdJTiBQVUJMSUMgS0VZLS0tLS0KTUlJQ0lqQU5CZ2txaGtpRzl3MEJBUUVGQUFPQ0FnOEFNSUlDQ2dLQ0FnRUExV0ZJSFZ6dlk0YjhtV0w5ZlVyRwplN1RTQUJOOExrQlUzMG12V0dVNlJJeXVoTkxHSXgwaVZ6VUJNbk94cElDNXRFMFUrOEJJa0UxblZhR0tLcVFNCk9nSG9Edml5bHZJK0NTcGtmQ3dEQldJZ2tVZlZibUNLQWQvZDRVQzA2Qzd6T21FaHF1bFBJck1SbGJGVXZsVDgKcTVVS0UrTnZHSWlRL2lQV05pdW1wbDdweGEyd3Q0eTZ0Q1Azeis2UVNPS0M2RWRuWUxBUkZQQWhaUHhJMUZvdQpCb1UxQWI5SW9PL1czRUY1SEN0djZvNlNtT0ZaVHZnM29zQ3lRVU1JWjZZS21MT3F1UkNieHA2SHVqOUxKSmFpCm9uSXRPbUdlNmdHTmtkRTY0TzFGckljZHVWZmRkMlFyWTMrLzc4WWJQKythbTV2TUxjaDZyWlEwQ285Q0p3aUYKdktwU1BJeUl6cldvam9MRGh6SVRqQnhmM1I4N3pZbENSbTZobTgvdmNPb2p5YU9lMHhGVloxc2tsVkN1NHRJWgordnh3Nkh5SFhpZldRaUEvZDZMeXU2TTFieUhVTjZYZnFieDFESlJLWHlab0Z6cFlSL1oyWjFIVmFGOGgxcjYzCmFuUzlJY1gxdmVGdS9XZ3NxVzI4c04ySWM3ZzRsb0ozMkFLYUF0UDNqb1Jscm0vYjlZNWRZaGdCY1J1STFHRjcKMWlieVFuVTA3anpKRHdzdVpvZlNiN2lud3MzbUlXb0l3dTE2QThUTUJYcEZtdlhlY05lOTZKSzMrOHZsd1dscwp2eU1TTFM0cmczWmZJNlF1dGJiTjlxcXhtSllScjlnMEhQYjRUWkI0NndSS3BjVDFYbG5XQjd1eml2aWFqMkdOCmNvaWI0OE5oZmJDaWxtQ0tTdURGVGlzQ0F3RUFBUT09Ci0tLS0tRU5EIFBVQkxJQyBLRVktLS0tLQo=
-        run: |
-          set -euo pipefail
-          mkdir -p ops
-          echo "$FINANCE_PUB_B64" | base64 -d > /tmp/finance-pub.pem
-          openssl pkey -pubin -in /tmp/finance-pub.pem -noout
-          scp -P "${PORT:-22}" /tmp/finance-pub.pem "${USER:-root}@$HOST:/tmp/finance-pub.pem"
-          ssh -o BatchMode=yes -p "${PORT:-22}" "${USER:-root}@$HOST" '
-            set -euo pipefail
-            cd /var/www/duisun
-            set -a; source .env.production; set +a
-            node scripts/finance-2026-summary.mjs > /root/duisun-finance-summary-2026.json
-            KEY=$(openssl rand -hex 32)
-            openssl enc -aes-256-cbc -pbkdf2 -salt -in /root/duisun-finance-summary-2026.json -out /tmp/finance-summary-2026.enc -pass pass:"$KEY"
-            printf "%s" "$KEY" | openssl pkeyutl -encrypt -pubin -inkey /tmp/finance-pub.pem -pkeyopt rsa_padding_mode:oaep -out /tmp/finance-key-2026.enc
-            rm -f /tmp/finance-pub.pem
-          '
-          scp -P "${PORT:-22}" "${USER:-root}@$HOST:/tmp/finance-summary-2026.enc" /tmp/finance-summary-2026.enc
-          scp -P "${PORT:-22}" "${USER:-root}@$HOST:/tmp/finance-key-2026.enc" /tmp/finance-key-2026.enc
-          base64 -w0 /tmp/finance-summary-2026.enc > ops/finance-summary-2026.b64
-          base64 -w0 /tmp/finance-key-2026.enc > ops/finance-key-2026.b64
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add ops/finance-summary-2026.b64 ops/finance-key-2026.b64
-          git diff --cached --quiet || git commit -m "Store encrypted 2026 finance summary [skip ci]"
-          git push origin HEAD:main
-
-
-      - name: Finance schema probe
-        if: contains(github.event.head_commit.message, '[finance-schema]')
-        env:
-          HOST: ${{ secrets.SELECTEL_HOST }}
-          PORT: ${{ secrets.SELECTEL_PORT }}
-          USER: ${{ secrets.SELECTEL_USER }}
-        run: |
-          set -euo pipefail
-          ssh -o BatchMode=yes -p "${PORT:-22}" "${USER:-root}@$HOST" "cd /var/www/duisun && set -a && source .env.production && set +a && node scripts/finance-schema.mjs"
-
-      - name: Run YTD finance sync now
-        if: contains(github.event.head_commit.message, '[finance-ytd-now]')
-        env:
-          HOST: ${{ secrets.SELECTEL_HOST }}
-          PORT: ${{ secrets.SELECTEL_PORT }}
-          USER: ${{ secrets.SELECTEL_USER }}
-        run: |
-          set -euo pipefail
-          ssh -o BatchMode=yes -p "${PORT:-22}" "${USER:-root}@$HOST" '
-            set -euo pipefail
-            systemctl start duisun-finance-sync.service
-            systemctl is-active --quiet duisun-finance-sync.service && exit 1 || true
-            systemctl show duisun-finance-sync.service -p Result --value
-            test -s /var/log/duisun-finance-sync-last.json
-          '
-          scp -P "${PORT:-22}" "${USER:-root}@$HOST:/var/log/duisun-finance-sync-last.json" /tmp/finance-sync.json
-          node -e 'const fs=require("fs");const x=JSON.parse(fs.readFileSync("/tmp/finance-sync.json","utf8"));console.log(JSON.stringify({ok:x.ok,year:x.import?.year||x.year,wb:x.import?.wildberries,ozon:x.import?.ozon?.[0],stored:(x.stored||[]).map(v=>({source:v.source,month:v.month,rows:v.rows}))}))'
-
-      - name: Check admin auth metadata
-        if: contains(github.event.head_commit.message, '[admin-auth-check]')
-        env:
-          HOST: ${{ secrets.SELECTEL_HOST }}
-          PORT: ${{ secrets.SELECTEL_PORT }}
-          USER: ${{ secrets.SELECTEL_USER }}
-        run: |
-          set -euo pipefail
-          ssh -o BatchMode=yes -p "${PORT:-22}" "${USER:-root}@$HOST" '
-            set -euo pipefail
-            source /root/duisun-admin.env
-            echo "ADMIN_ENV_EXISTS=yes"
-            echo "ADMIN_PASSWORD_LENGTH=${#ADMIN_PASSWORD}"
-            if [ "${#ADMIN_PASSWORD}" -lt 12 ]; then echo "ADMIN_PASSWORD_POLICY=too_short"; else echo "ADMIN_PASSWORD_POLICY=ok"; fi
-            stat -c "ADMIN_ENV_MTIME=%y" /root/duisun-admin.env
-            cd /var/www/duisun
-            set -a; source .env.production; set +a
-            node -e "console.log('APP_ADMIN_PASSWORD_LENGTH='+String(process.env.ADMIN_PASSWORD||'').length)"
-          '
-
-      - name: Verify admin password wiring
-        if: contains(github.event.head_commit.message, '[admin-auth-verify]')
-        env:
-          HOST: ${{ secrets.SELECTEL_HOST }}
-          PORT: ${{ secrets.SELECTEL_PORT }}
-          USER: ${{ secrets.SELECTEL_USER }}
-        run: |
-          set -euo pipefail
-          ssh -o BatchMode=yes -p "${PORT:-22}" "${USER:-root}@$HOST" '
-            set -euo pipefail
-            ROOT_PASS=$(sed -n "s/^ADMIN_PASSWORD=//p" /root/duisun-admin.env | head -n1)
-            APP_PASS=$(sed -n "s/^ADMIN_PASSWORD=//p" /var/www/duisun/.env.production | head -n1)
-            test -n "$ROOT_PASS"
-            test -n "$APP_PASS"
-            if [ "$ROOT_PASS" = "$APP_PASS" ]; then echo "ADMIN_PASSWORD_WIRING=match"; else echo "ADMIN_PASSWORD_WIRING=mismatch"; fi
-            ROOT_HASH=$(printf "%s" "$ROOT_PASS" | sha256sum | cut -d" " -f1)
-            APP_HASH=$(printf "%s" "$APP_PASS" | sha256sum | cut -d" " -f1)
-            if [ "$ROOT_HASH" = "$APP_HASH" ]; then echo "ADMIN_PASSWORD_HASH=match"; else echo "ADMIN_PASSWORD_HASH=mismatch"; fi
-            STATUS=$(curl -sS -o /tmp/admin-login-test.json -w "%{http_code}" -X POST http://127.0.0.1:3000/api/admin/login -H "Content-Type: application/json" --data "{\"password\":\"__definitely_wrong_password__\"}")
-            echo "WRONG_PASSWORD_HTTP=$STATUS"
-            cat /tmp/admin-login-test.json
-          '
