@@ -95,6 +95,41 @@ function moneyToRubles(value:any){
   return 0;
 }
 
+function wbMoneyToRubles(value:any){
+  return Math.round((Number(value)||0)/100);
+}
+
+type WbOrderStatus={
+  id:number;
+  supplierStatus?:string;
+  wbStatus?:string;
+  isCancellable?:boolean;
+  isTransferable?:boolean;
+};
+
+async function fetchWildberriesStatuses(token:string,ids:number[]){
+  const result=new Map<number,WbOrderStatus>();
+  for(let offset=0;offset<ids.length;offset+=1000){
+    const batch=ids.slice(offset,offset+1000);
+    if(!batch.length) continue;
+    const response=await fetch('https://marketplace-api.wildberries.ru/api/v3/orders/status',{
+      method:'POST',
+      headers:{Authorization:token,'Content-Type':'application/json'},
+      body:JSON.stringify({orders:batch}),
+      cache:'no-store',
+    });
+    const data=await readJson(response);
+    for(const status of Array.isArray(data?.orders)?data.orders:[]){
+      if(Number.isFinite(Number(status?.id))) result.set(Number(status.id),status);
+    }
+  }
+  return result;
+}
+
+function isWbCancelled(status?:WbOrderStatus){
+  return /cancel|declin/i.test(`${status?.supplierStatus||''} ${status?.wbStatus||''}`);
+}
+
 async function notifyWildberriesFbsOrder(order:any,totalAmount:number){
   const chatId=process.env.TELEGRAM_ADMIN_CHAT_ID?.trim();
   if(!chatId||!process.env.TELEGRAM_BOT_TOKEN?.trim()) return false;
@@ -150,28 +185,55 @@ export async function syncWildberriesOrders(){
   });
   const data=await readJson(res);
   const orders=Array.isArray(data?.orders)?data.orders:[];
+  await ensureSchema();
+  const pool=getPool();
+  const pending=await pool.query(`SELECT external_id,status FROM marketplace_orders
+    WHERE source='wildberries' AND external_created_at >= NOW()-INTERVAL '30 days'
+    ORDER BY synced_at DESC LIMIT 1000`);
+  const statusIds=Array.from(new Set([
+    ...orders.map((order:any)=>Number(order.id)),
+    ...pending.rows.map((row:any)=>Number(row.external_id)),
+  ].filter(Number.isFinite)));
+  const statuses=await fetchWildberriesStatuses(token,statusIds);
+
+  for(const row of pending.rows){
+    const id=Number(row.external_id);
+    const status=statuses.get(id);
+    const nextStatus=String(status?.wbStatus||status?.supplierStatus||'');
+    if(nextStatus&&nextStatus!==row.status){
+      await pool.query(`UPDATE marketplace_orders
+        SET status=$1,raw_payload=raw_payload||$2::jsonb,synced_at=NOW(),updated_at=NOW()
+        WHERE source='wildberries' AND external_id=$3`,[
+          nextStatus,JSON.stringify({supplierStatus:status?.supplierStatus,wbStatus:status?.wbStatus}),String(id)
+        ]);
+    }
+  }
   let notified=0;
   for(const o of orders){
-    const totalAmount=Math.round(Number(o.finalPrice??o.convertedFinalPrice??o.price??0)||0);
+    const status=statuses.get(Number(o.id));
+    const orderStatus=String(status?.wbStatus||status?.supplierStatus||'new');
+    const totalAmount=wbMoneyToRubles(o.finalPrice??o.convertedFinalPrice??o.price??0);
     const items=[{
       nmId:o.nmId??null,
       chrtId:o.chrtId??null,
       article:o.article??null,
       skus:Array.isArray(o.skus)?o.skus:[],
       quantity:1,
-      price:Number(o.finalPrice??o.convertedFinalPrice??o.price??0)||0,
+      price:wbMoneyToRubles(o.finalPrice??o.convertedFinalPrice??o.price??0),
     }];
     await upsertMarketplaceOrder({
       source:'wildberries',
       externalId:String(o.id),
       orderNumber:String(o.id),
-      status:'new',
+      status:orderStatus,
       totalAmount,
       items,
-      raw:o,
+      raw:{...o,supplierStatus:status?.supplierStatus,wbStatus:status?.wbStatus},
       createdAt:o.createdAt||null,
     });
-    try{if(await notifyWildberriesFbsOrder(o,totalAmount))notified++;}catch{}
+    if(!isWbCancelled(status)){
+      try{if(await notifyWildberriesFbsOrder(o,totalAmount))notified++;}catch{}
+    }
   }
   return {synced:orders.length,notified};
 }
