@@ -1,0 +1,56 @@
+name: Inspect WB order 6006959853
+
+on:
+  push:
+    paths:
+      - .github/workflows/inspect-wb-order.yml
+
+permissions:
+  contents: read
+
+jobs:
+  inspect:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - name: Inspect order on Selectel and WB
+        env:
+          HOST: ${{ secrets.SELECTEL_HOST }}
+          PORT: ${{ secrets.SELECTEL_PORT }}
+          SSH_KEY: ${{ secrets.SELECTEL_SSH_KEY }}
+        run: |
+          set -euo pipefail
+          mkdir -p ~/.ssh
+          chmod 700 ~/.ssh
+          printf '%s\n' "$SSH_KEY" > ~/.ssh/id_ed25519
+          chmod 600 ~/.ssh/id_ed25519
+          ssh-keyscan -p "${PORT:-22}" "$HOST" >> ~/.ssh/known_hosts
+          ssh -p "${PORT:-22}" "root@$HOST" 'cd /var/www/duisun; set -a; source .env.production; set +a; node --input-type=module' <<'NODE'
+          import pg from 'pg';
+          const id=6006959853;
+          const headers={Authorization:process.env.WB_API_TOKEN};
+          async function json(url,options={}){
+            const response=await fetch(url,{...options,headers:{...headers,...options.headers},cache:'no-store'});
+            const text=await response.text();
+            let body={};try{body=text?JSON.parse(text):{}}catch{body={raw:text.slice(0,200)}}
+            return {status:response.status,body};
+          }
+          const fresh=await json('https://marketplace-api.wildberries.ru/api/v3/orders/new');
+          const newOrder=(fresh.body?.orders||[]).find(x=>Number(x.id)===id);
+          const status=await json('https://marketplace-api.wildberries.ru/api/v3/orders/status',{
+            method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({orders:[id]})
+          });
+          const now=Math.floor(Date.now()/1000);
+          const history=await json(`https://marketplace-api.wildberries.ru/api/v3/orders?limit=1000&next=0&dateFrom=${now-7*86400}&dateTo=${now}`);
+          const historyOrder=(history.body?.orders||[]).find(x=>Number(x.id)===id);
+          const pool=new pg.Pool({connectionString:process.env.DATABASE_URL,ssl:false});
+          const stored=await pool.query(`SELECT external_id,status,total_amount,external_created_at,synced_at,raw_payload->>'cancelCode' AS cancel_code,raw_payload->>'cancelReason' AS cancel_reason FROM marketplace_orders WHERE source='wildberries' AND external_id=$1`,[String(id)]);
+          const notification=await pool.query(`SELECT status,created_at,sent_at FROM marketplace_order_notifications WHERE source='wildberries' AND external_id=$1`,[String(id)]);
+          await pool.end();
+          const safe=x=>x?{id:x.id,article:x.article,nmId:x.nmId,createdAt:x.createdAt,warehouseId:x.warehouseId,price:x.price,convertedPrice:x.convertedPrice,finalPrice:x.finalPrice,convertedFinalPrice:x.convertedFinalPrice,cancelCode:x.cancelCode,cancelReason:x.cancelReason}:null;
+          console.log('NEW_ENDPOINT',JSON.stringify({http:fresh.status,present:Boolean(newOrder),order:safe(newOrder),count:fresh.body?.orders?.length||0}));
+          console.log('STATUS_ENDPOINT',JSON.stringify({http:status.status,orders:status.body?.orders||[],error:status.body?.message||status.body?.error||null}));
+          console.log('HISTORY_ENDPOINT',JSON.stringify({http:history.status,present:Boolean(historyOrder),order:safe(historyOrder),count:history.body?.orders?.length||0,error:history.body?.message||history.body?.error||null}));
+          console.log('DATABASE',JSON.stringify(stored.rows));
+          console.log('NOTIFICATION',JSON.stringify(notification.rows));
+          NODE
