@@ -15,13 +15,61 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  inspect:
+  control:
     runs-on: ubuntu-24.04
-    timeout-minutes: 15
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@v4
 
-      - name: Run safe Selectel operation
+      - name: Parse safe command
+        id: command
+        shell: bash
+        run: |
+          set -euo pipefail
+          line="$(head -n1 ops/server-web-request.txt | tr -d '\r' | xargs)"
+          [ -n "$line" ] || line="check marketplace dskgothtoy1"
+          action="check"
+          mode="check"
+          sku="dskgothtoy1"
+          case "$line" in
+            "deploy")
+              action="deploy"; mode="deploy"; sku=""
+              ;;
+            "sync all")
+              action="sync_all"; mode="all"; sku=""
+              ;;
+            "sync product "*)
+              action="reconcile"; mode="product"; sku="${line#sync product }"
+              ;;
+            "sync stocks "*)
+              action="reconcile"; mode="stocks"; sku="${line#sync stocks }"
+              ;;
+            "sync prices "*)
+              action="reconcile"; mode="prices"; sku="${line#sync prices }"
+              ;;
+            "sync images "*)
+              action="reconcile"; mode="images"; sku="${line#sync images }"
+              ;;
+            "check marketplace "*)
+              action="check"; mode="check"; sku="${line#check marketplace }"
+              ;;
+            "status "*)
+              action="check"; mode="check"; sku="${line#status }"
+              ;;
+            *)
+              echo "Unsupported command: $line" >&2
+              exit 2
+              ;;
+          esac
+          if [ -n "$sku" ] && ! [[ "$sku" =~ ^[A-Za-z0-9._-]+$ ]]; then
+            echo "Unsafe SKU" >&2
+            exit 2
+          fi
+          echo "action=$action" >> "$GITHUB_OUTPUT"
+          echo "mode=$mode" >> "$GITHUB_OUTPUT"
+          echo "sku=$sku" >> "$GITHUB_OUTPUT"
+
+      - name: Prepare SSH
         env:
           HOST: ${{ secrets.SELECTEL_HOST }}
           PORT: ${{ secrets.SELECTEL_PORT }}
@@ -32,33 +80,165 @@ jobs:
           test -n "$HOST"
           test -n "${USER:-root}"
           test -n "$SSH_KEY"
-          REQUEST="$(tr '\n' ' ' < ops/server-web-request.txt | head -c 500)"
-          REQUEST_B64="$(printf '%s' "$REQUEST" | base64 -w0)"
           mkdir -p ~/.ssh
           chmod 700 ~/.ssh
           printf '%s\n' "$SSH_KEY" > ~/.ssh/id_ed25519
           chmod 600 ~/.ssh/id_ed25519
           ssh-keyscan -p "${PORT:-22}" "$HOST" >> ~/.ssh/known_hosts
-          ssh -o ServerAliveInterval=20 -o ServerAliveCountMax=3 -p "${PORT:-22}" "${USER:-root}@$HOST" "bash -s -- '$REQUEST_B64'" > /tmp/server-web-status.json <<'REMOTE'
-          set -euo pipefail
-          REQUEST_B64="$1"
-          cd /var/www/duisun
-          git fetch origin main >/dev/null 2>&1
-          git reset --hard origin/main >/dev/null 2>&1
-          set -a
-          source .env.production
-          set +a
-          export WEB_OP_REQUEST="$(printf '%s' "$REQUEST_B64" | base64 -d)"
-          node scripts/web-ops.mjs
-          REMOTE
 
-      - name: Publish sanitized status
+      - name: Deploy requested revision
+        if: steps.command.outputs.action == 'deploy'
+        env:
+          HOST: ${{ secrets.SELECTEL_HOST }}
+          PORT: ${{ secrets.SELECTEL_PORT }}
+          USER: ${{ secrets.SELECTEL_USER }}
         run: |
           set -euo pipefail
-          jq . /tmp/server-web-status.json >/dev/null
-          cp /tmp/server-web-status.json ops/server-web-status.json
-          git fetch origin main
-          git reset --hard origin/main
+          ssh -o ServerAliveInterval=20 -o ServerAliveCountMax=6 -p "${PORT:-22}" "${USER:-root}@$HOST" 'bash -s' < scripts/deploy-selectel.sh
+
+      - name: Execute safe marketplace command
+        if: steps.command.outputs.action == 'reconcile' || steps.command.outputs.action == 'sync_all'
+        env:
+          HOST: ${{ secrets.SELECTEL_HOST }}
+          PORT: ${{ secrets.SELECTEL_PORT }}
+          USER: ${{ secrets.SELECTEL_USER }}
+          ACTION: ${{ steps.command.outputs.action }}
+          MODE: ${{ steps.command.outputs.mode }}
+          SKU: ${{ steps.command.outputs.sku }}
+        run: |
+          set -euo pipefail
+          ssh -o ServerAliveInterval=20 -o ServerAliveCountMax=6 -p "${PORT:-22}" "${USER:-root}@$HOST" "bash -s -- '$ACTION' '$MODE' '$SKU'" <<'REMOTE'
+          set -euo pipefail
+          action="$1"; mode="$2"; sku="$3"
+          cd /var/www/duisun
+          set -a; source .env.production; set +a
+          CFG=$(mktemp /run/duisun-web-command.XXXXXX)
+          OUT=$(mktemp /run/duisun-web-result.XXXXXX)
+          trap 'rm -f "$CFG" "$OUT"' EXIT
+          chmod 600 "$CFG" "$OUT"
+          printf 'header = "x-cron-secret: %s"\n' "$CRON_SYNC_SECRET" > "$CFG"
+          if [ "$action" = "sync_all" ]; then
+            url='http://127.0.0.1:3000/api/internal/marketplace-sync?force=1&transfers=1'
+          else
+            url="http://127.0.0.1:3000/api/internal/marketplace-sync?force=1&reconcileSku=$sku&mode=$mode"
+          fi
+          curl -fsS --max-time 300 -X POST --config "$CFG" "$url" > "$OUT"
+          install -m 600 "$OUT" /var/log/duisun-web-command-last.json
+          cat "$OUT"
+          REMOTE
+
+      - name: Inspect Selectel and marketplaces
+        env:
+          HOST: ${{ secrets.SELECTEL_HOST }}
+          PORT: ${{ secrets.SELECTEL_PORT }}
+          USER: ${{ secrets.SELECTEL_USER }}
+          SKU: ${{ steps.command.outputs.sku }}
+        run: |
+          set -euo pipefail
+          sku="${SKU:-dskgothtoy1}"
+          [ -n "$sku" ] || sku="dskgothtoy1"
+          ssh -o ServerAliveInterval=20 -o ServerAliveCountMax=6 -p "${PORT:-22}" "${USER:-root}@$HOST" "bash -s -- '$sku'" > /tmp/server-web-status.json <<'REMOTE'
+          set -euo pipefail
+          sku="$1"
+          cd /var/www/duisun
+          set -a; source .env.production; set +a
+          export WEB_STATUS_SKU="$sku"
+          node --input-type=module <<'NODE'
+          import fs from 'node:fs';
+          import {execSync} from 'node:child_process';
+          import pg from 'pg';
+
+          const sku=process.env.WEB_STATUS_SKU||'dskgothtoy1';
+          const out={
+            checkedAt:new Date().toISOString(),
+            sku,
+            app:{},
+            health:null,
+            product:null,
+            marketplace:{ozon:null,wildberries:null},
+            sync:{},
+            commandResult:null
+          };
+
+          try{out.app.commit=execSync('git rev-parse HEAD',{encoding:'utf8'}).trim()}catch{}
+          try{
+            const r=await fetch('http://127.0.0.1:3000/api/health');
+            out.health=await r.json();
+          }catch(e){out.health={ok:false,error:String(e?.message||e)}}
+
+          try{
+            const pool=new pg.Pool({connectionString:process.env.DATABASE_URL,ssl:process.env.DATABASE_URL?.includes('localhost')?false:{rejectUnauthorized:false}});
+            const q=await pool.query('SELECT id,sku,title,price,stock,image_url,image_urls,is_active,updated_at FROM products WHERE sku=$1 LIMIT 1',[sku]);
+            out.product=q.rows[0]||null;
+            await pool.end();
+          }catch(e){out.product={error:String(e?.message||e)}}
+
+          try{
+            const headers={'Client-Id':process.env.OZON_CLIENT_ID||'','Api-Key':process.env.OZON_API_KEY||'','Content-Type':'application/json'};
+            const r=await fetch('https://api-seller.ozon.ru/v3/product/info/list',{method:'POST',headers,body:JSON.stringify({offer_id:[sku],product_id:[],sku:[]})});
+            const j=await r.json().catch(()=>({}));
+            const x=(j.items||j.result?.items||[])[0]||null;
+            out.marketplace.ozon={ok:r.ok,httpStatus:r.status,item:x?{
+              id:x.id||x.product_id||null,offer_id:x.offer_id||null,name:x.name||null,
+              price:x.price||null,min_price:x.min_price||null,marketing_price:x.marketing_price||null,
+              images:Array.isArray(x.images)?x.images.length:null,stocks:x.stocks||null,
+              visible:x.visible??null,status:x.status||null
+            }:null};
+          }catch(e){out.marketplace.ozon={ok:false,error:String(e?.message||e)}}
+
+          try{
+            const r=await fetch('https://content-api.wildberries.ru/content/v2/get/cards/list',{
+              method:'POST',headers:{Authorization:process.env.WB_API_TOKEN||'','Content-Type':'application/json'},
+              body:JSON.stringify({settings:{cursor:{limit:100},filter:{textSearch:sku,withPhoto:-1},sort:{ascending:false}}})
+            });
+            const j=await r.json().catch(()=>({}));
+            const x=(j.cards||[]).find(v=>String(v.vendorCode||'')===sku)||null;
+            let stock=null,price=null;
+            const barcodes=[];
+            if(x){
+              for(const s of Array.isArray(x.sizes)?x.sizes:[])for(const b of Array.isArray(s.skus)?s.skus:[])if(b)barcodes.push(String(b));
+              const wh=process.env.WB_WAREHOUSE_ID||'';
+              if(wh&&barcodes.length){
+                try{
+                  const sr=await fetch('https://marketplace-api.wildberries.ru/api/v3/stocks/'+encodeURIComponent(wh),{
+                    method:'POST',headers:{Authorization:process.env.WB_API_TOKEN||'','Content-Type':'application/json'},body:JSON.stringify({skus:barcodes})
+                  });
+                  stock=await sr.json().catch(()=>({httpStatus:sr.status}));
+                }catch(e){stock={error:String(e?.message||e)}}
+              }
+              if(x.nmID){
+                try{
+                  const pr=await fetch('https://discounts-prices-api.wildberries.ru/api/v2/list/goods/filter?limit=10&filterNmID='+encodeURIComponent(String(x.nmID)),{headers:{Authorization:process.env.WB_API_TOKEN||''}});
+                  price=await pr.json().catch(()=>({httpStatus:pr.status}));
+                }catch(e){price={error:String(e?.message||e)}}
+              }
+            }
+            out.marketplace.wildberries={ok:r.ok,httpStatus:r.status,item:x?{
+              nmID:x.nmID||null,vendorCode:x.vendorCode||null,title:x.title||null,
+              photos:Array.isArray(x.photos)?x.photos.length:null,
+              mediaFiles:Array.isArray(x.mediaFiles)?x.mediaFiles.length:null,
+              dimensions:x.dimensions||null,barcodes,stock,price
+            }:null};
+          }catch(e){out.marketplace.wildberries={ok:false,error:String(e?.message||e)}}
+
+          for(const [k,p] of Object.entries({
+            core:'/var/log/duisun-sync-core-last.json',
+            communications:'/var/log/duisun-sync-communications-last.json',
+            transfers:'/var/log/duisun-sync-transfers-last.json'
+          })){
+            try{
+              const j=JSON.parse(fs.readFileSync(p,'utf8'));
+              out.sync[k]={ok:j.ok??null,partial:j.partial??null,partialErrors:j.partialErrors??null,runId:j.runId??null};
+            }catch{}
+          }
+          try{out.commandResult=JSON.parse(fs.readFileSync('/var/log/duisun-web-command-last.json','utf8'))}catch{}
+          process.stdout.write(JSON.stringify(out,null,2));
+          NODE
+          REMOTE
+
+      - name: Publish sanitized status to repository
+        run: |
+          set -euo pipefail
           cp /tmp/server-web-status.json ops/server-web-status.json
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
