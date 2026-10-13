@@ -248,3 +248,27 @@ export async function publishSiteProductToMarketplaces(sku:string){
   }
   return out;
 }
+
+
+export async function publishAllActiveSiteProductsToMarketplaces(limit=50){
+  await ensureSchema();
+  const rows=await getPool().query(
+    `SELECT sku FROM products
+      WHERE is_active=TRUE AND sku IS NOT NULL AND BTRIM(sku)<>''
+      ORDER BY updated_at DESC,id DESC
+      LIMIT $1`,
+    [Math.max(1,Math.min(200,Number(limit)||50))]
+  );
+  const results:any[]=[];
+  for(const row of rows.rows){
+    const sku=String(row.sku||'').trim();
+    if(!sku)continue;
+    try{results.push(await publishSiteProductToMarketplaces(sku))}
+    catch(e:any){results.push({sku,error:String(e?.message||e)})}
+  }
+  return {
+    scanned:rows.rows.length,
+    results,
+    errors:results.filter((x:any)=>x?.error||x?.wb?.status==='error'||x?.ozon?.status==='error').length
+  };
+}
