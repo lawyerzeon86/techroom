@@ -12,6 +12,7 @@ import { verifyGitHubActionsToken } from '../../../../lib/github-oidc';
 import { syncOzonToVk, syncVkOrdersToTechRoom, vkConfigured } from '../../../../lib/vk-market';
 import { syncYandexMarketOrders, yandexMarketConfigured } from '../../../../lib/yandex-market';
 import { publishAllActiveSiteProductsToMarketplaces } from '../../../../lib/site-product-publish';
+import { reconcileMarketplaceProduct } from '../../../../lib/marketplace-product-reconcile';
 
 export const runtime='nodejs';
 export const dynamic='force-dynamic';
@@ -109,6 +110,16 @@ export async function POST(request:Request){
     await pool.query(`CREATE TABLE IF NOT EXISTS marketplace_communications (id BIGSERIAL PRIMARY KEY,source TEXT NOT NULL,kind TEXT NOT NULL,external_id TEXT NOT NULL,product_name TEXT,sku TEXT,article TEXT,rating INTEGER,text TEXT,answer TEXT,external_created_at TIMESTAMPTZ,raw_payload JSONB NOT NULL DEFAULT '{}'::jsonb,synced_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),UNIQUE(source,kind,external_id))`);
 
     const url=new URL(request.url);
+    const reconcileSku=(cronAuthorized?url.searchParams.get('reconcileSku'):null)?.trim()||'';
+    const reconcileMode=(cronAuthorized?url.searchParams.get('mode'):null)?.trim()||'all';
+    if(reconcileSku){
+      const allowed=new Set(['all','product','stocks','prices','images','check']);
+      const mode=allowed.has(reconcileMode)?reconcileMode:'all';
+      const reconciled=await safeStage('PRODUCT_RECONCILE',240000,()=>reconcileMarketplaceProduct(reconcileSku,mode as any));
+      const errors=collectErrors(reconciled);
+      return NextResponse.json({ok:!errors.length,reconciled,partial:errors.length>0,partialErrors:errors},{status:errors.length?207:200,headers:{'Cache-Control':'no-store'}});
+    }
+
     const force=cronAuthorized&&url.searchParams.get('force')==='1';
     const includeCommunications=cronAuthorized&&url.searchParams.get('communications')==='1';
     const includeTransfers=cronAuthorized&&url.searchParams.get('transfers')==='1';
