@@ -48,6 +48,21 @@ async function product(sku:string){
     await pool.query(`UPDATE products SET image_url=$2,image_urls=$3::jsonb,updated_at=NOW() WHERE sku=$1`,[sku,image,JSON.stringify(images.length?images:(image?[image]:[]))]);
     p.image_url=image;p.image_urls=images.length?images:(image?[image]:[]);
   }
+  if(p.image_url&&!/\/uploads\/marketplace\//.test(String(p.image_url))){
+    try{
+      const u=new URL(String(p.image_url));
+      if(u.hostname==='duisun.ru'&&u.pathname.startsWith('/products/')){
+        const src=path.join(process.cwd(),'public',u.pathname.replace(/^\//,''));
+        const dir=path.join(process.cwd(),'public','uploads','marketplace');
+        fs.mkdirSync(dir,{recursive:true});
+        const dest=path.join(dir,sku+'-main.jpg');
+        execFileSync('convert',[src,'-auto-orient','-strip','-colorspace','sRGB','-resize','900x1125^','-gravity','center','-extent','900x1125','-quality','90',dest],{stdio:'ignore'});
+        const normalized='https://duisun.ru/uploads/marketplace/'+encodeURIComponent(sku)+'-main.jpg';
+        await pool.query(`UPDATE products SET image_url=$2,image_urls=$3::jsonb,updated_at=NOW() WHERE sku=$1`,[sku,normalized,JSON.stringify([normalized])]);
+        p.image_url=normalized;p.image_urls=[normalized];
+      }
+    }catch{}
+  }
   return p;
 }
 async function wbCard(sku:string){
