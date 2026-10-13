@@ -81,6 +81,10 @@ source "$ENV_FILE"
 set +a
 
 npm ci --include=dev
+if ! command -v convert >/dev/null 2>&1; then
+  apt-get update -y
+  DEBIAN_FRONTEND=noninteractive apt-get install -y imagemagick
+fi
 node scripts/finalize-selectel.mjs
 npm run build
 pm2 delete techroom >/dev/null 2>&1 || true
