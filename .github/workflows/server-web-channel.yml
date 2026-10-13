@@ -21,7 +21,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Inspect Selectel over existing SSH secrets
+      - name: Operate and inspect Selectel over existing SSH secrets
         env:
           HOST: ${{ secrets.SELECTEL_HOST }}
           PORT: ${{ secrets.SELECTEL_PORT }}
@@ -32,116 +32,150 @@ jobs:
           test -n "$HOST"
           test -n "${USER:-root}"
           test -n "$SSH_KEY"
+          REQUEST="$(tr '\n' ' ' < ops/server-web-request.txt | head -c 500)"
           mkdir -p ~/.ssh
           chmod 700 ~/.ssh
           printf '%s\n' "$SSH_KEY" > ~/.ssh/id_ed25519
           chmod 600 ~/.ssh/id_ed25519
           ssh-keyscan -p "${PORT:-22}" "$HOST" >> ~/.ssh/known_hosts
-          ssh -o ServerAliveInterval=20 -o ServerAliveCountMax=3 -p "${PORT:-22}" "${USER:-root}@$HOST" 'bash -s' > /tmp/server-web-status.json <<'REMOTE'
+          printf '%s' "$REQUEST" | ssh -o ServerAliveInterval=20 -o ServerAliveCountMax=3 -p "${PORT:-22}" "${USER:-root}@$HOST" 'read -r REQUEST; export REQUEST; bash -s' > /tmp/server-web-status.json <<'REMOTE'
           set -euo pipefail
           cd /var/www/duisun
           set -a
           source .env.production
           set +a
+
+          if printf '%s' "${REQUEST:-}" | grep -qiE 'sync|repair|publish|deploy'; then
+            node --input-type=module <<'NODE'
+            import pg from 'pg';
+            const pool=new pg.Pool({connectionString:process.env.DATABASE_URL,ssl:process.env.DATABASE_URL.includes('localhost')?false:{rejectUnauthorized:false}});
+            try{
+              await pool.query(`
+                UPDATE products
+                SET image_url=replace(image_url,'https://techroom-main.onrender.com','https://duisun.ru'),
+                    image_urls=(
+                      SELECT COALESCE(jsonb_agg(to_jsonb(replace(value,'https://techroom-main.onrender.com','https://duisun.ru'))),'[]'::jsonb)
+                      FROM jsonb_array_elements_text(image_urls)
+                    ),
+                    updated_at=NOW()
+                WHERE image_url LIKE 'https://techroom-main.onrender.com/%'
+                   OR image_urls::text LIKE '%techroom-main.onrender.com%'
+              `);
+              await pool.query(`
+                INSERT INTO price_sheet(sku,product_id,title,price,min_price,sync_ozon,sync_wb,updated_at)
+                SELECT sku,id,title,price,0,TRUE,TRUE,NOW() FROM products WHERE sku='dskgothtoy1'
+                ON CONFLICT(sku) DO UPDATE SET product_id=EXCLUDED.product_id,title=EXCLUDED.title,price=EXCLUDED.price,
+                  sync_ozon=TRUE,sync_wb=TRUE,updated_at=NOW()
+              `).catch(()=>{});
+            } finally { await pool.end(); }
+            NODE
+
+            # Force price/stock sync for this run even if an older env file disabled it.
+            export SYNC_MARKETPLACE_STOCKS=1
+            export SYNC_MARKETPLACE_PRICES=1
+            export SYNC_WB_PRICES=1
+            export SYNC_OZON_PRICES=1
+
+            # Discover warehouses and persist them without printing credentials.
+            node --input-type=module <<'NODE'
+            import pg from 'pg';
+            const pool=new pg.Pool({connectionString:process.env.DATABASE_URL,ssl:process.env.DATABASE_URL.includes('localhost')?false:{rejectUnauthorized:false}});
+            try{
+              await pool.query("CREATE TABLE IF NOT EXISTS marketplace_settings (key TEXT PRIMARY KEY,value TEXT,updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW())");
+              if(process.env.WB_API_TOKEN){
+                const r=await fetch('https://marketplace-api.wildberries.ru/api/v3/warehouses',{headers:{Authorization:process.env.WB_API_TOKEN}});
+                const a=await r.json().catch(()=>[]);
+                if(r.ok&&Array.isArray(a)&&a.length){
+                  const w=a.find(x=>String(x?.deliveryType||'').toLowerCase().includes('fbs'))||a[0];
+                  if(w?.id!=null)await pool.query("INSERT INTO marketplace_settings(key,value) VALUES('wb_warehouse_id',$1) ON CONFLICT(key) DO UPDATE SET value=EXCLUDED.value,updated_at=NOW()",[String(w.id)]);
+                }
+              }
+              if(process.env.OZON_CLIENT_ID&&process.env.OZON_API_KEY){
+                const h={'Client-Id':process.env.OZON_CLIENT_ID,'Api-Key':process.env.OZON_API_KEY,'Content-Type':'application/json'};
+                const r=await fetch('https://api-seller.ozon.ru/v2/warehouse/list',{method:'POST',headers:h,body:JSON.stringify({limit:100})});
+                const j=await r.json().catch(()=>({}));
+                const a=Array.isArray(j?.warehouses)?j.warehouses:(Array.isArray(j?.result)?j.result:[]);
+                if(r.ok&&a.length){
+                  const w=a.find(x=>String(x?.status||'').toLowerCase().includes('active')&&!x?.is_rfbs)||a.find(x=>!x?.is_rfbs)||a[0];
+                  if(w?.warehouse_id!=null)await pool.query("INSERT INTO marketplace_settings(key,value) VALUES('ozon_warehouse_id',$1) ON CONFLICT(key) DO UPDATE SET value=EXCLUDED.value,updated_at=NOW()",[String(w.warehouse_id)]);
+                }
+              }
+            } finally { await pool.end(); }
+            NODE
+
+            # Load discovered warehouse IDs into this process.
+            eval "$(node --input-type=module <<'NODE'
+            import pg from 'pg';
+            const pool=new pg.Pool({connectionString:process.env.DATABASE_URL,ssl:process.env.DATABASE_URL.includes('localhost')?false:{rejectUnauthorized:false}});
+            const q=await pool.query("SELECT key,value FROM marketplace_settings WHERE key IN ('wb_warehouse_id','ozon_warehouse_id')");
+            for(const r of q.rows){
+              if(r.key==='wb_warehouse_id')console.log('export WB_WAREHOUSE_ID='+JSON.stringify(String(r.value||'')));
+              if(r.key==='ozon_warehouse_id')console.log('export OZON_WAREHOUSE_ID='+JSON.stringify(String(r.value||'')));
+            }
+            await pool.end();
+            NODE
+            )"
+
+            # Push the product image to WB if the card exists.
+            node --input-type=module <<'NODE'
+            if(process.env.WB_API_TOKEN){
+              const h={Authorization:process.env.WB_API_TOKEN,'Content-Type':'application/json'};
+              const r=await fetch('https://content-api.wildberries.ru/content/v2/get/cards/list',{method:'POST',headers:h,body:JSON.stringify({settings:{cursor:{limit:100},filter:{textSearch:'dskgothtoy1',withPhoto:-1},sort:{ascending:false}}})});
+              const j=await r.json().catch(()=>({}));
+              const c=(j.cards||[]).find(x=>String(x.vendorCode||'')==='dskgothtoy1');
+              if(c?.nmID){
+                await fetch('https://content-api.wildberries.ru/content/v3/media/save',{method:'POST',headers:h,body:JSON.stringify({nmId:Number(c.nmID),data:['https://duisun.ru/products/dskgothtoy1-main.jpg']})});
+              }
+            }
+            NODE
+
+            CFG=$(mktemp /run/duisun-web-sync.XXXXXX)
+            trap 'rm -f "$CFG"' EXIT
+            chmod 600 "$CFG"
+            printf 'header = "x-cron-secret: %s"\n' "$CRON_SYNC_SECRET" > "$CFG"
+            curl -fsS --max-time 300 -X POST --config "$CFG" 'http://127.0.0.1:3000/api/internal/marketplace-sync?force=1&transfers=1' >/var/log/duisun-web-sync-last.json || true
+          fi
+
           node --input-type=module <<'NODE'
           import fs from 'node:fs';
           import pg from 'pg';
+          const out={checkedAt:new Date().toISOString(),request:process.env.REQUEST||'',app:{},health:null,product:null,marketplace:{ozon:null,wildberries:null},warehouses:{},sync:{}};
+          try{out.app.commit=(await import('node:child_process')).execSync('git rev-parse HEAD',{encoding:'utf8'}).trim()}catch{}
+          try{const r=await fetch('http://127.0.0.1:3000/api/health');out.health=await r.json()}catch(e){out.health={ok:false,error:String(e?.message||e)}}
+          const pool=new pg.Pool({connectionString:process.env.DATABASE_URL,ssl:process.env.DATABASE_URL.includes('localhost')?false:{rejectUnauthorized:false}});
+          try{
+            const q=await pool.query("SELECT id,sku,title,price,stock,image_url,image_urls,is_active,updated_at FROM products WHERE sku='dskgothtoy1' LIMIT 1");
+            out.product=q.rows[0]||null;
+            const w=await pool.query("SELECT key,value FROM marketplace_settings WHERE key IN ('wb_warehouse_id','ozon_warehouse_id')");
+            for(const x of w.rows)out.warehouses[x.key]=x.value?true:false;
+          }catch(e){out.product={error:String(e?.message||e)}}
 
-          const out = {
-            checkedAt: new Date().toISOString(),
-            app: {},
-            health: null,
-            product: null,
-            marketplace: { ozon: null, wildberries: null },
-            timers: {},
-            sync: {}
-          };
+          try{
+            const h={'Client-Id':process.env.OZON_CLIENT_ID||'','Api-Key':process.env.OZON_API_KEY||'','Content-Type':'application/json'};
+            const r=await fetch('https://api-seller.ozon.ru/v3/product/info/list',{method:'POST',headers:h,body:JSON.stringify({offer_id:['dskgothtoy1'],product_id:[],sku:[]})});
+            const j=await r.json().catch(()=>({}));const x=(j.items||j.result?.items||[])[0]||null;
+            out.marketplace.ozon={ok:r.ok,status:r.status,item:x?{id:x.id||x.product_id||null,offer_id:x.offer_id||null,name:x.name||null,price:x.price||null,images:Array.isArray(x.images)?x.images.length:null,stocks:x.stocks||null,visible:x.visible??null,status:x.status||null}:null};
+          }catch(e){out.marketplace.ozon={ok:false,error:String(e?.message||e)}}
 
-          try {
-            out.app.commit = (await import('node:child_process')).execSync('git rev-parse HEAD',{encoding:'utf8'}).trim();
-          } catch {}
+          try{
+            const h={Authorization:process.env.WB_API_TOKEN||'','Content-Type':'application/json'};
+            const r=await fetch('https://content-api.wildberries.ru/content/v2/get/cards/list',{method:'POST',headers:h,body:JSON.stringify({settings:{cursor:{limit:100},filter:{textSearch:'dskgothtoy1',withPhoto:-1},sort:{ascending:false}}})});
+            const j=await r.json().catch(()=>({}));const x=(j.cards||[]).find(v=>String(v.vendorCode||'')==='dskgothtoy1')||null;
+            let stock=null;
+            const wh=(await pool.query("SELECT value FROM marketplace_settings WHERE key='wb_warehouse_id'")).rows[0]?.value;
+            const barcode=x?.sizes?.flatMap(s=>Array.isArray(s.skus)?s.skus:[])[0];
+            if(wh&&barcode){
+              const sr=await fetch('https://marketplace-api.wildberries.ru/api/v3/stocks/'+encodeURIComponent(wh),{method:'POST',headers:h,body:JSON.stringify({skus:[String(barcode)]})});
+              const sj=await sr.json().catch(()=>({}));
+              stock={ok:sr.ok,status:sr.status,data:sj};
+            }
+            out.marketplace.wildberries={ok:r.ok,status:r.status,item:x?{nmID:x.nmID||null,vendorCode:x.vendorCode||null,title:x.title||null,photos:Array.isArray(x.photos)?x.photos.length:null,dimensions:x.dimensions||null,sizes:x.sizes||null}:null,stock};
+          }catch(e){out.marketplace.wildberries={ok:false,error:String(e?.message||e)}}
 
-          try {
-            const r = await fetch('http://127.0.0.1:3000/api/health');
-            out.health = await r.json();
-          } catch (e) {
-            out.health = {ok:false,error:String(e?.message||e)};
+          for(const [k,p] of Object.entries({core:'/var/log/duisun-sync-core-last.json',communications:'/var/log/duisun-sync-communications-last.json',transfers:'/var/log/duisun-sync-transfers-last.json',web:'/var/log/duisun-web-sync-last.json'})){
+            try{const j=JSON.parse(fs.readFileSync(p,'utf8'));out.sync[k]={ok:j.ok??null,partial:j.partial??null,partialErrors:j.partialErrors??null,runId:j.runId??null,catalog:j.stages?.catalog??null,sitePublish:j.stages?.sitePublish??null}}catch{}
           }
-
-          try {
-            const pool = new pg.Pool({
-              connectionString: process.env.DATABASE_URL,
-              ssl: process.env.DATABASE_URL?.includes('localhost') ? false : {rejectUnauthorized:false}
-            });
-            const q = await pool.query(
-              'SELECT id,sku,title,price,stock,image_url,image_urls,is_active,updated_at FROM products WHERE sku=$1 LIMIT 1',
-              ['dskgothtoy1']
-            );
-            out.product = q.rows[0] || null;
-            await pool.end();
-          } catch (e) {
-            out.product = {error:String(e?.message||e)};
-          }
-
-          try {
-            const headers={
-              'Client-Id':process.env.OZON_CLIENT_ID||'',
-              'Api-Key':process.env.OZON_API_KEY||'',
-              'Content-Type':'application/json'
-            };
-            const r=await fetch('https://api-seller.ozon.ru/v3/product/info/list',{
-              method:'POST',headers,
-              body:JSON.stringify({offer_id:['dskgothtoy1'],product_id:[],sku:[]})
-            });
-            const j=await r.json().catch(()=>({}));
-            const x=(j.items||j.result?.items||[])[0]||null;
-            out.marketplace.ozon={ok:r.ok,status:r.status,item:x?{
-              id:x.id||x.product_id||null,
-              offer_id:x.offer_id||null,
-              name:x.name||null,
-              price:x.price||null,
-              min_price:x.min_price||null,
-              marketing_price:x.marketing_price||null,
-              images:Array.isArray(x.images)?x.images.length:null,
-              stocks:x.stocks||null,
-              visible:x.visible??null,
-              status:x.status||null
-            }:null};
-          } catch(e) {
-            out.marketplace.ozon={ok:false,error:String(e?.message||e)};
-          }
-
-          try {
-            const r=await fetch('https://content-api.wildberries.ru/content/v2/get/cards/list',{
-              method:'POST',
-              headers:{Authorization:process.env.WB_API_TOKEN||'','Content-Type':'application/json'},
-              body:JSON.stringify({settings:{cursor:{limit:100},filter:{textSearch:'dskgothtoy1',withPhoto:-1},sort:{ascending:false}}})
-            });
-            const j=await r.json().catch(()=>({}));
-            const x=(j.cards||[]).find(v=>String(v.vendorCode||'')==='dskgothtoy1')||null;
-            out.marketplace.wildberries={ok:r.ok,status:r.status,item:x?{
-              nmID:x.nmID||null,
-              vendorCode:x.vendorCode||null,
-              title:x.title||null,
-              photos:Array.isArray(x.photos)?x.photos.length:null,
-              dimensions:x.dimensions||null,
-              sizes:Array.isArray(x.sizes)?x.sizes.map(s=>({skus:s.skus||[],techSize:s.techSize||null,wbSize:s.wbSize||null})):null
-            }:null};
-          } catch(e) {
-            out.marketplace.wildberries={ok:false,error:String(e?.message||e)};
-          }
-
-          for (const [k,p] of Object.entries({
-            core:'/var/log/duisun-sync-core-last.json',
-            communications:'/var/log/duisun-sync-communications-last.json',
-            transfers:'/var/log/duisun-sync-transfers-last.json'
-          })) {
-            try {
-              const j=JSON.parse(fs.readFileSync(p,'utf8'));
-              out.sync[k]={ok:j.ok??null,partial:j.partial??null,partialErrors:j.partialErrors??null,runId:j.runId??null};
-            } catch {}
-          }
-
+          await pool.end();
           process.stdout.write(JSON.stringify(out,null,2));
           NODE
           REMOTE
