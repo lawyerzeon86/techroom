@@ -1,25 +1,28 @@
 {
-  "checkedAt": "2026-10-13T19:08:41.200Z",
-  "app": {
-    "commit": "1bf77fe17e60fbcce7ac3a532582aa4c3776865c"
-  },
+  "checkedAt": "2026-10-13T19:27:15.244Z",
+  "request": "repair sync publish sku dskgothtoy1 2026-10-13T19:26:58.536Z",
+  "sku": "dskgothtoy1",
   "health": {
-    "ok": true,
-    "database": "up",
-    "responseMs": 16
+    "ok": false,
+    "error": "fetch failed"
   },
+  "renderReferences": 0,
   "product": {
     "id": 2,
     "sku": "dskgothtoy1",
     "title": "Готическая фигурка-призрак из ASA пластика",
     "price": 299,
     "stock": 5,
-    "image_url": "https://techroom-main.onrender.com/products/dskgothtoy1-main.jpg",
+    "image_url": "https://duisun.ru/products/dskgothtoy1-main.jpg",
     "image_urls": [
-      "https://techroom-main.onrender.com/products/dskgothtoy1-main.jpg"
+      "https://duisun.ru/products/dskgothtoy1-main.jpg"
     ],
     "is_active": true,
-    "updated_at": "2026-10-13T17:13:04.368Z"
+    "updated_at": "2026-10-13T19:23:17.943Z"
+  },
+  "warehouses": {
+    "wb": true,
+    "ozon": true
   },
   "marketplace": {
     "ozon": {
@@ -30,8 +33,6 @@
         "offer_id": "dskgothtoy1",
         "name": "Готическая фигурка-призрак из ASA пластика",
         "price": "299.00",
-        "min_price": null,
-        "marketing_price": null,
         "images": 1,
         "stocks": {
           "has_stock": false,
@@ -58,35 +59,67 @@
         },
         "sizes": [
           {
+            "chrtID": 2801813566,
+            "techSize": "0",
+            "wbSize": "",
             "skus": [
               "2057458235254"
-            ],
-            "techSize": "0",
-            "wbSize": null
+            ]
           }
         ]
+      },
+      "stock": {
+        "ok": true,
+        "status": 200,
+        "data": {
+          "stocks": [
+            {
+              "sku": "2057458235254",
+              "chrtId": 2801813566,
+              "amount": 5
+            }
+          ]
+        }
       }
     }
   },
-  "timers": {},
-  "sync": {
-    "core": {
-      "ok": true,
-      "partial": null,
-      "partialErrors": null,
-      "runId": null
+  "actions": [
+    {
+      "action": "migrate_render_urls",
+      "rows": 0
     },
-    "communications": {
+    {
+      "action": "ozon_price",
       "ok": true,
-      "partial": null,
-      "partialErrors": null,
-      "runId": 3681
+      "status": 200
     },
-    "transfers": {
+    {
+      "action": "ozon_stock",
       "ok": true,
-      "partial": null,
-      "partialErrors": null,
-      "runId": 3674
+      "status": 200
+    },
+    {
+      "action": "wb_price",
+      "ok": false,
+      "status": 400
+    },
+    {
+      "action": "wb_image",
+      "ok": false,
+      "status": 400
+    },
+    {
+      "action": "wb_stock",
+      "ok": true,
+      "status": 204
     }
+  ],
+  "sync": {
+    "error": "fetch failed"
+  },
+  "publicImage": {
+    "ok": false,
+    "status": 502,
+    "contentType": "text/html"
   }
 }
