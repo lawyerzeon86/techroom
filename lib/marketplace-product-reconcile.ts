@@ -2,6 +2,9 @@ import { ensureSchema, getPool } from './db';
 import { getWarehouseSettings } from './marketplace-settings';
 import { pushStockForSku } from './auto-sync';
 import { publishSiteProductToMarketplaces } from './site-product-publish';
+import { execFileSync } from 'node:child_process';
+import fs from 'node:fs';
+import path from 'node:path';
 
 type Mode='all'|'product'|'stocks'|'prices'|'images'|'check';
 
@@ -84,6 +87,24 @@ async function syncImages(sku:string,image:string|null){
           used=candidate;lastError=null;break;
         }catch(e:any){lastError=e}
       }
+      if(lastError&&/неподдерживаемый тип файла|unsupported file type/i.test(String(lastError?.message||lastError))){
+        try{
+          const u=new URL(image);
+          if(u.hostname==='duisun.ru'&&u.pathname.startsWith('/products/')){
+            const src=path.join(process.cwd(),'public',u.pathname.replace(/^\//,''));
+            const dir=path.join(process.cwd(),'public','uploads','marketplace');
+            fs.mkdirSync(dir,{recursive:true});
+            const dest=path.join(dir,sku+'-wb.jpg');
+            execFileSync('convert',[src,'-auto-orient','-strip','-colorspace','sRGB','-resize','700x933^','-gravity','center','-extent','700x933','-quality','90',dest],{stdio:'ignore'});
+            const regenerated='https://duisun.ru/uploads/marketplace/'+encodeURIComponent(sku)+'-wb.jpg';
+            await read(await fetch('https://content-api.wildberries.ru/content/v3/media/save',{
+              method:'POST',headers:wbHeaders(),cache:'no-store',
+              body:JSON.stringify({nmId:Number(card.nmID),data:[regenerated]})
+            }));
+            used=regenerated;lastError=null;
+          }
+        }catch(e:any){lastError=e}
+      }
       if(lastError)throw lastError;
       out.wb={status:'updated',nmID:Number(card.nmID),image:used};
     }catch(e:any){out.wb={status:'error',error:String(e?.message||e)}}
@@ -159,7 +180,7 @@ async function verify(sku:string,p:any,warehouses:any){
   if(process.env.OZON_CLIENT_ID?.trim()&&process.env.OZON_API_KEY?.trim()){
     try{
       const item=await ozonItem(sku);
-      out.ozon={exists:Boolean(item),id:item?.id||item?.product_id||null,offerId:item?.offer_id||null,name:item?.name||null,price:item?.price||null,images:Array.isArray(item?.images)?item.images.length:0,stocks:item?.stocks||null,visible:item?.visible??null,status:item?.status||null};
+      out.ozon={exists:Boolean(item),id:item?.id||item?.product_id||null,offerId:item?.offer_id||null,name:item?.name||null,price:item?.price||null,images:Array.isArray(item?.images)?item.images.length:0,stocks:item?.stocks||null,visible:item?.visible??null,status:item?.status||null,statuses:item?.statuses||null,isArchived:item?.is_archived??item?.isArchived??null,hasFbsStocks:item?.has_fbs_stocks??null,hasFboStocks:item?.has_fbo_stocks??null,errors:item?.errors||null};
       if(!item)out.errors.push('OZON_CARD_NOT_FOUND');
       if(item&&Number(item?.price||0)!==Number(p.price))out.errors.push('OZON_PRICE_MISMATCH');
       if(item&&Array.isArray(item?.images)&&item.images.length===0)out.errors.push('OZON_IMAGE_MISSING');
