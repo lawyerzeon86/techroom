@@ -1,0 +1,161 @@
+name: Finalize six marketplace tasks
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'ops/finalize-six-tasks.trigger'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: finalize-six-marketplace-tasks
+  cancel-in-progress: true
+
+jobs:
+  finalize:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Finalize on Selectel
+        env:
+          HOST: ${{ secrets.SELECTEL_HOST }}
+          PORT: ${{ secrets.SELECTEL_PORT }}
+          USER: ${{ secrets.SELECTEL_USER }}
+          SSH_KEY: ${{ secrets.SELECTEL_SSH_KEY }}
+        run: |
+          set -euo pipefail
+          test -n "$HOST"
+          test -n "${USER:-root}"
+          test -n "$SSH_KEY"
+          mkdir -p ~/.ssh
+          chmod 700 ~/.ssh
+          printf '%s\n' "$SSH_KEY" > ~/.ssh/id_ed25519
+          chmod 600 ~/.ssh/id_ed25519
+          ssh-keyscan -p "${PORT:-22}" "$HOST" >> ~/.ssh/known_hosts
+
+          ssh -o ServerAliveInterval=30 -o ServerAliveCountMax=20 -p "${PORT:-22}" "${USER:-root}@$HOST" 'bash -s' > /tmp/six-tasks-final.json <<'REMOTE'
+          set -euo pipefail
+          cd /var/www/duisun
+          git config --global --add safe.directory /var/www/duisun >/dev/null 2>&1 || true
+          git fetch origin main
+          git reset --hard origin/main
+
+          bash scripts/deploy-selectel.sh >/tmp/six-task-deploy.log 2>&1
+          cd /var/www/duisun
+          set -a; source .env.production; set +a
+
+          node scripts/server-web-ops.mjs sync-all dskgothtoy1 >/tmp/six-sync.json || true
+
+          CFG=$(mktemp /run/duisun-finalize.XXXXXX)
+          trap 'rm -f "$CFG"' EXIT
+          chmod 600 "$CFG"
+          printf 'header = "x-cron-secret: %s"\n' "$CRON_SYNC_SECRET" > "$CFG"
+          curl -fsS --max-time 900 -X POST --config "$CFG" -H 'Content-Type: application/json' -d '{}'             http://127.0.0.1:3000/api/internal/publish-products >/tmp/six-publish.json ||             printf '{"ok":false,"error":"PUBLISH_ALL_REQUEST_FAILED"}\n' >/tmp/six-publish.json
+
+          sleep 8
+          node scripts/server-web-ops.mjs check dskgothtoy1 >/tmp/six-check.json || true
+
+          node --input-type=module <<'NODE'
+          import fs from 'node:fs';
+          import {execSync} from 'node:child_process';
+          const read = p => { try{return JSON.parse(fs.readFileSync(p,'utf8'))}catch{return {ok:false,error:'INVALID_RESULT'}} };
+          const sync=read('/tmp/six-sync.json');
+          const publish=read('/tmp/six-publish.json');
+          const check=read('/tmp/six-check.json');
+
+          let imageHttp=null;
+          try {
+            imageHttp=Number(execSync("curl -L -sS -o /dev/null -w '%{http_code}' --max-time 20 https://duisun.ru/products/dskgothtoy1-main.jpg",{encoding:'utf8'}).trim());
+          } catch {}
+
+          let timerActive=false;
+          try {
+            timerActive=execSync('systemctl is-active duisun-publish-products.timer',{encoding:'utf8'}).trim()==='active';
+          } catch {}
+
+          let renderRefs=null;
+          try {
+            const {default:pg}=await import('pg');
+            const pool=new pg.Pool({
+              connectionString:process.env.DATABASE_URL,
+              ssl:process.env.DATABASE_URL.includes('localhost')?false:{rejectUnauthorized:false}
+            });
+            const q=await pool.query("SELECT count(*)::int AS n FROM products WHERE coalesce(image_url,'') LIKE '%onrender.com%' OR image_urls::text LIKE '%onrender.com%'");
+            renderRefs=Number(q.rows[0]?.n||0);
+            await pool.end();
+          } catch {}
+
+          const p=check?.site?.product||{};
+          const wb=check?.wildberries||{};
+          const oz=check?.ozon||{};
+          const wbPrice=Number(wb?.price?.price ?? wb?.price?.discountedPrice ?? NaN);
+          const wbStock=Number(wb?.stock?.amount ?? NaN);
+          const ozPriceValue=oz?.price?.price ?? oz?.infoPrice ?? null;
+          const ozPrice=Number(typeof ozPriceValue==='object' ? (ozPriceValue?.price ?? NaN) : ozPriceValue);
+          let ozStockAmount=null;
+          if(Array.isArray(oz?.stock?.stocks)){
+            ozStockAmount=oz.stock.stocks.reduce((sum,x)=>sum+Number(x?.present ?? x?.stock ?? x?.amount ?? 0),0);
+          } else if(oz?.stock?.stocks!=null && typeof oz.stock.stocks!=='object') {
+            ozStockAmount=Number(oz.stock.stocks);
+          }
+          const checks={
+            productionHealth: check?.site?.health?.ok===true && check?.site?.health?.database==='up',
+            renderReferencesRemoved: renderRefs===0,
+            selectelImageServed: imageHttp===200,
+            sitePrice: Number(p.price)===299,
+            siteStock: Number(p.stock)===5,
+            siteImageCanonical: String(p.image_url||'').startsWith('https://duisun.ru/'),
+            wbExists: wb?.ok===true && Number(wb?.nmID)===1713901954,
+            wbImage: Number(wb?.photos||0)>=1,
+            wbPrice: wbPrice===299,
+            wbStock: wbStock===5,
+            ozonExists: oz?.ok===true && Number(oz?.id)===6438511053,
+            ozonImage: Number(oz?.images||0)>=1,
+            ozonPrice: ozPrice===299,
+            ozonStock: ozStockAmount===5 || oz?.stock?.has_stock===true,
+            genericPublisherRan: publish?.ok===true || (Number(publish?.processed||0)>0 && Number(publish?.failed||0)===0),
+            genericPublisherTimer: timerActive,
+            webOpsSyncNoFatalErrors: sync?.ok!==false,
+            finalCheckNoFatalErrors: check?.ok!==false
+          };
+          const unresolved=Object.entries(checks).filter(([,v])=>!v).map(([k])=>k);
+          const report={
+            checkedAt:new Date().toISOString(),
+            ok:unresolved.length===0,
+            unresolved,
+            checks,
+            product:{sku:p.sku,price:p.price,stock:p.stock,image_url:p.image_url},
+            wildberries:{
+              nmID:wb?.nmID??null,photos:wb?.photos??null,price:wb?.price??null,stock:wb?.stock??null,
+              actions:sync?.wildberries?.actions??null
+            },
+            ozon:{
+              id:oz?.id??null,images:oz?.images??null,price:oz?.price??oz?.infoPrice??null,stock:oz?.stock??null,
+              statuses:oz?.statuses??null,visible:oz?.visible??null,actions:sync?.ozon?.actions??null
+            },
+            publication:{ok:publish?.ok??null,processed:publish?.processed??null,failed:publish?.failed??null}
+          };
+          process.stdout.write(JSON.stringify(report,null,2));
+          NODE
+          REMOTE
+
+      - name: Commit final report
+        if: always()
+        run: |
+          set -euo pipefail
+          if [ ! -s /tmp/six-tasks-final.json ]; then
+            printf '{"ok":false,"unresolved":["workflow"],"error":"FINALIZER_FAILED"}\n' > /tmp/six-tasks-final.json
+          fi
+          git fetch origin main
+          git reset --hard origin/main
+          cp /tmp/six-tasks-final.json ops/six-tasks-final.json
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add ops/six-tasks-final.json
+          git diff --cached --quiet || git commit -m "Record six-task completion status [skip ci]"
+          git push origin HEAD:main || true
