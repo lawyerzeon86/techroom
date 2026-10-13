@@ -30,8 +30,14 @@ function score(a:string,b:string){
 }
 function absImage(url:string|null){
   if(!url)return null;
-  if(/^https?:\/\//i.test(url))return url;
   const base=(process.env.PUBLIC_STORE_URL||'https://duisun.ru').replace(/\/$/,'');
+  if(/^https?:\/\//i.test(url)){
+    try{
+      const u=new URL(url);
+      if(/(?:^|\\.)onrender\\.com$/i.test(u.hostname)||/techroom-main\\.onrender\\.com/i.test(u.hostname))return base+u.pathname;
+    }catch{}
+    return url;
+  }
   return base+(url.startsWith('/')?'':'/')+url;
 }
 function parseSpecs(specs:string|null){
@@ -75,12 +81,14 @@ async function publishWb(p:SiteProduct){
   const same=(existing?.cards||[]).find((c:any)=>String(c.vendorCode||'')===p.sku);
   if(same){
     const image=absImage(p.imageUrl);
+    let imageResult:any={status:'skipped'};
     if(image&&same.nmID){
       try{
         await json('https://content-api.wildberries.ru/content/v3/media/save',{method:'POST',headers:wbHeaders(),body:JSON.stringify({nmId:Number(same.nmID),data:[image]})});
-      }catch{}
+        imageResult={status:'submitted',image};
+      }catch(e:any){imageResult={status:'error',error:String(e?.message||e)}}
     }
-    return {status:'exists',id:String(same.nmID||''),offerId:p.sku,imageReconciled:Boolean(image&&same.nmID)};
+    return {status:'exists',id:String(same.nmID||''),offerId:p.sku,imageReconciled:imageResult};
   }
 
   const tpl=await findWbTemplate(p); if(!tpl)throw new Error('WB_TEMPLATE_NOT_FOUND');
@@ -112,12 +120,14 @@ async function publishWb(p:SiteProduct){
     const card=(list?.cards||[]).find((c:any)=>String(c.vendorCode||'')===p.sku);
     if(card){nmID=String(card.nmID||'');break}
   }
+  let imageResult:any={status:'skipped'};
   if(nmID&&image){
     try{
       await json('https://content-api.wildberries.ru/content/v3/media/save',{method:'POST',headers:wbHeaders(),body:JSON.stringify({nmId:Number(nmID),data:[image]})});
-    }catch{}
+      imageResult={status:'submitted',image};
+    }catch(e:any){imageResult={status:'error',error:String(e?.message||e)}}
   }
-  return {status:'submitted',id:nmID||null,offerId:p.sku,templateNmID:tpl.nmID||null,package:dims,specs};
+  return {status:'submitted',id:nmID||null,offerId:p.sku,templateNmID:tpl.nmID||null,package:dims,specs,imageReconciled:imageResult};
 }
 
 async function getOzonTemplate(p:SiteProduct){
