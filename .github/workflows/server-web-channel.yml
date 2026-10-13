@@ -43,8 +43,8 @@ jobs:
           set -euo pipefail
           REQUEST_B64="$1"
           cd /var/www/duisun
-          git fetch origin main
-          git reset --hard origin/main
+          git fetch origin main >/dev/null 2>&1
+          git reset --hard origin/main >/dev/null 2>&1
           set -a
           source .env.production
           set +a
