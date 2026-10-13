@@ -306,11 +306,24 @@ export async function pushStockForSku(sku:string,stock:number,warehouses?:{wbWar
   if(process.env.OZON_CLIENT_ID?.trim()&&process.env.OZON_API_KEY?.trim()&&warehouses?.ozonWarehouseId){
     try{
       const headers={'Client-Id':process.env.OZON_CLIENT_ID.trim(),'Api-Key':process.env.OZON_API_KEY.trim(),'Content-Type':'application/json'};
-      const stocks=[{offer_id:sku,stock:amount,warehouse_id:Number(warehouses.ozonWarehouseId)}];
-      const rr=await fetch('https://api-seller.ozon.ru/v2/products/stocks',{method:'POST',headers,body:JSON.stringify({stocks}),cache:'no-store'});
-      const data=await rr.json().catch(()=>({}));
-      if(!rr.ok)throw new Error(String(data?.message||data?.error||`OZON_STOCK_${rr.status}`));
-      const errors=(Array.isArray(data?.result)?data.result:[]).flatMap((x:any)=>(Array.isArray(x?.errors)?x.errors:[]));
+      const submit=async(stocks:any[])=>{
+        const rr=await fetch('https://api-seller.ozon.ru/v2/products/stocks',{method:'POST',headers,body:JSON.stringify({stocks}),cache:'no-store'});
+        const data=await rr.json().catch(()=>({}));
+        if(!rr.ok)throw new Error(String(data?.message||data?.error||`OZON_STOCK_${rr.status}`));
+        return data;
+      };
+      let data=await submit([{offer_id:sku,stock:amount,warehouse_id:Number(warehouses.ozonWarehouseId)}]);
+      let errors=(Array.isArray(data?.result)?data.result:[]).flatMap((x:any)=>(Array.isArray(x?.errors)?x.errors:[]));
+      if(errors.some((e:any)=>String(e?.code||'')==='PRODUCT_IS_NOT_CREATED')){
+        const infoRes=await fetch('https://api-seller.ozon.ru/v3/product/info/list',{method:'POST',headers,body:JSON.stringify({offer_id:[sku],product_id:[],sku:[]}),cache:'no-store'});
+        const info=await infoRes.json().catch(()=>({}));
+        const item=(Array.isArray(info?.items)?info.items:(Array.isArray(info?.result?.items)?info.result.items:[]))[0];
+        const productId=Number(item?.id||item?.product_id||0);
+        if(productId){
+          data=await submit([{product_id:productId,stock:amount,warehouse_id:Number(warehouses.ozonWarehouseId)}]);
+          errors=(Array.isArray(data?.result)?data.result:[]).flatMap((x:any)=>(Array.isArray(x?.errors)?x.errors:[]));
+        }
+      }
       if(errors.length)throw new Error('OZON_STOCK_'+JSON.stringify(errors).slice(0,2000));
       result.ozon={status:'updated',warehouseId:String(warehouses.ozonWarehouseId)};
     }catch(e:any){result.ozon={status:'error',error:String(e?.message||e)}}
