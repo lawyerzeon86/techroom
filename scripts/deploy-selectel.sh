@@ -80,7 +80,7 @@ set -a
 source "$ENV_FILE"
 set +a
 
-npm ci
+npm ci --include=dev
 node scripts/finalize-selectel.mjs
 npm run build
 pm2 delete techroom >/dev/null 2>&1 || true
