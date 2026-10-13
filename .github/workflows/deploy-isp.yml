@@ -9,7 +9,6 @@ on:
       - 'ops/finance-history-last.json'
       - 'ops/finance-completeness.json'
       - 'ops/finance-currency-audit.txt'
-      - 'ops/server-web-request.txt'
       - 'ops/server-web-status.json'
       - '.github/workflows/server-web-channel.yml'
   workflow_dispatch:
@@ -68,6 +67,58 @@ jobs:
           status="$(curl --silent --show-error --output /dev/null --write-out '%{http_code}' --max-time 20 https://duisun.ru/admin/whatsapp)"
           test "$status" = 200
 
+      - name: Run web control request
+        id: web_control
+        if: steps.deploy.outcome == 'success' && steps.verify.outcome == 'success'
+        continue-on-error: true
+        env:
+          SELECTEL_HOST: ${{ secrets.SELECTEL_HOST }}
+          SELECTEL_PORT: ${{ secrets.SELECTEL_PORT }}
+          SELECTEL_USER: ${{ secrets.SELECTEL_USER }}
+          SELECTEL_SSH_KEY: ${{ secrets.SELECTEL_SSH_KEY }}
+        run: |
+          set -euo pipefail
+          line="$(head -n1 ops/server-web-request.txt 2>/dev/null | tr -d '\r' | xargs || true)"
+          [ -n "$line" ] || exit 0
+          action=""; mode="check"; sku=""
+          case "$line" in
+            "sync all") action="sync_all" ;;
+            "sync product "*) action="reconcile"; mode="product"; sku="${line#sync product }" ;;
+            "sync stocks "*) action="reconcile"; mode="stocks"; sku="${line#sync stocks }" ;;
+            "sync prices "*) action="reconcile"; mode="prices"; sku="${line#sync prices }" ;;
+            "sync images "*) action="reconcile"; mode="images"; sku="${line#sync images }" ;;
+            "check marketplace "*) action="reconcile"; mode="check"; sku="${line#check marketplace }" ;;
+            "status "*) action="reconcile"; mode="check"; sku="${line#status }" ;;
+            "deploy") action="deploy_only" ;;
+            *) echo "Unsupported web command: $line" >&2; exit 2 ;;
+          esac
+          if [ -n "$sku" ] && ! [[ "$sku" =~ ^[A-Za-z0-9._-]+$ ]]; then echo "Unsafe SKU" >&2; exit 2; fi
+          if [ "$action" = "deploy_only" ]; then
+            printf '{"ok":true,"action":"deploy","checkedAt":"%s"}\n' "$(date -u +%Y-%m-%dT%H:%M:%SZ)" > /tmp/server-web-status.json
+            exit 0
+          fi
+          mkdir -p ~/.ssh
+          chmod 700 ~/.ssh
+          printf '%s\n' "$SELECTEL_SSH_KEY" > ~/.ssh/id_ed25519
+          chmod 600 ~/.ssh/id_ed25519
+          ssh-keyscan -p "${SELECTEL_PORT:-22}" "$SELECTEL_HOST" >> ~/.ssh/known_hosts
+          ssh -o ServerAliveInterval=20 -o ServerAliveCountMax=6 -p "${SELECTEL_PORT:-22}" "${SELECTEL_USER:-root}@$SELECTEL_HOST" "bash -s -- '$action' '$mode' '$sku'" > /tmp/server-web-status.json <<'REMOTE'
+          set -euo pipefail
+          action="$1"; mode="$2"; sku="$3"
+          cd /var/www/duisun
+          set -a; source .env.production; set +a
+          cfg=$(mktemp /run/duisun-web.XXXXXX)
+          trap 'rm -f "$cfg"' EXIT
+          chmod 600 "$cfg"
+          printf 'header = "x-cron-secret: %s"\n' "$CRON_SYNC_SECRET" > "$cfg"
+          if [ "$action" = "sync_all" ]; then
+            url='http://127.0.0.1:3000/api/internal/marketplace-sync?force=1&transfers=1'
+          else
+            url="http://127.0.0.1:3000/api/internal/marketplace-sync?force=1&reconcileSku=$sku&mode=$mode"
+          fi
+          curl -fsS --max-time 300 -X POST --config "$cfg" "$url"
+          REMOTE
+
       - name: Record deploy status
         if: always()
         continue-on-error: true
@@ -86,6 +137,10 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add ops/deploy-last-status.txt
+          if [ -s /tmp/server-web-status.json ]; then
+            cp /tmp/server-web-status.json ops/server-web-status.json
+            git add ops/server-web-status.json
+          fi
           git diff --cached --quiet || git commit -m "Record Selectel deploy status [skip ci]"
           git push origin HEAD:main || true
 
