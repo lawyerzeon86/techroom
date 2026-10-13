@@ -20,4 +20,26 @@ try{
     }
   }
   console.log('Historical table defaults verified');
+  const migrated=await pool.query(`
+    UPDATE products
+    SET image_url=CASE
+          WHEN image_url LIKE 'https://techroom-main.onrender.com/%'
+            THEN replace(image_url,'https://techroom-main.onrender.com','https://duisun.ru')
+          ELSE image_url
+        END,
+        image_urls=(
+          SELECT COALESCE(jsonb_agg(
+            CASE
+              WHEN value LIKE 'https://techroom-main.onrender.com/%'
+                THEN to_jsonb(replace(value,'https://techroom-main.onrender.com','https://duisun.ru'))
+              ELSE to_jsonb(value)
+            END
+          ),'[]'::jsonb)
+          FROM jsonb_array_elements_text(image_urls)
+        ),
+        updated_at=NOW()
+    WHERE image_url LIKE 'https://techroom-main.onrender.com/%'
+       OR image_urls::text LIKE '%techroom-main.onrender.com%'
+  `);
+  console.log('Render image URLs migrated',migrated.rowCount);
 }finally{await pool.end()}
