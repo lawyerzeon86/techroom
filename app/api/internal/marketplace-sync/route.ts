@@ -11,6 +11,7 @@ import { runPriceGuard } from '../../../../lib/price-guard';
 import { verifyGitHubActionsToken } from '../../../../lib/github-oidc';
 import { syncOzonToVk, syncVkOrdersToTechRoom, vkConfigured } from '../../../../lib/vk-market';
 import { syncYandexMarketOrders, yandexMarketConfigured } from '../../../../lib/yandex-market';
+import { publishAllActiveSiteProductsToMarketplaces } from '../../../../lib/site-product-publish';
 
 export const runtime='nodejs';
 export const dynamic='force-dynamic';
@@ -130,6 +131,7 @@ export async function POST(request:Request){
 
     const warehouses:any=await safeStage('WAREHOUSE_SETTINGS',15000,()=>getWarehouseSettings());
     result.stages.warehouses=warehouses;
+    if(!warehouses?.error&&warehouses.wbWarehouseId)process.env.WB_WAREHOUSE_ID=warehouses.wbWarehouseId;
     if(!warehouses?.error&&warehouses.ozonWarehouseId)process.env.OZON_WAREHOUSE_ID=warehouses.ozonWarehouseId;
 
     const [wb,ozon]=await Promise.all([
@@ -145,6 +147,7 @@ export async function POST(request:Request){
       ? await safeStage('YANDEX_FBS_ORDERS',30000,()=>syncYandexMarketOrders())
       : {skipped:'not_configured'};
 
+    result.stages.sitePublish=await safeStage('SITE_PRODUCT_PUBLISH',180000,()=>publishAllActiveSiteProductsToMarketplaces(100));
     result.stages.catalog=await safeStage('CATALOG_SYNC',120000,()=>pushPricesAndStocks());
     result.stages.priceGuard=await safeStage('PRICE_GUARD',120000,()=>runPriceGuard());
 
