@@ -67,11 +67,25 @@ async function syncImages(sku:string,image:string|null){
     try{
       const card=await wbCard(sku);
       if(!card?.nmID)throw new Error('WB_CARD_NOT_FOUND');
-      await read(await fetch('https://content-api.wildberries.ru/content/v3/media/save',{
-        method:'POST',headers:wbHeaders(),cache:'no-store',
-        body:JSON.stringify({nmId:Number(card.nmID),data:[image]})
-      }));
-      out.wb={status:'updated',nmID:Number(card.nmID),image};
+      const candidates=[image];
+      try{
+        const u=new URL(image);
+        if(u.hostname==='duisun.ru'&&u.pathname.startsWith('/products/')){
+          candidates.push('https://raw.githubusercontent.com/lawyerzeon86/techroom/main/public'+u.pathname);
+        }
+      }catch{}
+      let lastError:any=null,used:string|null=null;
+      for(const candidate of [...new Set(candidates)]){
+        try{
+          await read(await fetch('https://content-api.wildberries.ru/content/v3/media/save',{
+            method:'POST',headers:wbHeaders(),cache:'no-store',
+            body:JSON.stringify({nmId:Number(card.nmID),data:[candidate]})
+          }));
+          used=candidate;lastError=null;break;
+        }catch(e:any){lastError=e}
+      }
+      if(lastError)throw lastError;
+      out.wb={status:'updated',nmID:Number(card.nmID),image:used};
     }catch(e:any){out.wb={status:'error',error:String(e?.message||e)}}
   }
   if(image&&process.env.OZON_CLIENT_ID?.trim()&&process.env.OZON_API_KEY?.trim()){
@@ -170,6 +184,7 @@ export async function reconcileMarketplaceProduct(sku:string,mode:Mode='all'){
   if(mode==='all'||mode==='stocks'||mode==='product'){
     result.steps.stocks=await pushStockForSku(sku,Number(p.stock)||0,{wbWarehouseId:warehouses.wbWarehouseId,ozonWarehouseId:warehouses.ozonWarehouseId});
   }
+  if(mode!=='check')await new Promise(resolve=>setTimeout(resolve,5000));
   result.verify=await verify(sku,p,warehouses);
   result.ok=!result.verify.errors.length&&
     !Object.values(result.steps).some((x:any)=>JSON.stringify(x).includes('"status":"error"'));
