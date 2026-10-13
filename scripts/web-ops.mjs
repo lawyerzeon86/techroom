@@ -85,10 +85,10 @@ try{
       if(process.env.OZON_CLIENT_ID&&process.env.OZON_API_KEY){
         const pricePayload={prices:[{offer_id:sku,price:String(p.price),old_price:'0',premium_price:'0',auto_action_enabled:'DISABLED'}]};
         const pr=await fetchJson('https://api-seller.ozon.ru/v1/product/import/prices',{method:'POST',headers:ozHeaders(),body:JSON.stringify(pricePayload)});
-        out.actions.push({action:'ozon_price',ok:pr.r.ok,status:pr.r.status});
+        out.actions.push({action:'ozon_price',ok:pr.r.ok,status:pr.r.status,error:pr.r.ok?null:String(pr.j?.message||pr.j?.error||pr.j?.errorText||'').slice(0,500)});
         if(wh.ozon){
           const sr=await fetchJson('https://api-seller.ozon.ru/v2/products/stocks',{method:'POST',headers:ozHeaders(),body:JSON.stringify({stocks:[{offer_id:sku,stock:Math.max(0,Number(p.stock)||0),warehouse_id:Number(wh.ozon)}]})});
-          out.actions.push({action:'ozon_stock',ok:sr.r.ok,status:sr.r.status});
+          out.actions.push({action:'ozon_stock',ok:sr.r.ok,status:sr.r.status,error:sr.r.ok?null:String(sr.j?.message||sr.j?.error||sr.j?.errorText||'').slice(0,500)});
         }
       }
 
@@ -98,15 +98,15 @@ try{
         const barcode=card.x?.sizes?.flatMap(s=>Array.isArray(s.skus)?s.skus:[])[0];
         if(nmID){
           const pr=await fetchJson('https://discounts-prices-api.wildberries.ru/api/v2/upload/task',{method:'POST',headers:wbHeaders(),body:JSON.stringify({data:[{nmID,price:Number(p.price)}]})});
-          out.actions.push({action:'wb_price',ok:pr.r.ok||pr.r.status===208,status:pr.r.status});
+          out.actions.push({action:'wb_price',ok:pr.r.ok||pr.r.status===208,status:pr.r.status,error:(pr.r.ok||pr.r.status===208)?null:String(pr.j?.message||pr.j?.errorText||pr.j?.error||JSON.stringify(pr.j)).slice(0,800)});
           if(image){
             const ir=await fetchJson('https://content-api.wildberries.ru/content/v3/media/save',{method:'POST',headers:wbHeaders(),body:JSON.stringify({nmId:nmID,data:[image]})});
-            out.actions.push({action:'wb_image',ok:ir.r.ok,status:ir.r.status});
+            out.actions.push({action:'wb_image',ok:ir.r.ok,status:ir.r.status,error:ir.r.ok?null:String(ir.j?.message||ir.j?.errorText||ir.j?.error||JSON.stringify(ir.j)).slice(0,800)});
           }
         }
         if(wh.wb&&barcode){
           const sr=await fetchJson('https://marketplace-api.wildberries.ru/api/v3/stocks/'+encodeURIComponent(wh.wb),{method:'PUT',headers:wbHeaders(),body:JSON.stringify({stocks:[{sku:String(barcode),amount:Math.max(0,Number(p.stock)||0)}]})});
-          out.actions.push({action:'wb_stock',ok:sr.r.ok,status:sr.r.status});
+          out.actions.push({action:'wb_stock',ok:sr.r.ok,status:sr.r.status,error:sr.r.ok?null:String(sr.j?.message||sr.j?.errorText||sr.j?.error||JSON.stringify(sr.j)).slice(0,800)});
         }
       }
 
