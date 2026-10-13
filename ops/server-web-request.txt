@@ -1,2 +1,2 @@
-deploy dskgothtoy1
-nonce=2026-10-13T19:35:00Z
+sync-all dskgothtoy1
+nonce=final-2026-10-13T19:55:00Z
