@@ -1,5 +1,5 @@
-commit=a06bcc52875b78d0da63b530d5304e4757f588ee
-run_id=38457073953
-deploy=success
-verify=success
-time=2026-10-13T19:44:05Z
+commit=9feb1afc18952e2e3d0f35c371f8ececd19c7e93
+run_id=38457121833
+deploy=failure
+verify=skipped
+time=2026-10-13T19:44:37Z
