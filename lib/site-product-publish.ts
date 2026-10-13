@@ -73,7 +73,15 @@ async function findWbTemplate(p:SiteProduct){
 async function publishWb(p:SiteProduct){
   const existing=await json('https://content-api.wildberries.ru/content/v2/get/cards/list',{method:'POST',headers:wbHeaders(),body:JSON.stringify({settings:{cursor:{limit:100},filter:{textSearch:p.sku,withPhoto:-1},sort:{ascending:false}}})});
   const same=(existing?.cards||[]).find((c:any)=>String(c.vendorCode||'')===p.sku);
-  if(same)return {status:'exists',id:String(same.nmID||''),offerId:p.sku};
+  if(same){
+    const image=absImage(p.imageUrl);
+    if(image&&same.nmID){
+      try{
+        await json('https://content-api.wildberries.ru/content/v3/media/save',{method:'POST',headers:wbHeaders(),body:JSON.stringify({nmId:Number(same.nmID),data:[image]})});
+      }catch{}
+    }
+    return {status:'exists',id:String(same.nmID||''),offerId:p.sku,imageReconciled:Boolean(image&&same.nmID)};
+  }
 
   const tpl=await findWbTemplate(p); if(!tpl)throw new Error('WB_TEMPLATE_NOT_FOUND');
   const specs=parseSpecs(p.specs);
@@ -237,8 +245,6 @@ export async function publishSiteProductToMarketplaces(sku:string){
   const p=await loadProduct(sku);
   const out:any={sku,wb:null,ozon:null};
   for(const mp of ['wb','ozon'] as const){
-    const already=await getPool().query(`SELECT 1 FROM marketplace_publish_attempts WHERE sku=$1 AND marketplace=$2 AND status IN ('exists','accepted','imported') LIMIT 1`,[sku,mp]).catch(()=>({rows:[]}));
-    if((already as any).rows?.length){out[mp]={status:'already_done'};continue}
     try{
       const r=mp==='wb'?await publishWb(p):await publishOzon(p);
       out[mp]=r; await saveAttempt(sku,mp,String(r.status||'submitted'),r);
