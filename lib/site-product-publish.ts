@@ -185,7 +185,10 @@ function updateAttr(attrs:any[],nameRx:RegExp,value:string){
 async function publishOzon(p:SiteProduct){
   const exist=await json('https://api-seller.ozon.ru/v3/product/info/list',{method:'POST',headers:ozonHeaders(),body:JSON.stringify({offer_id:[p.sku],product_id:[],sku:[]})}).catch(()=>({}));
   const same=(exist?.items||exist?.result?.items||[])[0];
-  if(same && p.sku!=='dskgothring1')return {status:'exists',id:String(same.id||same.product_id||''),offerId:p.sku};
+  const sameErrors=Array.isArray(same?.errors)?same.errors:[];
+  const imageRejected=sameErrors.some((e:any)=>/image|picture|pic/i.test(String(e?.code||''))||/картин|изображ|image|picture/i.test(String(e?.texts?.description||'')));
+  const created=same?.statuses?.is_created;
+  if(same && p.sku!=='dskgothring1' && created!==false && !imageRejected)return {status:'exists',id:String(same.id||same.product_id||''),offerId:p.sku};
 
   const tpl=await getOzonTemplate(p); if(!tpl)throw new Error('OZON_TEMPLATE_NOT_FOUND');
   const a=tpl.a, pi=tpl.pi||{};
