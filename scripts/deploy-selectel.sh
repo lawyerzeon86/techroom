@@ -189,6 +189,47 @@ systemctl disable --now duisun-marketplace-sync.timer 2>/dev/null || true
 systemctl daemon-reload
 systemctl enable --now duisun-sync-core.timer duisun-sync-communications.timer duisun-sync-transfers.timer duisun-sync-vk.timer
 
+cat >/usr/local/bin/duisun-publish-products <<'PUBLISH'
+#!/usr/bin/env bash
+set -euo pipefail
+cd /var/www/duisun
+set -a; source .env.production; set +a
+CFG=$(mktemp /run/duisun-publish.XXXXXX)
+trap 'rm -f "$CFG"' EXIT
+chmod 600 "$CFG"
+printf 'header = "x-cron-secret: %s"\n' "$CRON_SYNC_SECRET" > "$CFG"
+curl -fsS --max-time 900 -X POST --config "$CFG" -H 'Content-Type: application/json' -d '{}' http://127.0.0.1:3000/api/internal/publish-products > /var/log/duisun-publish-products-last.json
+node -e 'const r=JSON.parse(require("fs").readFileSync("/var/log/duisun-publish-products-last.json","utf8")); if(r.ok!==true && Number(r.failed||0)>0) process.exit(1)'
+PUBLISH
+chmod 700 /usr/local/bin/duisun-publish-products
+
+cat >/etc/systemd/system/duisun-publish-products.service <<'UNIT'
+[Unit]
+Description=Duisun publish active site products to marketplaces
+After=network-online.target
+Wants=network-online.target
+[Service]
+Type=oneshot
+ExecStart=/usr/local/bin/duisun-publish-products
+User=root
+TimeoutStartSec=1200
+UNIT
+
+cat >/etc/systemd/system/duisun-publish-products.timer <<'UNIT'
+[Unit]
+Description=Duisun product publication sync every 30 minutes
+[Timer]
+OnBootSec=5min
+OnUnitActiveSec=30min
+RandomizedDelaySec=45
+Persistent=true
+[Install]
+WantedBy=timers.target
+UNIT
+systemctl daemon-reload
+systemctl enable --now duisun-publish-products.timer
+systemctl start --no-block duisun-publish-products.service || true
+
 install -d -m 700 /root/duisun-backups
 cat >/usr/local/bin/duisun-backup <<'BACKUP'
 #!/usr/bin/env bash
