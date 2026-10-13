@@ -1,2 +1,2 @@
-sync-all dskgothtoy1
-nonce=2026-10-13T19:25:00Z
+check dskgothtoy1
+nonce=2026-10-13T19:30:00Z
