@@ -11,6 +11,9 @@ on:
       - 'ops/finance-currency-audit.txt'
       - 'ops/server-web-status.json'
       - '.github/workflows/server-web-channel.yml'
+      - '.github/workflows/finalize-six-tasks.yml'
+      - 'ops/six-tasks-final.json'
+      - 'ops/finalize-six-tasks.trigger'
   workflow_dispatch:
 
 permissions:
