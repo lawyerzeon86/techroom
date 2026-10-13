@@ -1,0 +1,157 @@
+name: Server web channel
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'ops/server-web-request.txt'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: server-web-channel
+  cancel-in-progress: true
+
+jobs:
+  inspect:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Inspect Selectel over existing SSH secrets
+        env:
+          HOST: ${{ secrets.SELECTEL_HOST }}
+          PORT: ${{ secrets.SELECTEL_PORT }}
+          USER: ${{ secrets.SELECTEL_USER }}
+          SSH_KEY: ${{ secrets.SELECTEL_SSH_KEY }}
+        run: |
+          set -euo pipefail
+          test -n "$HOST"
+          test -n "${USER:-root}"
+          test -n "$SSH_KEY"
+          mkdir -p ~/.ssh
+          chmod 700 ~/.ssh
+          printf '%s\n' "$SSH_KEY" > ~/.ssh/id_ed25519
+          chmod 600 ~/.ssh/id_ed25519
+          ssh-keyscan -p "${PORT:-22}" "$HOST" >> ~/.ssh/known_hosts
+          ssh -o ServerAliveInterval=20 -o ServerAliveCountMax=3 -p "${PORT:-22}" "${USER:-root}@$HOST" 'bash -s' > /tmp/server-web-status.json <<'REMOTE'
+          set -euo pipefail
+          cd /var/www/duisun
+          set -a
+          source .env.production
+          set +a
+          node --input-type=module <<'NODE'
+          import fs from 'node:fs';
+          import pg from 'pg';
+
+          const out = {
+            checkedAt: new Date().toISOString(),
+            app: {},
+            health: null,
+            product: null,
+            marketplace: { ozon: null, wildberries: null },
+            timers: {},
+            sync: {}
+          };
+
+          try {
+            out.app.commit = (await import('node:child_process')).execSync('git rev-parse HEAD',{encoding:'utf8'}).trim();
+          } catch {}
+
+          try {
+            const r = await fetch('http://127.0.0.1:3000/api/health');
+            out.health = await r.json();
+          } catch (e) {
+            out.health = {ok:false,error:String(e?.message||e)};
+          }
+
+          try {
+            const pool = new pg.Pool({
+              connectionString: process.env.DATABASE_URL,
+              ssl: process.env.DATABASE_URL?.includes('localhost') ? false : {rejectUnauthorized:false}
+            });
+            const q = await pool.query(
+              'SELECT id,sku,title,price,stock,image_url,image_urls,is_active,updated_at FROM products WHERE sku=$1 LIMIT 1',
+              ['dskgothtoy1']
+            );
+            out.product = q.rows[0] || null;
+            await pool.end();
+          } catch (e) {
+            out.product = {error:String(e?.message||e)};
+          }
+
+          try {
+            const headers={
+              'Client-Id':process.env.OZON_CLIENT_ID||'',
+              'Api-Key':process.env.OZON_API_KEY||'',
+              'Content-Type':'application/json'
+            };
+            const r=await fetch('https://api-seller.ozon.ru/v3/product/info/list',{
+              method:'POST',headers,
+              body:JSON.stringify({offer_id:['dskgothtoy1'],product_id:[],sku:[]})
+            });
+            const j=await r.json().catch(()=>({}));
+            const x=(j.items||j.result?.items||[])[0]||null;
+            out.marketplace.ozon={ok:r.ok,status:r.status,item:x?{
+              id:x.id||x.product_id||null,
+              offer_id:x.offer_id||null,
+              name:x.name||null,
+              price:x.price||null,
+              min_price:x.min_price||null,
+              marketing_price:x.marketing_price||null,
+              images:Array.isArray(x.images)?x.images.length:null,
+              stocks:x.stocks||null,
+              visible:x.visible??null,
+              status:x.status||null
+            }:null};
+          } catch(e) {
+            out.marketplace.ozon={ok:false,error:String(e?.message||e)};
+          }
+
+          try {
+            const r=await fetch('https://content-api.wildberries.ru/content/v2/get/cards/list',{
+              method:'POST',
+              headers:{Authorization:process.env.WB_API_TOKEN||'','Content-Type':'application/json'},
+              body:JSON.stringify({settings:{cursor:{limit:100},filter:{textSearch:'dskgothtoy1',withPhoto:-1},sort:{ascending:false}}})
+            });
+            const j=await r.json().catch(()=>({}));
+            const x=(j.cards||[]).find(v=>String(v.vendorCode||'')==='dskgothtoy1')||null;
+            out.marketplace.wildberries={ok:r.ok,status:r.status,item:x?{
+              nmID:x.nmID||null,
+              vendorCode:x.vendorCode||null,
+              title:x.title||null,
+              photos:Array.isArray(x.photos)?x.photos.length:null,
+              dimensions:x.dimensions||null,
+              sizes:Array.isArray(x.sizes)?x.sizes.map(s=>({skus:s.skus||[],techSize:s.techSize||null,wbSize:s.wbSize||null})):null
+            }:null};
+          } catch(e) {
+            out.marketplace.wildberries={ok:false,error:String(e?.message||e)};
+          }
+
+          for (const [k,p] of Object.entries({
+            core:'/var/log/duisun-sync-core-last.json',
+            communications:'/var/log/duisun-sync-communications-last.json',
+            transfers:'/var/log/duisun-sync-transfers-last.json'
+          })) {
+            try {
+              const j=JSON.parse(fs.readFileSync(p,'utf8'));
+              out.sync[k]={ok:j.ok??null,partial:j.partial??null,partialErrors:j.partialErrors??null,runId:j.runId??null};
+            } catch {}
+          }
+
+          process.stdout.write(JSON.stringify(out,null,2));
+          NODE
+          REMOTE
+
+      - name: Publish sanitized status to repository
+        run: |
+          set -euo pipefail
+          cp /tmp/server-web-status.json ops/server-web-status.json
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add ops/server-web-status.json
+          git diff --cached --quiet || git commit -m "Update server web status [skip ci]"
+          git push origin HEAD:main
