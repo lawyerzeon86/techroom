@@ -9,6 +9,9 @@ on:
       - 'ops/finance-history-last.json'
       - 'ops/finance-completeness.json'
       - 'ops/finance-currency-audit.txt'
+      - 'ops/server-web-request.txt'
+      - 'ops/server-web-status.json'
+      - '.github/workflows/server-web-channel.yml'
   workflow_dispatch:
 
 permissions:
