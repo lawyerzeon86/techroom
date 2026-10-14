@@ -274,6 +274,7 @@ export async function publishAllActiveSiteProductsToMarketplaces(limit=50){
   const rows=await getPool().query(
     `SELECT sku FROM products
       WHERE is_active=TRUE AND sku IS NOT NULL AND BTRIM(sku)<>''
+        AND (marketplace_source IS NULL OR BTRIM(marketplace_source)='')
       ORDER BY updated_at DESC,id DESC
       LIMIT $1`,
     [Math.max(1,Math.min(200,Number(limit)||50))]
