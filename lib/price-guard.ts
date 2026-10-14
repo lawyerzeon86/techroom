@@ -151,7 +151,7 @@ async function loadWbGoods(token:string):Promise<WbLoadState>{
   if(Date.now()<wbBlockedUntil)return {goods:[],rateLimitedUntil:new Date(wbBlockedUntil).toISOString()};
   const ids:number[]=[];
   try{
-    const goods=await loadWbPriceGoods(token);
+    const goods=await loadWbPriceGoods(token,true);
     for(const rule of RULES){
       const good=goods.find(g=>String(g.vendorCode||'').trim()===rule.sku);
       if(good)wbNmIdCache.set(rule.sku,Number(good.nmID));
