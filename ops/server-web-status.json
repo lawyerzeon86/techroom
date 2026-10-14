@@ -1,5 +1,5 @@
 {
-  "checkedAt": "2026-10-14T11:26:02.686Z",
+  "checkedAt": "2026-10-14T17:29:24.700Z",
   "sku": "dskgothtoy1",
   "app": {
     "commit": "8c900c87efccea8b7b4627b90712fbd377d19489"
@@ -20,7 +20,7 @@
       "https://ir.ozone.ru/s3/multimedia-1-h/20321096057.jpg"
     ],
     "is_active": true,
-    "updated_at": "2026-10-14T11:15:49.295Z"
+    "updated_at": "2026-10-14T11:36:38.196Z"
   },
   "marketplace": {
     "ozon": {
@@ -117,13 +117,13 @@
       "ok": true,
       "partial": null,
       "partialErrors": null,
-      "runId": 3748
+      "runId": 3775
     },
     "transfers": {
       "ok": true,
       "partial": true,
       "partialErrors": [
-        "result.stages.sitePublish.results.40.wb.imageReconciled: Ошибка сохранения товара: ошибки для всех ссылок: [Неподдерживаемый тип файла]",
+        "result.stages.catalog.yandex: fetch failed",
         "result.stages.priceGuard.results.10: You have reached request rate limit per second",
         "result.productHub.transfer.results.3: Invalid request format",
         "result.productHub.transfer.results.4: Invalid request format",
@@ -165,7 +165,7 @@
         "result.productHub.transfer.results.40: Invalid request format",
         "result.productHub.transfer.results.41: Invalid request format"
       ],
-      "runId": 3725
+      "runId": 3752
     }
   },
   "commandResult": {
