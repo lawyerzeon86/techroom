@@ -1,5 +1,5 @@
 {
-  "checkedAt": "2026-10-14T18:43:51.175Z",
+  "checkedAt": "2026-10-14T23:24:59.802Z",
   "sku": "dskgothtoy1",
   "app": {
     "commit": "8c900c87efccea8b7b4627b90712fbd377d19489"
@@ -7,7 +7,7 @@
   "health": {
     "ok": true,
     "database": "up",
-    "responseMs": 1
+    "responseMs": 14
   },
   "product": {
     "id": 2,
@@ -20,7 +20,7 @@
       "https://ir.ozone.ru/s3/multimedia-1-h/20321096057.jpg"
     ],
     "is_active": true,
-    "updated_at": "2026-10-14T17:48:38.419Z"
+    "updated_at": "2026-10-14T23:19:37.055Z"
   },
   "marketplace": {
     "ozon": {
@@ -111,13 +111,13 @@
       "ok": true,
       "partial": null,
       "partialErrors": null,
-      "runId": null
+      "runId": 3799
     },
     "communications": {
       "ok": true,
       "partial": null,
       "partialErrors": null,
-      "runId": 3780
+      "runId": 3800
     },
     "transfers": {
       "ok": true,
