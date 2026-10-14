@@ -124,11 +124,34 @@ export async function getProducts(mp:MarketplaceUi,q='',limit=50){
 }
 
 function wbPayload(card:any,patch:{title?:string;description?:string;dimensions?:any}){
-  const keys=['nmID','vendorCode','brand','title','description','dimensions','characteristics','sizes','kizMarked','documents'];
-  const x:any={};for(const k of keys)if(card?.[k]!==undefined)x[k]=card[k];
-  if(patch.title!==undefined)x.title=patch.title;
-  if(patch.description!==undefined)x.description=patch.description;
-  if(patch.dimensions!==undefined)x.dimensions=patch.dimensions;
+  // /content/v2/cards/update is a replace-style endpoint and rejects fields from the
+  // GET response that are not part of the update schema. Build the payload explicitly.
+  const x:any={
+    nmID:Number(card?.nmID),
+    vendorCode:String(card?.vendorCode||''),
+    kizMarked:Boolean(card?.kizMarked),
+    brand:String(card?.brand||''),
+    title:String(patch.title!==undefined?patch.title:(card?.title||'')),
+    description:String(patch.description!==undefined?patch.description:(card?.description||'')),
+    dimensions:patch.dimensions!==undefined?patch.dimensions:{
+      length:Number(card?.dimensions?.length)||0,
+      width:Number(card?.dimensions?.width)||0,
+      height:Number(card?.dimensions?.height)||0,
+      weightBrutto:Number(card?.dimensions?.weightBrutto)||0
+    },
+    characteristics:(Array.isArray(card?.characteristics)?card.characteristics:[])
+      .filter((v:any)=>Number(v?.id)>0)
+      .map((v:any)=>({id:Number(v.id),value:v.value})),
+    sizes:(Array.isArray(card?.sizes)?card.sizes:[])
+      .filter((v:any)=>Number(v?.chrtID)>0)
+      .map((v:any)=>({
+        chrtID:Number(v.chrtID),
+        ...(v.techSize!==undefined?{techSize:String(v.techSize)}:{}),
+        ...(v.wbSize!==undefined?{wbSize:String(v.wbSize)}:{}),
+        skus:Array.isArray(v.skus)?v.skus.map(String):[]
+      }))
+  };
+  if(!x.nmID||!x.vendorCode||!x.sizes.length)throw new Error('WB_CARD_UPDATE_PAYLOAD_INCOMPLETE');
   return x;
 }
 function positive(v:any,name:string){const n=Number(v);if(!Number.isFinite(n)||n<=0)throw new Error(`INVALID_${name}`);return n}
