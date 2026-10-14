@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { publishSiteProductToMarketplaces } from '@/lib/site-product-publish'
+import { publishSiteProductToMarketplaces } from '../../../../lib/site-product-publish'
 
 export const dynamic = 'force-dynamic'
 export const runtime = 'nodejs'
