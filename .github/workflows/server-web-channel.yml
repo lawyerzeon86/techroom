@@ -134,7 +134,8 @@ jobs:
             const stock=Number(process.env.WEB_SET_STOCK);
             if(!sku||!Number.isInteger(stock)||stock<0||stock>100000)throw new Error('INVALID_STOCK_REQUEST');
             const pool=new pg.Pool({connectionString:process.env.DATABASE_URL,ssl:process.env.DATABASE_URL?.includes('localhost')?false:{rejectUnauthorized:false}});
-            const r=await pool.query('UPDATE products SET stock=$2,updated_at=NOW() WHERE sku=$1 RETURNING id,sku,stock',[sku,stock]);
+            await pool.query("ALTER TABLE products ADD COLUMN IF NOT EXISTS inventory_authority TEXT NOT NULL DEFAULT 'marketplace'");
+            const r=await pool.query("UPDATE products SET stock=$2,inventory_authority='site',updated_at=NOW() WHERE sku=$1 RETURNING id,sku,stock,inventory_authority",[sku,stock]);
             await pool.end();
             if(!r.rows[0])throw new Error('PRODUCT_NOT_FOUND');
             console.log(JSON.stringify({ok:true,updated:r.rows[0]}));
