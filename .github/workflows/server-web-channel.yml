@@ -58,6 +58,9 @@ jobs:
               [[ "$stock" =~ ^[0-9]+$ ]] || { echo "Invalid stock" >&2; exit 2; }
               echo "stock=$stock" >> "$GITHUB_OUTPUT"
               ;;
+            "repair image "*)
+              action="repair_image"; mode="images"; sku="${line#repair image }"
+              ;;
             "check marketplace "*)
               action="check"; mode="check"; sku="${line#check marketplace }"
               ;;
@@ -105,7 +108,7 @@ jobs:
           ssh -o ServerAliveInterval=20 -o ServerAliveCountMax=6 -p "${PORT:-22}" "${USER:-root}@$HOST" 'bash -s' < scripts/deploy-selectel.sh
 
       - name: Execute safe marketplace command
-        if: steps.command.outputs.action == 'reconcile' || steps.command.outputs.action == 'sync_all' || steps.command.outputs.action == 'set_stock'
+        if: steps.command.outputs.action == 'reconcile' || steps.command.outputs.action == 'sync_all' || steps.command.outputs.action == 'set_stock' || steps.command.outputs.action == 'repair_image'
         env:
           HOST: ${{ secrets.SELECTEL_HOST }}
           PORT: ${{ secrets.SELECTEL_PORT }}
@@ -126,7 +129,11 @@ jobs:
           trap 'rm -f "$CFG" "$OUT"' EXIT
           chmod 600 "$CFG" "$OUT"
           printf 'header = "x-cron-secret: %s"\n' "$CRON_SYNC_SECRET" > "$CFG"
-          if [ "$action" = "set_stock" ]; then
+          if [ "$action" = "repair_image" ]; then
+            export WEB_SET_SKU="$sku"
+            node --input-type=module -e "import pg from 'pg'; const sku=process.env.WEB_SET_SKU; if(!sku) throw new Error('INVALID_IMAGE_REPAIR_REQUEST'); const pool=new pg.Pool({connectionString:process.env.DATABASE_URL,ssl:process.env.DATABASE_URL?.includes('localhost')?false:{rejectUnauthorized:false}}); const url='https://duisun.ru/products/'+encodeURIComponent(sku)+'-main.jpg'; const d=String.fromCharCode(36); const sql='UPDATE products SET image_url='+d+'2,image_urls='+d+'3::jsonb,updated_at=NOW() WHERE sku='+d+'1 RETURNING id,sku,image_url'; const r=await pool.query(sql,[sku,url,JSON.stringify([url])]); await pool.end(); if(!r.rows[0]) throw new Error('PRODUCT_NOT_FOUND'); console.log(JSON.stringify({ok:true,updated:r.rows[0]}));"
+            url="http://127.0.0.1:3000/api/internal/marketplace-sync?force=1&reconcileSku=$sku&mode=images"
+          elif [ "$action" = "set_stock" ]; then
             export WEB_SET_SKU="$sku" WEB_SET_STOCK="$stock"
             node --input-type=module -e "import pg from 'pg'; const sku=process.env.WEB_SET_SKU; const stock=Number(process.env.WEB_SET_STOCK); if(!sku||!Number.isInteger(stock)||stock<0||stock>100000) throw new Error('INVALID_STOCK_REQUEST'); const pool=new pg.Pool({connectionString:process.env.DATABASE_URL,ssl:process.env.DATABASE_URL?.includes('localhost')?false:{rejectUnauthorized:false}}); await pool.query(\"ALTER TABLE products ADD COLUMN IF NOT EXISTS inventory_authority TEXT NOT NULL DEFAULT 'marketplace'\"); const d=String.fromCharCode(36); const sql=\"UPDATE products SET stock=\"+d+\"2,inventory_authority='site',updated_at=NOW() WHERE sku=\"+d+\"1 RETURNING id,sku,stock,inventory_authority\"; const r=await pool.query(sql,[sku,stock]); await pool.end(); if(!r.rows[0]) throw new Error('PRODUCT_NOT_FOUND'); console.log(JSON.stringify({ok:true,updated:r.rows[0]}));"
             url="http://127.0.0.1:3000/api/internal/marketplace-sync?force=1&reconcileSku=$sku&mode=stocks"
