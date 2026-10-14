@@ -1,2 +1,2 @@
-sync product dskgothtoy1
-nonce=2026-10-14T10:36:01Z
+set stock dskgothtoy1 5
+nonce=2026-10-14T10:45:00Z
