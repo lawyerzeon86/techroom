@@ -124,7 +124,7 @@ export async function getProducts(mp:MarketplaceUi,q='',limit=50){
 }
 
 function wbPayload(card:any,patch:{title?:string;description?:string;dimensions?:any}){
-  const keys=['nmID','vendorCode','brand','title','description','dimensions','characteristics','sizes','kizMarked','wholesale'];
+  const keys=['nmID','vendorCode','brand','title','description','dimensions','characteristics','sizes','kizMarked','documents'];
   const x:any={};for(const k of keys)if(card?.[k]!==undefined)x[k]=card[k];
   if(patch.title!==undefined)x.title=patch.title;
   if(patch.description!==undefined)x.description=patch.description;
