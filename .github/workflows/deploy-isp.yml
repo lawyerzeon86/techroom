@@ -10,6 +10,7 @@ on:
       - 'ops/finance-completeness.json'
       - 'ops/finance-currency-audit.txt'
       - 'ops/server-web-status.json'
+      - 'ops/server-web-request.txt'
       - '.github/workflows/server-web-channel.yml'
       - '.github/workflows/finalize-six-tasks.yml'
       - 'ops/six-tasks-final.json'
