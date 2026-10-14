@@ -1,2 +1,2 @@
-sync-all dskgothtoy1
-nonce=final-2026-10-13T19:55:00Z
+sync product dskgothtoy1
+nonce=2026-10-14T10:36:01Z
