@@ -259,7 +259,11 @@ jobs:
       - name: Publish sanitized status to repository
         run: |
           set -euo pipefail
-          cp /tmp/server-web-status.json ops/server-web-status.json
+          tmp="$(mktemp)"
+          cp /tmp/server-web-status.json "$tmp"
+          git fetch origin main
+          git reset --hard origin/main
+          cp "$tmp" ops/server-web-status.json
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add ops/server-web-status.json
