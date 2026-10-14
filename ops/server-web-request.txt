@@ -1,2 +1,2 @@
-sync product dskgothtoy1
-nonce=2026-10-14T11:00:30Z
+repair image dskgothtoy1
+nonce=2026-10-14T11:04:00Z
