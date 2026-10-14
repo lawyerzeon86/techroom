@@ -50,6 +50,14 @@ jobs:
             "sync images "*)
               action="reconcile"; mode="images"; sku="${line#sync images }"
               ;;
+            "set stock "*)
+              action="set_stock"; mode="stocks"
+              rest="${line#set stock }"
+              sku="$(printf '%s' "$rest" | awk '{print $1}')"
+              stock="$(printf '%s' "$rest" | awk '{print $2}')"
+              [[ "$stock" =~ ^[0-9]+$ ]] || { echo "Invalid stock" >&2; exit 2; }
+              echo "stock=$stock" >> "$GITHUB_OUTPUT"
+              ;;
             "check marketplace "*)
               action="check"; mode="check"; sku="${line#check marketplace }"
               ;;
@@ -97,7 +105,7 @@ jobs:
           ssh -o ServerAliveInterval=20 -o ServerAliveCountMax=6 -p "${PORT:-22}" "${USER:-root}@$HOST" 'bash -s' < scripts/deploy-selectel.sh
 
       - name: Execute safe marketplace command
-        if: steps.command.outputs.action == 'reconcile' || steps.command.outputs.action == 'sync_all'
+        if: steps.command.outputs.action == 'reconcile' || steps.command.outputs.action == 'sync_all' || steps.command.outputs.action == 'set_stock'
         env:
           HOST: ${{ secrets.SELECTEL_HOST }}
           PORT: ${{ secrets.SELECTEL_PORT }}
@@ -105,11 +113,12 @@ jobs:
           ACTION: ${{ steps.command.outputs.action }}
           MODE: ${{ steps.command.outputs.mode }}
           SKU: ${{ steps.command.outputs.sku }}
+          STOCK: ${{ steps.command.outputs.stock }}
         run: |
           set -euo pipefail
-          ssh -o ServerAliveInterval=20 -o ServerAliveCountMax=6 -p "${PORT:-22}" "${USER:-root}@$HOST" "bash -s -- '$ACTION' '$MODE' '$SKU'" <<'REMOTE'
+          ssh -o ServerAliveInterval=20 -o ServerAliveCountMax=6 -p "${PORT:-22}" "${USER:-root}@$HOST" "bash -s -- '$ACTION' '$MODE' '$SKU' '${STOCK:-}'" <<'REMOTE'
           set -euo pipefail
-          action="$1"; mode="$2"; sku="$3"
+          action="$1"; mode="$2"; sku="$3"; stock="${4:-}"
           cd /var/www/duisun
           set -a; source .env.production; set +a
           CFG=$(mktemp /run/duisun-web-command.XXXXXX)
@@ -117,7 +126,21 @@ jobs:
           trap 'rm -f "$CFG" "$OUT"' EXIT
           chmod 600 "$CFG" "$OUT"
           printf 'header = "x-cron-secret: %s"\n' "$CRON_SYNC_SECRET" > "$CFG"
-          if [ "$action" = "sync_all" ]; then
+          if [ "$action" = "set_stock" ]; then
+            export WEB_SET_SKU="$sku" WEB_SET_STOCK="$stock"
+            node --input-type=module <<'NODE'
+            import pg from 'pg';
+            const sku=process.env.WEB_SET_SKU;
+            const stock=Number(process.env.WEB_SET_STOCK);
+            if(!sku||!Number.isInteger(stock)||stock<0||stock>100000)throw new Error('INVALID_STOCK_REQUEST');
+            const pool=new pg.Pool({connectionString:process.env.DATABASE_URL,ssl:process.env.DATABASE_URL?.includes('localhost')?false:{rejectUnauthorized:false}});
+            const r=await pool.query('UPDATE products SET stock=$2,updated_at=NOW() WHERE sku=$1 RETURNING id,sku,stock',[sku,stock]);
+            await pool.end();
+            if(!r.rows[0])throw new Error('PRODUCT_NOT_FOUND');
+            console.log(JSON.stringify({ok:true,updated:r.rows[0]}));
+            NODE
+            url="http://127.0.0.1:3000/api/internal/marketplace-sync?force=1&reconcileSku=$sku&mode=stocks"
+          elif [ "$action" = "sync_all" ]; then
             url='http://127.0.0.1:3000/api/internal/marketplace-sync?force=1&transfers=1'
           else
             url="http://127.0.0.1:3000/api/internal/marketplace-sync?force=1&reconcileSku=$sku&mode=$mode"
