@@ -1,2 +1,2 @@
-sync all
-nonce=2026-10-14T11:06:00Z
+check marketplace dskgothtoy1
+nonce=2026-10-14T17:28:35Z
