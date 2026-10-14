@@ -1,5 +1,5 @@
 {
-  "checkedAt": "2026-10-14T10:50:08.742Z",
+  "checkedAt": "2026-10-14T10:52:38.165Z",
   "sku": "dskgothtoy1",
   "app": {
     "commit": "bf3713c1a838c63a19e2dd5e2751d6dffb350e36"
@@ -7,7 +7,7 @@
   "health": {
     "ok": true,
     "database": "up",
-    "responseMs": 1
+    "responseMs": 14
   },
   "product": {
     "id": 2,
@@ -34,6 +34,9 @@
         "min_price": null,
         "marketing_price": null,
         "images": 1,
+        "imageUrls": [
+          "https://duisun.ru/products/dskgothtoy1-main.jpg"
+        ],
         "stocks": {
           "has_stock": false,
           "stocks": []
