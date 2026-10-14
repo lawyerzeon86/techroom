@@ -194,7 +194,7 @@ jobs:
             out.marketplace.ozon={ok:r.ok,httpStatus:r.status,item:x?{
               id:x.id||x.product_id||null,offer_id:x.offer_id||null,name:x.name||null,
               price:x.price||null,min_price:x.min_price||null,marketing_price:x.marketing_price||null,
-              images:Array.isArray(x.images)?x.images.length:null,stocks:x.stocks||null,
+              images:Array.isArray(x.images)?x.images.length:null,imageUrls:Array.isArray(x.images)?x.images.slice(0,5):[],stocks:x.stocks||null,
               visible:x.visible??null,status:x.status||null
             }:null};
           }catch(e){out.marketplace.ozon={ok:false,error:String(e?.message||e)}}
