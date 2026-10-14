@@ -1,1 +1,355 @@
-{"ok":true,"runId":3750,"forced":true,"communications":false,"transfers":true,"stages":{"warehouses":{"wbWarehouseId":"604848","ozonWarehouseId":"1020005025161950"},"wildberries":{"orders":{"synced":0,"notified":0},"reviews":{"skipped":"scheduled_separately"},"questions":{"skipped":"scheduled_separately"}},"ozon":{"orders":{"synced":7},"reviews":{"skipped":"scheduled_separately"},"questions":{"skipped":"scheduled_separately"}},"vkOrders":{"skipped":"not_configured"},"yandex":{"synced":0},"sitePublish":{"scanned":0,"results":[],"errors":0},"catalog":{"products":78,"wb":{"prices":{"status":"unchanged","count":39},"stocks":41},"ozon":{"prices":{"requested":0,"updated":0,"errors":[]},"stocks":42},"yandex":{"prices":{"status":"skipped","reason":"business_only_default_price"},"stocks":{"requested":10,"accepted":10},"matched":10},"avito":{"prices":{"status":"skipped","reason":"SYNC_AVITO_PRICES_DISABLED","mapped":0,"updated":0,"errors":[]}}},"priceGuard":{"enabled":true,"checkedAt":"2026-10-14T11:15:36.105Z","raised":0,"wbRateLimitedUntil":null,"results":[{"marketplace":"ozon","scope":"all","status":"auto_actions_guard","configured":true,"checked":42,"enabledBefore":0,"disabled":0,"errors":[]},{"marketplace":"ozon","sku":"R8W0821653","status":"ok","price":2990,"promoMinPrice":2990,"minPromoPrice":2990,"mode":"promo_floor","verified":true,"attempts":0},{"marketplace":"ozon","sku":"DAK8T54A53A","status":"ok","price":2990,"promoMinPrice":2990,"minPromoPrice":2990,"mode":"promo_floor","verified":true,"attempts":0},{"marketplace":"ozon","sku":"FenderAudiA4B8front","status":"ok","price":2990,"promoMinPrice":2990,"minPromoPrice":2990,"mode":"promo_floor","verified":true,"attempts":0},{"marketplace":"ozon","sku":"AUDI-ARCH-A4B8-A58T","status":"ok","price":2990,"promoMinPrice":2990,"minPromoPrice":2990,"mode":"promo_floor","verified":true,"attempts":0},{"marketplace":"ozon","sku":"AUDI-A4B8-XENON-COVER-2PCS","status":"ok","price":2990,"promoMinPrice":2990,"minPromoPrice":2990,"mode":"promo_floor","verified":true,"attempts":0},{"marketplace":"ozon","sku":"8K0821653Along","status":"ok","price":2990,"promoMinPrice":2990,"minPromoPrice":2990,"mode":"promo_floor","verified":true,"attempts":0},{"marketplace":"ozon","sku":"R8T0821653A","status":"ok","price":2990,"promoMinPrice":2990,"minPromoPrice":2990,"mode":"promo_floor","verified":true,"attempts":0},{"marketplace":"ozon","sku":"R8K0821653A","status":"ok","price":2990,"promoMinPrice":2990,"minPromoPrice":2990,"mode":"promo_floor","verified":true,"attempts":0},{"marketplace":"ozon","sku":"DAK123456","status":"ok","price":5000,"minPrice":5000},{"marketplace":"ozon","sku":"DAK-VASE-SHELL-ASA-WH-001","status":"ok","price":5000,"minPrice":5000},{"marketplace":"wb","sku":"R8W0821653","status":"ok","price":2990,"minPrice":2990,"nmID":1344806387},{"marketplace":"wb","sku":"8W0821653","status":"not_found"},{"marketplace":"wb","sku":"DAK8T54A53A","status":"not_found"},{"marketplace":"wb","sku":"FenderAudiA4B8front","status":"ok","price":2990,"minPrice":2990,"nmID":371914606},{"marketplace":"wb","sku":"DAK123456","status":"ok","price":5000,"minPrice":5000,"nmID":1900487993},{"marketplace":"wb","sku":"DAK-VASE-SHELL-ASA-WH-001","status":"not_found"}]},"vkCatalog":{"skipped":"daily_schedule"}},"productHub":{"imports":{"wb":{"imported":39},"ozon":{"imported":42}},"site":{"processed":78,"created":0,"updated":78},"facts":{"updated":41,"priceChanges":0,"stockChanges":1,"wbWarehouses":1},"prune":{"fresh":42,"deactivated":36},"transfer":{"processed":42,"results":[{"hubId":5,"target":"wb","status":"needs_mapping"},{"hubId":8,"target":"wb","status":"needs_mapping"},{"hubId":74,"target":"wb","status":"needs_mapping"},{"hubId":1,"target":"wb","status":"error","error":"Invalid request format"},{"hubId":2,"target":"wb","status":"error","error":"Invalid request format"},{"hubId":3,"target":"wb","status":"error","error":"Invalid request format"},{"hubId":4,"target":"wb","status":"error","error":"Invalid request format"},{"hubId":6,"target":"wb","status":"error","error":"Invalid request format"},{"hubId":7,"target":"wb","status":"error","error":"Invalid request format"},{"hubId":9,"target":"wb","status":"error","error":"Invalid request format"},{"hubId":12,"target":"wb","status":"error","error":"Invalid request format"},{"hubId":15,"target":"wb","status":"error","error":"Invalid request format"},{"hubId":16,"target":"wb","status":"error","error":"Invalid request format"},{"hubId":18,"target":"wb","status":"error","error":"Invalid request format"},{"hubId":19,"target":"wb","status":"error","error":"Invalid request format"},{"hubId":20,"target":"wb","status":"error","error":"Invalid request format"},{"hubId":21,"target":"wb","status":"error","error":"Invalid request format"},{"hubId":22,"target":"wb","status":"error","error":"Invalid request format"},{"hubId":23,"target":"wb","status":"error","error":"Invalid request format"},{"hubId":31,"target":"wb","status":"error","error":"Invalid request format"},{"hubId":32,"target":"wb","status":"error","error":"Invalid request format"},{"hubId":33,"target":"wb","status":"error","error":"Invalid request format"},{"hubId":34,"target":"wb","status":"error","error":"Invalid request format"},{"hubId":35,"target":"wb","status":"error","error":"Invalid request format"},{"hubId":37,"target":"wb","status":"error","error":"Invalid request format"},{"hubId":38,"target":"wb","status":"error","error":"Invalid request format"},{"hubId":39,"target":"wb","status":"error","error":"Invalid request format"},{"hubId":42,"target":"wb","status":"error","error":"Invalid request format"},{"hubId":52,"target":"wb","status":"error","error":"Invalid request format"},{"hubId":53,"target":"wb","status":"error","error":"Invalid request format"},{"hubId":54,"target":"wb","status":"error","error":"Invalid request format"},{"hubId":55,"target":"wb","status":"error","error":"Invalid request format"},{"hubId":63,"target":"wb","status":"error","error":"Invalid request format"},{"hubId":66,"target":"wb","status":"error","error":"Invalid request format"},{"hubId":67,"target":"wb","status":"error","error":"Invalid request format"},{"hubId":68,"target":"wb","status":"error","error":"Invalid request format"},{"hubId":69,"target":"wb","status":"error","error":"Invalid request format"},{"hubId":73,"target":"wb","status":"error","error":"Invalid request format"},{"hubId":75,"target":"wb","status":"error","error":"Invalid request format"},{"hubId":76,"target":"wb","status":"error","error":"Invalid request format"},{"hubId":77,"target":"wb","status":"error","error":"Invalid request format"},{"hubId":78,"target":"wb","status":"error","error":"Invalid request format"}]}},"partial":true,"partialErrors":["result.productHub.transfer.results.3: Invalid request format","result.productHub.transfer.results.4: Invalid request format","result.productHub.transfer.results.5: Invalid request format","result.productHub.transfer.results.6: Invalid request format","result.productHub.transfer.results.7: Invalid request format","result.productHub.transfer.results.8: Invalid request format","result.productHub.transfer.results.9: Invalid request format","result.productHub.transfer.results.10: Invalid request format","result.productHub.transfer.results.11: Invalid request format","result.productHub.transfer.results.12: Invalid request format","result.productHub.transfer.results.13: Invalid request format","result.productHub.transfer.results.14: Invalid request format","result.productHub.transfer.results.15: Invalid request format","result.productHub.transfer.results.16: Invalid request format","result.productHub.transfer.results.17: Invalid request format","result.productHub.transfer.results.18: Invalid request format","result.productHub.transfer.results.19: Invalid request format","result.productHub.transfer.results.20: Invalid request format","result.productHub.transfer.results.21: Invalid request format","result.productHub.transfer.results.22: Invalid request format","result.productHub.transfer.results.23: Invalid request format","result.productHub.transfer.results.24: Invalid request format","result.productHub.transfer.results.25: Invalid request format","result.productHub.transfer.results.26: Invalid request format","result.productHub.transfer.results.27: Invalid request format","result.productHub.transfer.results.28: Invalid request format","result.productHub.transfer.results.29: Invalid request format","result.productHub.transfer.results.30: Invalid request format","result.productHub.transfer.results.31: Invalid request format","result.productHub.transfer.results.32: Invalid request format","result.productHub.transfer.results.33: Invalid request format","result.productHub.transfer.results.34: Invalid request format","result.productHub.transfer.results.35: Invalid request format","result.productHub.transfer.results.36: Invalid request format","result.productHub.transfer.results.37: Invalid request format","result.productHub.transfer.results.38: Invalid request format","result.productHub.transfer.results.39: Invalid request format","result.productHub.transfer.results.40: Invalid request format","result.productHub.transfer.results.41: Invalid request format"]}
+{
+  "checkedAt": "2026-10-14T11:26:02.686Z",
+  "sku": "dskgothtoy1",
+  "app": {
+    "commit": "8c900c87efccea8b7b4627b90712fbd377d19489"
+  },
+  "health": {
+    "ok": true,
+    "database": "up",
+    "responseMs": 1
+  },
+  "product": {
+    "id": 2,
+    "sku": "dskgothtoy1",
+    "title": "Готическая фигурка-призрак из ASA пластика",
+    "price": 299,
+    "stock": 5,
+    "image_url": "https://ir.ozone.ru/s3/multimedia-1-h/20321096057.jpg",
+    "image_urls": [
+      "https://ir.ozone.ru/s3/multimedia-1-h/20321096057.jpg"
+    ],
+    "is_active": true,
+    "updated_at": "2026-10-14T11:15:49.295Z"
+  },
+  "marketplace": {
+    "ozon": {
+      "ok": true,
+      "httpStatus": 200,
+      "item": {
+        "id": 6438511053,
+        "offer_id": "dskgothtoy1",
+        "name": "Готическая фигурка-призрак из ASA пластика",
+        "price": "299.00",
+        "min_price": null,
+        "marketing_price": null,
+        "images": 0,
+        "imageUrls": [],
+        "stocks": {
+          "has_stock": true,
+          "stocks": [
+            {
+              "present": 5,
+              "reserved": 0,
+              "sku": 6032548543,
+              "source": "fbs"
+            }
+          ]
+        },
+        "visible": null,
+        "status": null
+      }
+    },
+    "wildberries": {
+      "ok": true,
+      "httpStatus": 200,
+      "item": {
+        "nmID": 1713901954,
+        "vendorCode": "dskgothtoy1",
+        "title": "Готическая фигурка-призрак из ASA пластика",
+        "photos": 1,
+        "mediaFiles": null,
+        "dimensions": {
+          "width": 4,
+          "height": 4,
+          "length": 5,
+          "weightBrutto": 0.05,
+          "isValid": true
+        },
+        "barcodes": [
+          "2057458235254"
+        ],
+        "stock": {
+          "stocks": [
+            {
+              "sku": "2057458235254",
+              "chrtId": 2801813566,
+              "amount": 5
+            }
+          ]
+        },
+        "price": {
+          "data": {
+            "listGoods": [
+              {
+                "nmID": 1713901954,
+                "vendorCode": "dskgothtoy1",
+                "sizes": [
+                  {
+                    "sizeID": 2801813566,
+                    "price": 299,
+                    "discountedPrice": 290.03,
+                    "clubDiscountedPrice": 290.03,
+                    "techSizeName": "0"
+                  }
+                ],
+                "currencyIsoCode4217": "RUB",
+                "discount": 3,
+                "clubDiscount": 0,
+                "editableSizePrice": false
+              }
+            ]
+          },
+          "error": false,
+          "errorText": ""
+        }
+      }
+    }
+  },
+  "sync": {
+    "core": {
+      "ok": true,
+      "partial": null,
+      "partialErrors": null,
+      "runId": null
+    },
+    "communications": {
+      "ok": true,
+      "partial": null,
+      "partialErrors": null,
+      "runId": 3748
+    },
+    "transfers": {
+      "ok": true,
+      "partial": true,
+      "partialErrors": [
+        "result.stages.sitePublish.results.40.wb.imageReconciled: Ошибка сохранения товара: ошибки для всех ссылок: [Неподдерживаемый тип файла]",
+        "result.stages.priceGuard.results.10: You have reached request rate limit per second",
+        "result.productHub.transfer.results.3: Invalid request format",
+        "result.productHub.transfer.results.4: Invalid request format",
+        "result.productHub.transfer.results.5: Invalid request format",
+        "result.productHub.transfer.results.6: Invalid request format",
+        "result.productHub.transfer.results.7: Invalid request format",
+        "result.productHub.transfer.results.8: Invalid request format",
+        "result.productHub.transfer.results.9: Invalid request format",
+        "result.productHub.transfer.results.10: Invalid request format",
+        "result.productHub.transfer.results.11: Invalid request format",
+        "result.productHub.transfer.results.12: Invalid request format",
+        "result.productHub.transfer.results.13: Invalid request format",
+        "result.productHub.transfer.results.14: Invalid request format",
+        "result.productHub.transfer.results.15: Invalid request format",
+        "result.productHub.transfer.results.16: Invalid request format",
+        "result.productHub.transfer.results.17: Invalid request format",
+        "result.productHub.transfer.results.18: Invalid request format",
+        "result.productHub.transfer.results.19: Invalid request format",
+        "result.productHub.transfer.results.20: Invalid request format",
+        "result.productHub.transfer.results.21: Invalid request format",
+        "result.productHub.transfer.results.22: Invalid request format",
+        "result.productHub.transfer.results.23: Invalid request format",
+        "result.productHub.transfer.results.24: Invalid request format",
+        "result.productHub.transfer.results.25: Invalid request format",
+        "result.productHub.transfer.results.26: Invalid request format",
+        "result.productHub.transfer.results.27: Invalid request format",
+        "result.productHub.transfer.results.28: Invalid request format",
+        "result.productHub.transfer.results.29: Invalid request format",
+        "result.productHub.transfer.results.30: Invalid request format",
+        "result.productHub.transfer.results.31: Invalid request format",
+        "result.productHub.transfer.results.32: Invalid request format",
+        "result.productHub.transfer.results.33: Invalid request format",
+        "result.productHub.transfer.results.34: Invalid request format",
+        "result.productHub.transfer.results.35: Invalid request format",
+        "result.productHub.transfer.results.36: Invalid request format",
+        "result.productHub.transfer.results.37: Invalid request format",
+        "result.productHub.transfer.results.38: Invalid request format",
+        "result.productHub.transfer.results.39: Invalid request format",
+        "result.productHub.transfer.results.40: Invalid request format",
+        "result.productHub.transfer.results.41: Invalid request format"
+      ],
+      "runId": 3725
+    }
+  },
+  "commandResult": {
+    "ok": true,
+    "reconciled": {
+      "sku": "dskgothtoy1",
+      "mode": "product",
+      "warehouses": {
+        "wb": true,
+        "ozon": true
+      },
+      "steps": {
+        "publish": {
+          "sku": "dskgothtoy1",
+          "wb": {
+            "status": "exists",
+            "id": "1713901954",
+            "offerId": "dskgothtoy1",
+            "imageReconciled": {
+              "status": "submitted",
+              "image": "https://ir.ozone.ru/s3/multimedia-1-h/20321096057.jpg"
+            }
+          },
+          "ozon": {
+            "status": "exists",
+            "id": "6438511053",
+            "offerId": "dskgothtoy1"
+          }
+        },
+        "images": {
+          "wb": {
+            "status": "already_present",
+            "nmID": 1713901954,
+            "photos": 1
+          },
+          "ozon": {
+            "status": "needs_reimport",
+            "productId": 6438511053,
+            "images": 0,
+            "publish": {
+              "status": "exists",
+              "id": "6438511053",
+              "offerId": "dskgothtoy1"
+            }
+          }
+        },
+        "prices": {
+          "wb": {
+            "status": "unchanged",
+            "price": 299
+          },
+          "ozon": {
+            "status": "submitted",
+            "price": 299
+          }
+        },
+        "stocks": {
+          "sku": "dskgothtoy1",
+          "stock": 5,
+          "wb": {
+            "status": "updated",
+            "warehouseId": "604848",
+            "barcodes": 1
+          },
+          "ozon": {
+            "status": "updated",
+            "warehouseId": "1020005025161950"
+          }
+        }
+      },
+      "verify": {
+        "site": {
+          "price": 299,
+          "stock": 5,
+          "image": "https://ir.ozone.ru/s3/multimedia-1-h/20321096057.jpg",
+          "active": true
+        },
+        "wb": {
+          "exists": true,
+          "nmID": 1713901954,
+          "title": "Готическая фигурка-призрак из ASA пластика",
+          "mediaFiles": null,
+          "photos": 1,
+          "barcodes": [
+            "2057458235254"
+          ],
+          "stock": {
+            "stocks": [
+              {
+                "sku": "2057458235254",
+                "chrtId": 2801813566,
+                "amount": 5
+              }
+            ]
+          },
+          "price": {
+            "data": {
+              "listGoods": [
+                {
+                  "nmID": 1713901954,
+                  "vendorCode": "dskgothtoy1",
+                  "sizes": [
+                    {
+                      "sizeID": 2801813566,
+                      "price": 299,
+                      "discountedPrice": 290.03,
+                      "clubDiscountedPrice": 290.03,
+                      "techSizeName": "0"
+                    }
+                  ],
+                  "currencyIsoCode4217": "RUB",
+                  "discount": 3,
+                  "clubDiscount": 0,
+                  "editableSizePrice": false
+                }
+              ]
+            },
+            "error": false,
+            "errorText": ""
+          }
+        },
+        "ozon": {
+          "exists": true,
+          "id": 6438511053,
+          "offerId": "dskgothtoy1",
+          "name": "Готическая фигурка-призрак из ASA пластика",
+          "price": "299.00",
+          "images": 0,
+          "stocks": {
+            "has_stock": true,
+            "stocks": [
+              {
+                "present": 5,
+                "reserved": 0,
+                "sku": 6032548543,
+                "source": "fbs"
+              }
+            ]
+          },
+          "visible": null,
+          "status": null,
+          "statuses": {
+            "status": "price_sent",
+            "status_failed": "",
+            "moderate_status": "approved",
+            "validation_status": "success",
+            "status_name": "Продается",
+            "status_description": "",
+            "is_created": true,
+            "status_tooltip": "",
+            "status_updated_at": "2026-10-14T11:06:25.737071Z"
+          },
+          "isArchived": false,
+          "hasFbsStocks": null,
+          "hasFboStocks": null,
+          "errors": [
+            {
+              "code": "double_without_merger_offer",
+              "field": "spu",
+              "attribute_id": 0,
+              "state": "moderated",
+              "level": "ERROR_LEVEL_WARNING",
+              "texts": {
+                "attribute_name": "",
+                "description": "Не удалось объединить с другими товарами. Есть товары, у которых вариативные характеристики заполнены также: DAK-VASE-SHELL-ASA-WH-001. Измените хотя бы одну вариативную характеристику.",
+                "short_description": "",
+                "params": [
+                  {
+                    "name": "Articles",
+                    "value": "DAK-VASE-SHELL-ASA-WH-001"
+                  }
+                ],
+                "message": "{\"OFFERID\":[\"DAK-VASE-SHELL-ASA-WH-001\"]}"
+              }
+            }
+          ]
+        },
+        "errors": [
+          "OZON_IMAGE_MISSING"
+        ]
+      },
+      "ok": false
+    },
+    "partial": false,
+    "partialErrors": []
+  }
+}
