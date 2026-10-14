@@ -1,5 +1,5 @@
 {
-  "checkedAt": "2026-10-14T17:29:24.700Z",
+  "checkedAt": "2026-10-14T18:43:51.175Z",
   "sku": "dskgothtoy1",
   "app": {
     "commit": "8c900c87efccea8b7b4627b90712fbd377d19489"
@@ -20,7 +20,7 @@
       "https://ir.ozone.ru/s3/multimedia-1-h/20321096057.jpg"
     ],
     "is_active": true,
-    "updated_at": "2026-10-14T11:36:38.196Z"
+    "updated_at": "2026-10-14T17:48:38.419Z"
   },
   "marketplace": {
     "ozon": {
@@ -117,14 +117,13 @@
       "ok": true,
       "partial": null,
       "partialErrors": null,
-      "runId": 3775
+      "runId": 3780
     },
     "transfers": {
       "ok": true,
       "partial": true,
       "partialErrors": [
         "result.stages.catalog.yandex: fetch failed",
-        "result.stages.priceGuard.results.10: You have reached request rate limit per second",
         "result.productHub.transfer.results.3: Invalid request format",
         "result.productHub.transfer.results.4: Invalid request format",
         "result.productHub.transfer.results.5: Invalid request format",
@@ -165,36 +164,19 @@
         "result.productHub.transfer.results.40: Invalid request format",
         "result.productHub.transfer.results.41: Invalid request format"
       ],
-      "runId": 3752
+      "runId": 3777
     }
   },
   "commandResult": {
     "ok": true,
     "reconciled": {
       "sku": "dskgothtoy1",
-      "mode": "product",
+      "mode": "images",
       "warehouses": {
         "wb": true,
         "ozon": true
       },
       "steps": {
-        "publish": {
-          "sku": "dskgothtoy1",
-          "wb": {
-            "status": "exists",
-            "id": "1713901954",
-            "offerId": "dskgothtoy1",
-            "imageReconciled": {
-              "status": "submitted",
-              "image": "https://ir.ozone.ru/s3/multimedia-1-h/20321096057.jpg"
-            }
-          },
-          "ozon": {
-            "status": "exists",
-            "id": "6438511053",
-            "offerId": "dskgothtoy1"
-          }
-        },
         "images": {
           "wb": {
             "status": "already_present",
@@ -210,29 +192,6 @@
               "id": "6438511053",
               "offerId": "dskgothtoy1"
             }
-          }
-        },
-        "prices": {
-          "wb": {
-            "status": "unchanged",
-            "price": 299
-          },
-          "ozon": {
-            "status": "submitted",
-            "price": 299
-          }
-        },
-        "stocks": {
-          "sku": "dskgothtoy1",
-          "stock": 5,
-          "wb": {
-            "status": "updated",
-            "warehouseId": "604848",
-            "barcodes": 1
-          },
-          "ozon": {
-            "status": "updated",
-            "warehouseId": "1020005025161950"
           }
         }
       },
