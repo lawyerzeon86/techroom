@@ -48,21 +48,8 @@ async function product(sku:string){
     await pool.query(`UPDATE products SET image_url=$2,image_urls=$3::jsonb,updated_at=NOW() WHERE sku=$1`,[sku,image,JSON.stringify(images.length?images:(image?[image]:[]))]);
     p.image_url=image;p.image_urls=images.length?images:(image?[image]:[]);
   }
-  if(p.image_url&&!/\/uploads\/marketplace\//.test(String(p.image_url))){
-    try{
-      const u=new URL(String(p.image_url));
-      if(u.hostname==='duisun.ru'&&u.pathname.startsWith('/products/')){
-        const src=path.join(process.cwd(),'public',u.pathname.replace(/^\//,''));
-        const dir=path.join(process.cwd(),'public','uploads','marketplace');
-        fs.mkdirSync(dir,{recursive:true});
-        const dest=path.join(dir,sku+'-main.jpg');
-        execFileSync('convert',[src,'-auto-orient','-strip','-colorspace','sRGB','-resize','900x1125^','-gravity','center','-extent','900x1125','-quality','90',dest],{stdio:'ignore'});
-        const normalized='https://duisun.ru/uploads/marketplace/'+encodeURIComponent(sku)+'-main.jpg';
-        await pool.query(`UPDATE products SET image_url=$2,image_urls=$3::jsonb,updated_at=NOW() WHERE sku=$1`,[sku,normalized,JSON.stringify([normalized])]);
-        p.image_url=normalized;p.image_urls=[normalized];
-      }
-    }catch{}
-  }
+  // Keep repository-backed /products URLs canonical. Runtime-generated public files are not
+  // guaranteed to be reachable by external marketplace crawlers through a Next.js deployment.
   return p;
 }
 async function wbCard(sku:string){
@@ -90,11 +77,17 @@ async function syncImages(sku:string,image:string|null){
     try{
       const card=await wbCard(sku);
       if(!card?.nmID)throw new Error('WB_CARD_NOT_FOUND');
+      const existingPhotos=Array.isArray(card?.photos)?card.photos:[];
+      if(existingPhotos.length){
+        out.wb={status:'already_present',nmID:Number(card.nmID),photos:existingPhotos.length};
+      }else{
       const candidates=[image];
       try{
         const u=new URL(image);
-        if(u.hostname==='duisun.ru'&&u.pathname.startsWith('/products/')){
-          candidates.push('https://raw.githubusercontent.com/lawyerzeon86/techroom/main/public'+u.pathname);
+        if(u.hostname==='duisun.ru'){
+          candidates.push('https://duisun.ru/products/'+encodeURIComponent(sku)+'-main.jpg');
+          candidates.push('https://duisun.ru/uploads/marketplace/'+encodeURIComponent(sku)+'-wb.jpg');
+          candidates.push('https://raw.githubusercontent.com/lawyerzeon86/techroom/main/public/products/'+encodeURIComponent(sku)+'-main.jpg');
         }
       }catch{}
       // If the site file is corrupt or has an invalid MIME type, reuse Ozon's already
@@ -141,6 +134,7 @@ async function syncImages(sku:string,image:string|null){
         }catch{}
       }
       out.wb={status:'updated',nmID:Number(card.nmID),image:used};
+      }
     }catch(e:any){out.wb={status:'error',error:String(e?.message||e)}}
   }
   if(image&&process.env.OZON_CLIENT_ID?.trim()&&process.env.OZON_API_KEY?.trim()){
