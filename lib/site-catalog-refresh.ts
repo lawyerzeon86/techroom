@@ -72,11 +72,13 @@ async function wbStocks(products:any[]){
 export async function refreshSiteCatalogFacts(){
   await ensureSchema();
   const pool=getPool();
-  const {rows}=await pool.query(`SELECT id,sku,price,stock,marketplace_source,marketplace_payload FROM products WHERE is_active=TRUE AND marketplace_source IN ('wb','ozon') ORDER BY id`);
+  await pool.query(`ALTER TABLE products ADD COLUMN IF NOT EXISTS inventory_authority TEXT NOT NULL DEFAULT 'marketplace'`);
+  const {rows}=await pool.query(`SELECT id,sku,price,stock,marketplace_source,marketplace_payload,inventory_authority FROM products WHERE is_active=TRUE AND marketplace_source IN ('wb','ozon') ORDER BY id`);
   const wbRows=rows.filter((p:any)=>p.marketplace_source==='wb');
   const {totals:wbMap,warehouses}=await wbStocks(wbRows);
   let updated=0,prices=0,stocks=0;
   for(const p of rows){
+    if(String(p.inventory_authority||'marketplace')==='site')continue;
     const payload=p.marketplace_payload||{};
     let stock:number|null=null;
     let price=0;
