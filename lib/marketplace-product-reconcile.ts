@@ -79,6 +79,11 @@ async function ozonItem(sku:string){
   }));
   return (Array.isArray(d?.items)?d.items:(Array.isArray(d?.result?.items)?d.result.items:[]))[0]||null;
 }
+function imageUrlsFromOzon(item:any){
+  const raw=Array.isArray(item?.images)?item.images:[];
+  return raw.map((x:any)=>typeof x==='string'?x:(x?.file_name||x?.url||x?.original||x?.big||''))
+    .filter((x:any)=>typeof x==='string'&&/^https?:\/\//i.test(x));
+}
 async function syncImages(sku:string,image:string|null){
   const out:any={wb:{status:'skipped'},ozon:{status:'skipped'}};
   if(image&&process.env.WB_API_TOKEN?.trim()){
@@ -91,6 +96,12 @@ async function syncImages(sku:string,image:string|null){
         if(u.hostname==='duisun.ru'&&u.pathname.startsWith('/products/')){
           candidates.push('https://raw.githubusercontent.com/lawyerzeon86/techroom/main/public'+u.pathname);
         }
+      }catch{}
+      // If the site file is corrupt or has an invalid MIME type, reuse Ozon's already
+      // accepted marketplace image as a valid fallback source for Wildberries.
+      try{
+        const oz=await ozonItem(sku);
+        for(const candidate of imageUrlsFromOzon(oz))candidates.push(candidate);
       }catch{}
       let lastError:any=null,used:string|null=null;
       for(const candidate of [...new Set(candidates)]){
@@ -121,6 +132,14 @@ async function syncImages(sku:string,image:string|null){
         }catch(e:any){lastError=e}
       }
       if(lastError)throw lastError;
+      if(used&&used!==image){
+        try{
+          await getPool().query(
+            `UPDATE products SET image_url=$2,image_urls=$3::jsonb,updated_at=NOW() WHERE sku=$1`,
+            [sku,used,JSON.stringify([used])]
+          );
+        }catch{}
+      }
       out.wb={status:'updated',nmID:Number(card.nmID),image:used};
     }catch(e:any){out.wb={status:'error',error:String(e?.message||e)}}
   }
