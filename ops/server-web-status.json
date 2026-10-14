@@ -1,1 +1,324 @@
-{"ok":false,"reconciled":{"sku":"dskgothtoy1","mode":"product","warehouses":{"wb":true,"ozon":true},"steps":{"publish":{"sku":"dskgothtoy1","wb":{"status":"exists","id":"1713901954","offerId":"dskgothtoy1","imageReconciled":{"status":"submitted","image":"https://duisun.ru/uploads/marketplace/dskgothtoy1-main.jpg"}},"ozon":{"status":"submitted","offerId":"dskgothtoy1","taskId":5817098680,"templateOfferId":"DAK-VASE-SHELL-ASA-WH-001","importInfo":{"result":{"items":[{"offer_id":"dskgothtoy1","product_id":6438511053,"status":"skipped","errors":[]}],"total":1}}}},"images":{"wb":{"status":"already_present","nmID":1713901954,"photos":1},"ozon":{"status":"already_present","productId":6438511053,"images":1}},"prices":{"wb":{"status":"unchanged","price":299},"ozon":{"status":"submitted","price":299}},"stocks":{"sku":"dskgothtoy1","stock":5,"wb":{"status":"updated","warehouseId":"604848","barcodes":1},"ozon":{"status":"error","error":"OZON_STOCK_[{\"code\":\"INVALID_STATE\",\"message\":\"Product is not ready to supply\"}]"}}},"verify":{"site":{"price":299,"stock":5,"image":"https://duisun.ru/uploads/marketplace/dskgothtoy1-main.jpg","active":true},"wb":{"exists":true,"nmID":1713901954,"title":"Готическая фигурка-призрак из ASA пластика","mediaFiles":null,"photos":1,"barcodes":["2057458235254"],"stock":{"stocks":[{"sku":"2057458235254","chrtId":2801813566,"amount":5}]},"price":{"data":{"listGoods":[{"nmID":1713901954,"vendorCode":"dskgothtoy1","sizes":[{"sizeID":2801813566,"price":299,"discountedPrice":290.03,"clubDiscountedPrice":290.03,"techSizeName":"0"}],"currencyIsoCode4217":"RUB","discount":3,"clubDiscount":0,"editableSizePrice":false}]},"error":false,"errorText":""}},"ozon":{"exists":true,"id":6438511053,"offerId":"dskgothtoy1","name":"Готическая фигурка-призрак из ASA пластика","price":"299.00","images":1,"stocks":{"has_stock":false,"stocks":[]},"visible":null,"status":null,"statuses":{"status":"offer_validated","status_failed":"pics_delivered","moderate_status":"","validation_status":"success","status_name":"Не продается","status_description":"Не создан","is_created":false,"status_tooltip":"Не удалось создать товар. Опубликуйте карточку заново: нажмите на три точки → Редактировать товар → Отправить.","status_updated_at":"2026-10-14T11:01:49.102231Z"},"isArchived":false,"hasFbsStocks":null,"hasFboStocks":null,"errors":[{"code":"primary_image_load_failed","field":"","attribute_id":0,"state":"pics_delivered","level":"ERROR_LEVEL_WARNING","texts":{"attribute_name":"","description":"Не удалось скачать изображение для главного фото. Вместо него использовали первое дополнительное фото. Проверьте изображение и попробуйте загрузить ещё раз","short_description":"","params":[],"message":""}},{"code":"pics_not_found","field":"pictures","attribute_id":0,"state":"pics_delivered","level":"ERROR_LEVEL_WARNING","texts":{"attribute_name":"","description":"Не удалось загрузить фото. Укажите прямые ссылки на изображения и попробуйте загрузить ещё раз","short_description":"","params":[],"message":""}},{"code":"all_image_failed","field":"pictures","attribute_id":0,"state":"pics_delivered","level":"ERROR_LEVEL_ERROR","texts":{"attribute_name":"","description":"Не удалось скачать фото по ссылке. Проверьте, что ссылка указана полностью и без ошибок, доступ к ней открыт и не требует авторизации. Если ссылка ведёт на папку, убедитесь, что в ней есть фото. Если сбой на стороне Яндекс Диска, дождитесь устранения неполадок","short_description":"","params":[],"message":"{1 1 0 0 1 0}"}}]},"errors":["OZON_STOCK_MISSING"]},"ok":false},"partial":true,"partialErrors":["result.steps.stocks.ozon: OZON_STOCK_[{\"code\":\"INVALID_STATE\",\"message\":\"Product is not ready to supply\"}]"]}
+{
+  "checkedAt": "2026-10-14T11:05:16.494Z",
+  "sku": "dskgothtoy1",
+  "app": {
+    "commit": "adf1b91a31b0624a0b76d360f76f0e602c539564"
+  },
+  "health": {
+    "ok": true,
+    "database": "up",
+    "responseMs": 1
+  },
+  "product": {
+    "id": 2,
+    "sku": "dskgothtoy1",
+    "title": "Готическая фигурка-призрак из ASA пластика",
+    "price": 299,
+    "stock": 5,
+    "image_url": "https://duisun.ru/products/dskgothtoy1-main.jpg",
+    "image_urls": [
+      "https://duisun.ru/products/dskgothtoy1-main.jpg"
+    ],
+    "is_active": true,
+    "updated_at": "2026-10-14T11:04:07.569Z"
+  },
+  "marketplace": {
+    "ozon": {
+      "ok": true,
+      "httpStatus": 200,
+      "item": {
+        "id": 6438511053,
+        "offer_id": "dskgothtoy1",
+        "name": "Готическая фигурка-призрак из ASA пластика",
+        "price": "299.00",
+        "min_price": null,
+        "marketing_price": null,
+        "images": 1,
+        "imageUrls": [
+          "https://duisun.ru/products/dskgothtoy1-main.jpg"
+        ],
+        "stocks": {
+          "has_stock": false,
+          "stocks": []
+        },
+        "visible": null,
+        "status": null
+      }
+    },
+    "wildberries": {
+      "ok": true,
+      "httpStatus": 200,
+      "item": {
+        "nmID": 1713901954,
+        "vendorCode": "dskgothtoy1",
+        "title": "Готическая фигурка-призрак из ASA пластика",
+        "photos": 1,
+        "mediaFiles": null,
+        "dimensions": {
+          "width": 4,
+          "height": 4,
+          "length": 5,
+          "weightBrutto": 0.05,
+          "isValid": true
+        },
+        "barcodes": [
+          "2057458235254"
+        ],
+        "stock": {
+          "stocks": [
+            {
+              "sku": "2057458235254",
+              "chrtId": 2801813566,
+              "amount": 5
+            }
+          ]
+        },
+        "price": {
+          "data": {
+            "listGoods": [
+              {
+                "nmID": 1713901954,
+                "vendorCode": "dskgothtoy1",
+                "sizes": [
+                  {
+                    "sizeID": 2801813566,
+                    "price": 299,
+                    "discountedPrice": 290.03,
+                    "clubDiscountedPrice": 290.03,
+                    "techSizeName": "0"
+                  }
+                ],
+                "currencyIsoCode4217": "RUB",
+                "discount": 3,
+                "clubDiscount": 0,
+                "editableSizePrice": false
+              }
+            ]
+          },
+          "error": false,
+          "errorText": ""
+        }
+      }
+    }
+  },
+  "sync": {
+    "core": {
+      "ok": true,
+      "partial": null,
+      "partialErrors": null,
+      "runId": null
+    },
+    "communications": {
+      "ok": true,
+      "partial": null,
+      "partialErrors": null,
+      "runId": 3746
+    },
+    "transfers": {
+      "ok": true,
+      "partial": true,
+      "partialErrors": [
+        "result.stages.sitePublish.results.40.wb.imageReconciled: Ошибка сохранения товара: ошибки для всех ссылок: [Неподдерживаемый тип файла]",
+        "result.stages.priceGuard.results.10: You have reached request rate limit per second",
+        "result.productHub.transfer.results.3: Invalid request format",
+        "result.productHub.transfer.results.4: Invalid request format",
+        "result.productHub.transfer.results.5: Invalid request format",
+        "result.productHub.transfer.results.6: Invalid request format",
+        "result.productHub.transfer.results.7: Invalid request format",
+        "result.productHub.transfer.results.8: Invalid request format",
+        "result.productHub.transfer.results.9: Invalid request format",
+        "result.productHub.transfer.results.10: Invalid request format",
+        "result.productHub.transfer.results.11: Invalid request format",
+        "result.productHub.transfer.results.12: Invalid request format",
+        "result.productHub.transfer.results.13: Invalid request format",
+        "result.productHub.transfer.results.14: Invalid request format",
+        "result.productHub.transfer.results.15: Invalid request format",
+        "result.productHub.transfer.results.16: Invalid request format",
+        "result.productHub.transfer.results.17: Invalid request format",
+        "result.productHub.transfer.results.18: Invalid request format",
+        "result.productHub.transfer.results.19: Invalid request format",
+        "result.productHub.transfer.results.20: Invalid request format",
+        "result.productHub.transfer.results.21: Invalid request format",
+        "result.productHub.transfer.results.22: Invalid request format",
+        "result.productHub.transfer.results.23: Invalid request format",
+        "result.productHub.transfer.results.24: Invalid request format",
+        "result.productHub.transfer.results.25: Invalid request format",
+        "result.productHub.transfer.results.26: Invalid request format",
+        "result.productHub.transfer.results.27: Invalid request format",
+        "result.productHub.transfer.results.28: Invalid request format",
+        "result.productHub.transfer.results.29: Invalid request format",
+        "result.productHub.transfer.results.30: Invalid request format",
+        "result.productHub.transfer.results.31: Invalid request format",
+        "result.productHub.transfer.results.32: Invalid request format",
+        "result.productHub.transfer.results.33: Invalid request format",
+        "result.productHub.transfer.results.34: Invalid request format",
+        "result.productHub.transfer.results.35: Invalid request format",
+        "result.productHub.transfer.results.36: Invalid request format",
+        "result.productHub.transfer.results.37: Invalid request format",
+        "result.productHub.transfer.results.38: Invalid request format",
+        "result.productHub.transfer.results.39: Invalid request format",
+        "result.productHub.transfer.results.40: Invalid request format",
+        "result.productHub.transfer.results.41: Invalid request format"
+      ],
+      "runId": 3725
+    }
+  },
+  "commandResult": {
+    "ok": false,
+    "reconciled": {
+      "sku": "dskgothtoy1",
+      "mode": "product",
+      "warehouses": {
+        "wb": true,
+        "ozon": true
+      },
+      "steps": {
+        "publish": {
+          "sku": "dskgothtoy1",
+          "wb": {
+            "status": "exists",
+            "id": "1713901954",
+            "offerId": "dskgothtoy1",
+            "imageReconciled": {
+              "status": "submitted",
+              "image": "https://duisun.ru/products/dskgothtoy1-main.jpg"
+            }
+          },
+          "ozon": {
+            "status": "accepted",
+            "offerId": "dskgothtoy1",
+            "taskId": 5817104518,
+            "productId": 6438511053,
+            "templateOfferId": "DAK-VASE-SHELL-ASA-WH-001",
+            "category": 17027906,
+            "typeId": 91936
+          }
+        },
+        "images": {
+          "wb": {
+            "status": "already_present",
+            "nmID": 1713901954,
+            "photos": 1
+          },
+          "ozon": {
+            "status": "already_present",
+            "productId": 6438511053,
+            "images": 1
+          }
+        },
+        "prices": {
+          "wb": {
+            "status": "unchanged",
+            "price": 299
+          },
+          "ozon": {
+            "status": "submitted",
+            "price": 299
+          }
+        },
+        "stocks": {
+          "sku": "dskgothtoy1",
+          "stock": 5,
+          "wb": {
+            "status": "updated",
+            "warehouseId": "604848",
+            "barcodes": 1
+          },
+          "ozon": {
+            "status": "error",
+            "error": "OZON_STOCK_[{\"code\":\"INVALID_STATE\",\"message\":\"Product is not ready to supply\"}]"
+          }
+        }
+      },
+      "verify": {
+        "site": {
+          "price": 299,
+          "stock": 5,
+          "image": "https://duisun.ru/products/dskgothtoy1-main.jpg",
+          "active": true
+        },
+        "wb": {
+          "exists": true,
+          "nmID": 1713901954,
+          "title": "Готическая фигурка-призрак из ASA пластика",
+          "mediaFiles": null,
+          "photos": 1,
+          "barcodes": [
+            "2057458235254"
+          ],
+          "stock": {
+            "stocks": [
+              {
+                "sku": "2057458235254",
+                "chrtId": 2801813566,
+                "amount": 5
+              }
+            ]
+          },
+          "price": {
+            "data": {
+              "listGoods": [
+                {
+                  "nmID": 1713901954,
+                  "vendorCode": "dskgothtoy1",
+                  "sizes": [
+                    {
+                      "sizeID": 2801813566,
+                      "price": 299,
+                      "discountedPrice": 290.03,
+                      "clubDiscountedPrice": 290.03,
+                      "techSizeName": "0"
+                    }
+                  ],
+                  "currencyIsoCode4217": "RUB",
+                  "discount": 3,
+                  "clubDiscount": 0,
+                  "editableSizePrice": false
+                }
+              ]
+            },
+            "error": false,
+            "errorText": ""
+          }
+        },
+        "ozon": {
+          "exists": true,
+          "id": 6438511053,
+          "offerId": "dskgothtoy1",
+          "name": "Готическая фигурка-призрак из ASA пластика",
+          "price": "299.00",
+          "images": 1,
+          "stocks": {
+            "has_stock": false,
+            "stocks": []
+          },
+          "visible": null,
+          "status": null,
+          "statuses": {
+            "status": "offer_validated",
+            "status_failed": "",
+            "moderate_status": "",
+            "validation_status": "success",
+            "status_name": "Не продается",
+            "status_description": "Создается",
+            "is_created": false,
+            "status_tooltip": "",
+            "status_updated_at": "2026-10-14T11:05:11.611775Z"
+          },
+          "isArchived": false,
+          "hasFbsStocks": null,
+          "hasFboStocks": null,
+          "errors": []
+        },
+        "errors": [
+          "OZON_STOCK_MISSING"
+        ]
+      },
+      "ok": false
+    },
+    "partial": true,
+    "partialErrors": [
+      "result.steps.stocks.ozon: OZON_STOCK_[{\"code\":\"INVALID_STATE\",\"message\":\"Product is not ready to supply\"}]"
+    ]
+  }
+}
