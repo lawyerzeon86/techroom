@@ -1,5 +1,5 @@
 {
-  "checkedAt": "2026-10-14T23:24:59.802Z",
+  "checkedAt": "2026-10-15T08:41:24.311Z",
   "sku": "dskgothtoy1",
   "app": {
     "commit": "8c900c87efccea8b7b4627b90712fbd377d19489"
@@ -7,7 +7,7 @@
   "health": {
     "ok": true,
     "database": "up",
-    "responseMs": 14
+    "responseMs": 15
   },
   "product": {
     "id": 2,
@@ -20,7 +20,7 @@
       "https://ir.ozone.ru/s3/multimedia-1-h/20321096057.jpg"
     ],
     "is_active": true,
-    "updated_at": "2026-10-14T23:19:37.055Z"
+    "updated_at": "2026-10-15T06:09:01.385Z"
   },
   "marketplace": {
     "ozon": {
@@ -111,19 +111,18 @@
       "ok": true,
       "partial": null,
       "partialErrors": null,
-      "runId": 3799
+      "runId": null
     },
     "communications": {
       "ok": true,
       "partial": null,
       "partialErrors": null,
-      "runId": 3800
+      "runId": 3846
     },
     "transfers": {
       "ok": true,
       "partial": true,
       "partialErrors": [
-        "result.stages.catalog.yandex: fetch failed",
         "result.productHub.transfer.results.3: Invalid request format",
         "result.productHub.transfer.results.4: Invalid request format",
         "result.productHub.transfer.results.5: Invalid request format",
@@ -164,7 +163,7 @@
         "result.productHub.transfer.results.40: Invalid request format",
         "result.productHub.transfer.results.41: Invalid request format"
       ],
-      "runId": 3777
+      "runId": 3836
     }
   },
   "commandResult": {
