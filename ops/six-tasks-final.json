@@ -1,1 +1,63 @@
-HEAD is now at b775071 Run six-task marketplace finalizer
+HEAD is now at 6e1583f Run marketplace priority finalization
+{
+  "checkedAt": "2026-10-15T09:04:10.821Z",
+  "ok": false,
+  "unresolved": [
+    "productionHealth",
+    "sitePrice",
+    "siteStock",
+    "siteImageCanonical",
+    "wbExists",
+    "wbImage",
+    "wbPrice",
+    "wbStock",
+    "ozonExists",
+    "ozonImage",
+    "ozonPrice",
+    "ozonStock",
+    "webOpsSyncNoFatalErrors",
+    "finalCheckNoFatalErrors"
+  ],
+  "checks": {
+    "productionHealth": false,
+    "renderReferencesRemoved": true,
+    "selectelImageServed": true,
+    "sitePrice": false,
+    "siteStock": false,
+    "siteImageCanonical": false,
+    "wbExists": false,
+    "wbImage": false,
+    "wbPrice": false,
+    "wbStock": false,
+    "ozonExists": false,
+    "ozonImage": false,
+    "ozonPrice": false,
+    "ozonStock": false,
+    "genericPublisherRan": true,
+    "genericPublisherTimer": true,
+    "webOpsSyncNoFatalErrors": false,
+    "finalCheckNoFatalErrors": false
+  },
+  "product": {},
+  "wildberries": {
+    "nmID": null,
+    "photos": null,
+    "price": null,
+    "stock": null,
+    "actions": null
+  },
+  "ozon": {
+    "id": null,
+    "images": null,
+    "price": null,
+    "stock": null,
+    "statuses": null,
+    "visible": null,
+    "actions": null
+  },
+  "publication": {
+    "ok": true,
+    "processed": 42,
+    "failed": 0
+  }
+}
