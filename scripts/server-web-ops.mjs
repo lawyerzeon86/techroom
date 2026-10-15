@@ -79,12 +79,38 @@ async function ozonCheck(){
   return {ok:true,id,images,price:prices,stock,statuses:item.statuses||null,visible:item.visible??null,errors:item.errors||[]};
 }
 async function syncAll(){
+  const canonicalImage='https://duisun.ru/products/'+sku+'-main.jpg';
+  const pool=new pg.Pool({
+    connectionString:process.env.DATABASE_URL,
+    ssl:String(process.env.DATABASE_URL||'').includes('localhost')?false:{rejectUnauthorized:false},
+    max:1
+  });
+  try{
+    await pool.query('UPDATE products SET image_url=$1,image_urls=$2::jsonb,price=299,stock=5,updated_at=NOW() WHERE sku=$3',
+      [canonicalImage,JSON.stringify([canonicalImage]),sku]);
+  }finally{await pool.end()}
+
+  let wbPriceAction=null;
+  if(wbToken){
+    try{
+      const wb=await wbCheck();
+      await post('https://discounts-prices-api.wildberries.ru/api/v2/upload/task',
+        {data:[{nmID:Number(wb.nmID),price:299,discount:0}]},
+        {Authorization:wbToken,'Content-Type':'application/json'});
+      wbPriceAction={status:'submitted',nmID:wb.nmID,price:299,discount:0};
+    }catch(e){wbPriceAction={status:'error',error:String(e.message)}}
+  }
+
   const secret=String(process.env.CRON_SYNC_SECRET||'');
   if(!secret)throw new Error('CRON_SYNC_SECRET_NOT_CONFIGURED');
   const result=await post(base+'/api/internal/publish-products',{sku},{'x-cron-secret':secret,'Content-Type':'application/json'});
   const row=(result.results||[]).find(x=>x.sku===sku)||{};
   const mp=row.result||{};
-  return {ok:Boolean(result.ok||row.ok),sku,wildberries:{actions:mp.wb??null},ozon:{actions:mp.ozon??null},raw:result};
+  return {
+    ok:Boolean(result.ok||row.ok),sku,
+    wildberries:{actions:{publish:mp.wb??null,price:wbPriceAction}},
+    ozon:{actions:mp.ozon??null},raw:result
+  };
 }
 async function check(){
   const [site,wildberries,ozon]=await Promise.all([
