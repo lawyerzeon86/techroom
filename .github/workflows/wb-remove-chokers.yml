@@ -1,4 +1,4 @@
-name: Remove Choker stock from WB
+name: Remove 66W and 120W wire stock from WB
 
 on:
   workflow_dispatch:
@@ -40,7 +40,7 @@ jobs:
           DB_URL="$(node --env-file=.env.production -e "process.stdout.write(process.env.DATABASE_URL||'')")"
           test -n "$DB_URL"
           psql "$DB_URL" -Atc 'SELECT cards::text FROM wb_catalog_cache ORDER BY fetched_at DESC NULLS LAST LIMIT 1' > /tmp/wb-cards.json
-          psql "$DB_URL" -Atc "SELECT json_build_object('priceSheet',coalesce(json_agg(x),'[]'::json),'recentSync',coalesce((SELECT json_agg(r) FROM (SELECT started_at,finished_at,ok,result FROM marketplace_sync_runs ORDER BY started_at DESC LIMIT 5) r),'[]'::json)) FROM (SELECT sku,title,sync_wb,coalesce((SELECT stock FROM products p WHERE p.sku=ps.sku LIMIT 1),0) stock FROM price_sheet ps WHERE sku ~* 'chok+er|чок+ер' OR title ~* 'chok+er|чок+ер') x" > /tmp/wb-choker-cause.json
+          psql "$DB_URL" -Atc "SELECT json_build_object('priceSheet',coalesce(json_agg(x),'[]'::json),'recentSync',coalesce((SELECT json_agg(r) FROM (SELECT started_at,finished_at,ok,result FROM marketplace_sync_runs ORDER BY started_at DESC LIMIT 5) r),'[]'::json)) FROM (SELECT sku,title,sync_wb,coalesce((SELECT stock FROM products p WHERE p.sku=ps.sku LIMIT 1),0) stock FROM price_sheet ps WHERE (sku||' '||title) ~* '(66|120)[[:space:]]*w' AND (sku||' '||title) ~* 'wire|cable|провод|кабел') x" > /tmp/wb-choker-cause.json
           node --env-file=.env.production --input-type=module <<'NODE'
           import {readFileSync} from 'node:fs';
           import {execFileSync} from 'node:child_process';
@@ -61,8 +61,8 @@ jobs:
             cursor={limit:100,updatedAt:data.cursor.updatedAt,nmID:data.cursor.nmID};
           }
           const uniqueCards=[...new Map(cards.map(card=>[String(card?.nmID||card?.vendorCode||JSON.stringify(card)),card])).values()];
-          const matched=uniqueCards.filter(card=>/chok+er|чок+ер/i.test(JSON.stringify(card)));
-          if(!matched.length) throw new Error('No Choker products found in WB catalog cache');
+          const matched=uniqueCards.filter(card=>/(66|120)\s*w/i.test(JSON.stringify(card))&&/wire|cable|провод|кабел/i.test(JSON.stringify(card)));
+          if(!matched.length) throw new Error('No 66W or 120W wire products found in WB catalog');
           const stocks=[];
           const products=[];
           for(const card of matched){
@@ -91,7 +91,7 @@ jobs:
           const archive=await fetch('https://content-api.wildberries.ru/content/v2/cards/delete/trash',{method:'POST',headers:{Authorization:token,'Content-Type':'application/json'},body:JSON.stringify({nmIDs}),signal:AbortSignal.timeout(20000)});
           const archiveText=await archive.text();
           if(!archive.ok && archive.status!==208) throw new Error(`WB archive ${archive.status}: ${archiveText.slice(0,500)}`);
-          execFileSync('psql',[process.env.DATABASE_URL,'-v','ON_ERROR_STOP=1','-c',`UPDATE price_sheet SET sync_wb=FALSE,updated_at=NOW() WHERE sku ~* 'chok+er|чок+ер' OR title ~* 'chok+er|чок+ер'; UPDATE products SET stock=0,is_active=FALSE,updated_at=NOW() WHERE sku ~* 'chok+er|чок+ер' OR title ~* 'chok+er|чок+ер';`],{stdio:'ignore'});
+          execFileSync('psql',[process.env.DATABASE_URL,'-v','ON_ERROR_STOP=1','-c',`UPDATE price_sheet SET sync_wb=FALSE,updated_at=NOW() WHERE (sku||' '||title) ~* '(66|120)[[:space:]]*w' AND (sku||' '||title) ~* 'wire|cable|провод|кабел'; UPDATE products SET stock=0,is_active=FALSE,updated_at=NOW() WHERE (sku||' '||title) ~* '(66|120)[[:space:]]*w' AND (sku||' '||title) ~* 'wire|cable|провод|кабел';`],{stdio:'ignore'});
           const cause=JSON.parse(readFileSync('/tmp/wb-choker-cause.json','utf8'));
           process.stdout.write(JSON.stringify({ok:true,checkedAt:new Date().toISOString(),warehouseId,matchedProducts:products.length,updatedBarcodes:stocks.length,archivedNmIDs:nmIDs,products,verifiedStocks:verifyJson.stocks||[],cause,protection:{priceSheetSyncWbDisabled:true,localProductsDeactivated:true}},null,2));
           NODE
