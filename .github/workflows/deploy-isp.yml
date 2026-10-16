@@ -4,21 +4,9 @@ on:
   push:
     branches: [main]
     paths-ignore:
-      - 'ops/deploy-last-status.txt'
-      - 'ops/finance-run.txt'
-      - 'ops/finance-history-last.json'
-      - 'ops/finance-completeness.json'
-      - 'ops/finance-currency-audit.txt'
-      - 'ops/server-web-status.json'
-      - 'ops/server-web-request.txt'
-      - '.github/workflows/server-web-channel.yml'
-      - '.github/workflows/finalize-six-tasks.yml'
-      - 'ops/six-tasks-final.json'
-      - 'ops/finalize-six-tasks.trigger'
+      - 'ops/**'
+      - '.github/workflows/wb-remove-chokers.yml'
   workflow_dispatch:
-
-permissions:
-  contents: write
 
 concurrency:
   group: deploy-selectel-production
@@ -27,14 +15,11 @@ concurrency:
 jobs:
   deploy:
     runs-on: ubuntu-24.04
-    timeout-minutes: 15
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
 
       - name: Deploy over SSH
-        id: deploy
-        continue-on-error: true
         env:
           SELECTEL_HOST: ${{ secrets.SELECTEL_HOST }}
           SELECTEL_PORT: ${{ secrets.SELECTEL_PORT }}
@@ -58,44 +43,30 @@ jobs:
           printf '%s\n' "$SSH_KEY" > ~/.ssh/id_ed25519
           chmod 600 ~/.ssh/id_ed25519
           ssh-keyscan -p "$PORT" "$HOST" >> ~/.ssh/known_hosts
-          ssh -o ServerAliveInterval=30 -o ServerAliveCountMax=20 -p "$PORT" "$USER@$HOST" 'bash -s' < scripts/deploy-selectel.sh
+          ssh -p "$PORT" "$USER@$HOST" 'bash -s' < scripts/deploy-selectel.sh
+
+      - name: Configure Telegram shop
+        env:
+          HOST: ${{ secrets.SELECTEL_HOST }}
+          PORT: ${{ secrets.SELECTEL_PORT }}
+        run: |
+          set -euo pipefail
+          ssh -p "${PORT:-22}" "root@$HOST" 'cd /var/www/duisun; set -a; source .env.production; set +a; node scripts/telegram-config-export.mjs' | node scripts/configure-telegram.mjs
 
       - name: Verify production
-        id: verify
-        if: steps.deploy.outcome == 'success'
-        continue-on-error: true
         run: |
           set -euo pipefail
-          health="$(curl --fail --silent --show-error --max-time 20 https://duisun.ru/api/health)"
+          health="$(curl --fail --silent --show-error --max-time 30 https://duisun.ru/api/health)"
           echo "$health" | jq -e '.ok == true and .database == "up"'
-          status="$(curl --silent --show-error --output /dev/null --write-out '%{http_code}' --max-time 20 https://duisun.ru/admin/whatsapp)"
+          status="$(curl --silent --show-error --output /dev/null --write-out '%{http_code}' --max-time 30 https://duisun.ru/admin/whatsapp)"
           test "$status" = 200
 
-      - name: Record deploy status
-        if: always()
-        continue-on-error: true
+      - name: Audit catalog and verify checkout on Selectel
+        if: contains(github.event.head_commit.message, '[launch-audit]')
+        env:
+          HOST: ${{ secrets.SELECTEL_HOST }}
+          PORT: ${{ secrets.SELECTEL_PORT }}
         run: |
           set -euo pipefail
-          git fetch origin main
-          git reset --hard origin/main
-          mkdir -p ops
-          {
-            echo "commit=${GITHUB_SHA}"
-            echo "run_id=${GITHUB_RUN_ID}"
-            echo "deploy=${{ steps.deploy.outcome }}"
-            echo "verify=${{ steps.verify.outcome }}"
-            echo "time=$(date -u +%Y-%m-%dT%H:%M:%SZ)"
-          } > ops/deploy-last-status.txt
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add ops/deploy-last-status.txt
-          if [ -s /tmp/server-web-status.json ]; then
-            cp /tmp/server-web-status.json ops/server-web-status.json
-            git add ops/server-web-status.json
-          fi
-          git diff --cached --quiet || git commit -m "Record Selectel deploy status [skip ci]"
-          git push origin HEAD:main || true
-
-      - name: Fail if deployment failed
-        if: steps.deploy.outcome != 'success' || steps.verify.outcome != 'success'
-        run: exit 1
+          ssh -p "${PORT:-22}" "root@$HOST" 'set -euo pipefail; cd /var/www/duisun; set -a; source .env.production; set +a; bash scripts/verify-backup.sh; node scripts/audit-store.mjs; node scripts/verify-checkout.mjs'
+          ssh -p "${PORT:-22}" "root@$HOST" 'cd /var/www/duisun; set -a; source .env.production; set +a; node scripts/telegram-outbox.mjs export' | node scripts/deliver-telegram-outbox.mjs | ssh -p "${PORT:-22}" "root@$HOST" 'cd /var/www/duisun; set -a; source .env.production; set +a; node scripts/telegram-outbox.mjs ack'

@@ -37,15 +37,16 @@ jobs:
           ssh -p "${PORT:-22}" "$USER@$HOST" 'bash -s' > /tmp/wb-remove-chokers.json <<'REMOTE'
           set -euo pipefail
           cd /var/www/duisun
+          DB_URL="$(node --env-file=.env.production -e "process.stdout.write(process.env.DATABASE_URL||'')")"
+          test -n "$DB_URL"
+          psql "$DB_URL" -Atc 'SELECT cards::text FROM wb_catalog_cache ORDER BY fetched_at DESC NULLS LAST LIMIT 1' > /tmp/wb-cards.json
           node --env-file=.env.production --input-type=module <<'NODE'
-          import pg from 'pg';
+          import {readFileSync} from 'node:fs';
           const token=(process.env.WB_API_TOKEN||'').trim();
           const warehouseId=(process.env.WB_WAREHOUSE_ID||'604848').trim();
           if(!token) throw new Error('WB_API_TOKEN is not configured');
-          const pool=new pg.Pool({connectionString:process.env.DATABASE_URL,ssl:process.env.DATABASE_URL?.includes('localhost')?false:{rejectUnauthorized:false},max:1});
-          const cache=await pool.query('SELECT cards FROM wb_catalog_cache ORDER BY fetched_at DESC NULLS LAST LIMIT 1');
-          await pool.end();
-          const cards=Array.isArray(cache.rows?.[0]?.cards)?cache.rows[0].cards:[];
+          const cached=JSON.parse(readFileSync('/tmp/wb-cards.json','utf8'));
+          const cards=Array.isArray(cached)?cached:[];
           const matched=cards.filter(card=>/choker|чокер/i.test(JSON.stringify(card)));
           if(!matched.length) throw new Error('No Choker products found in WB catalog cache');
           const stocks=[];
