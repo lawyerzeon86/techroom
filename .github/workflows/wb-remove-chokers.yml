@@ -1,0 +1,88 @@
+name: Remove Choker stock from WB
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - 'ops/wb-remove-chokers.trigger'
+
+permissions:
+  contents: write
+
+jobs:
+  remove:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - name: Prepare SSH
+        env:
+          HOST: ${{ secrets.SELECTEL_HOST }}
+          PORT: ${{ secrets.SELECTEL_PORT }}
+          KEY: ${{ secrets.SELECTEL_SSH_KEY }}
+        run: |
+          set -euo pipefail
+          mkdir -p ~/.ssh
+          printf '%s\n' "$KEY" > ~/.ssh/id_ed25519
+          chmod 600 ~/.ssh/id_ed25519
+          ssh-keyscan -p "${PORT:-22}" "$HOST" >> ~/.ssh/known_hosts
+      - name: Set all Choker WB stocks to zero
+        env:
+          HOST: ${{ secrets.SELECTEL_HOST }}
+          PORT: ${{ secrets.SELECTEL_PORT }}
+          USER: ${{ secrets.SELECTEL_USER }}
+        run: |
+          set -euo pipefail
+          ssh -p "${PORT:-22}" "$USER@$HOST" 'bash -s' > /tmp/wb-remove-chokers.json <<'REMOTE'
+          set -euo pipefail
+          cd /var/www/duisun
+          node --env-file=.env.production --input-type=module <<'NODE'
+          import pg from 'pg';
+          const token=(process.env.WB_API_TOKEN||'').trim();
+          const warehouseId=(process.env.WB_WAREHOUSE_ID||'604848').trim();
+          if(!token) throw new Error('WB_API_TOKEN is not configured');
+          const pool=new pg.Pool({connectionString:process.env.DATABASE_URL,ssl:process.env.DATABASE_URL?.includes('localhost')?false:{rejectUnauthorized:false},max:1});
+          const cache=await pool.query('SELECT cards FROM wb_catalog_cache ORDER BY fetched_at DESC NULLS LAST LIMIT 1');
+          await pool.end();
+          const cards=Array.isArray(cache.rows?.[0]?.cards)?cache.rows[0].cards:[];
+          const matched=cards.filter(card=>/choker|чокер/i.test(JSON.stringify(card)));
+          if(!matched.length) throw new Error('No Choker products found in WB catalog cache');
+          const stocks=[];
+          const products=[];
+          for(const card of matched){
+            const skus=[];
+            const chrtIds=[];
+            for(const size of Array.isArray(card?.sizes)?card.sizes:[]){
+              if(size?.chrtID||size?.chrtId) chrtIds.push(Number(size.chrtID||size.chrtId));
+              for(const sku of Array.isArray(size?.skus)?size.skus:[]) if(sku) skus.push(String(sku));
+            }
+            const unique=[...new Set(skus)];
+            for(const sku of unique) stocks.push({sku,amount:0});
+            products.push({nmID:String(card?.nmID||''),vendorCode:String(card?.vendorCode||''),title:String(card?.title||card?.subjectName||''),skus:unique,chrtIds});
+          }
+          if(!stocks.length) throw new Error('Choker products found, but WB barcodes are missing');
+          const put=await fetch(`https://marketplace-api.wildberries.ru/api/v3/stocks/${encodeURIComponent(warehouseId)}`,{method:'PUT',headers:{Authorization:token,'Content-Type':'application/json'},body:JSON.stringify({stocks}),signal:AbortSignal.timeout(20000)});
+          const putText=await put.text();
+          if(!put.ok) throw new Error(`WB stock update ${put.status}: ${putText.slice(0,500)}`);
+          const chrtIds=[...new Set(products.flatMap(p=>p.chrtIds).filter(Number.isFinite))];
+          const verify=await fetch(`https://marketplace-api.wildberries.ru/api/v3/stocks/${encodeURIComponent(warehouseId)}`,{method:'POST',headers:{Authorization:token,'Content-Type':'application/json'},body:JSON.stringify({chrtIds}),signal:AbortSignal.timeout(20000)});
+          const verifyText=await verify.text();
+          let verifyJson={}; try{verifyJson=verifyText?JSON.parse(verifyText):{}}catch{}
+          if(!verify.ok) throw new Error(`WB stock verification ${verify.status}: ${verifyText.slice(0,500)}`);
+          const remaining=(verifyJson.stocks||[]).filter(s=>Number(s.amount||0)!==0);
+          if(remaining.length) throw new Error(`Some Choker stocks are not zero: ${JSON.stringify(remaining)}`);
+          process.stdout.write(JSON.stringify({ok:true,checkedAt:new Date().toISOString(),warehouseId,matchedProducts:products.length,updatedBarcodes:stocks.length,products,verifiedStocks:verifyJson.stocks||[]},null,2));
+          NODE
+          REMOTE
+      - name: Commit report
+        run: |
+          set -euo pipefail
+          git fetch origin main
+          git reset --hard origin/main
+          cp /tmp/wb-remove-chokers.json ops/wb-remove-chokers.json
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add ops/wb-remove-chokers.json
+          git diff --cached --quiet || git commit -m 'Record WB Choker stock removal [skip ci]'
+          git push origin HEAD:main
