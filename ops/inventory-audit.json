@@ -1,246 +1,206 @@
 {
-  "checkedAt": "2026-10-16T05:51:08.787Z",
+  "checkedAt": "2026-10-16T07:13:44.789Z",
   "summary": {
     "siteActive": 42,
     "wbCards": 39,
     "ozonOffers": 42,
-    "zeroRows": 22,
-    "mismatches": 1,
+    "zeroRows": 9,
+    "mismatches": 10,
     "recentOrders": 6,
     "transferErrors": 20
   },
   "zeroStock": [
     {
-      "sku": "RYBSTypeCTypeC",
-      "title": "Кабель Type c Type-c",
-      "site": 0,
-      "wb": 0,
-      "oz": 0,
-      "inventoryAuthority": "marketplace",
-      "source": "ozon",
-      "updatedAt": "2026-10-16T02:18:38.3552+00:00"
-    },
-    {
       "sku": "RybsCarCharger33W",
       "title": "Прикуриватель в машину зарядка",
-      "site": 0,
-      "wb": 0,
+      "site": 5,
+      "wb": 5,
       "oz": 0,
-      "inventoryAuthority": "marketplace",
+      "inventoryAuthority": "site",
       "source": "ozon",
-      "updatedAt": "2026-10-16T02:18:38.356227+00:00"
+      "updatedAt": "2026-10-16T06:37:36.646911+00:00"
     },
     {
       "sku": "RybsTypeCC60W",
       "title": "Кабель Type-C Type C для Iphone 15 16 Android 60W PD",
-      "site": 0,
-      "wb": 0,
+      "site": 5,
+      "wb": 5,
       "oz": 0,
-      "inventoryAuthority": "marketplace",
+      "inventoryAuthority": "site",
       "source": "ozon",
-      "updatedAt": "2026-10-16T02:18:38.357347+00:00"
-    },
-    {
-      "sku": "RYBSKosmSpoungeRose",
-      "title": "Спонж для макияжа",
-      "site": 0,
-      "wb": 0,
-      "oz": 0,
-      "inventoryAuthority": "marketplace",
-      "source": "ozon",
-      "updatedAt": "2026-10-16T02:18:38.359011+00:00"
-    },
-    {
-      "sku": "RYBSKosmSpoungeYellow",
-      "title": "Набор спонжей для макияжа 6шт",
-      "site": 0,
-      "wb": 0,
-      "oz": 0,
-      "inventoryAuthority": "marketplace",
-      "source": "ozon",
-      "updatedAt": "2026-10-16T02:18:38.360194+00:00"
-    },
-    {
-      "sku": "RYBSKosmSpoungeGreen",
-      "title": "Набор спонжей для макияжа 6шт",
-      "site": 0,
-      "wb": 0,
-      "oz": 0,
-      "inventoryAuthority": "marketplace",
-      "source": "ozon",
-      "updatedAt": "2026-10-16T02:18:38.361391+00:00"
-    },
-    {
-      "sku": "RYBSKosmSpoungePurple",
-      "title": "Набор спонжей для макияжа 6шт",
-      "site": 0,
-      "wb": 0,
-      "oz": 0,
-      "inventoryAuthority": "marketplace",
-      "source": "ozon",
-      "updatedAt": "2026-10-16T02:18:38.3625+00:00"
-    },
-    {
-      "sku": "RYBSKosmSpoungeLightRose",
-      "title": "Набор спонж для макияжа 6шт",
-      "site": 0,
-      "wb": 0,
-      "oz": 0,
-      "inventoryAuthority": "marketplace",
-      "source": "ozon",
-      "updatedAt": "2026-10-16T02:18:38.363542+00:00"
+      "updatedAt": "2026-10-16T06:37:36.646911+00:00"
     },
     {
       "sku": "RYBSlightningTypeC",
       "title": "Провод lightning для Iphone",
-      "site": 0,
-      "wb": 0,
+      "site": 5,
+      "wb": 5,
       "oz": 0,
-      "inventoryAuthority": "marketplace",
+      "inventoryAuthority": "site",
       "source": "ozon",
-      "updatedAt": "2026-10-16T02:18:38.364576+00:00"
-    },
-    {
-      "sku": "RYBSVentBlue",
-      "title": "Мини вентилятор",
-      "site": 0,
-      "wb": 0,
-      "oz": 0,
-      "inventoryAuthority": "marketplace",
-      "source": "ozon",
-      "updatedAt": "2026-10-16T02:18:38.365604+00:00"
-    },
-    {
-      "sku": "RYBSVentRose",
-      "title": "Мини вентилятор",
-      "site": 0,
-      "wb": 0,
-      "oz": 0,
-      "inventoryAuthority": "marketplace",
-      "source": "ozon",
-      "updatedAt": "2026-10-16T02:18:38.366688+00:00"
-    },
-    {
-      "sku": "RYBSVentGreen",
-      "title": "Мини вентилятор",
-      "site": 0,
-      "wb": 0,
-      "oz": 0,
-      "inventoryAuthority": "marketplace",
-      "source": "ozon",
-      "updatedAt": "2026-10-16T02:18:38.367746+00:00"
+      "updatedAt": "2026-10-16T06:37:36.646911+00:00"
     },
     {
       "sku": "6A120W",
       "title": "Кабель type-c 120W 6A",
-      "site": 0,
-      "wb": 0,
+      "site": 5,
+      "wb": 5,
       "oz": 0,
-      "inventoryAuthority": "marketplace",
+      "inventoryAuthority": "site",
       "source": "ozon",
-      "updatedAt": "2026-10-16T02:18:38.368835+00:00"
+      "updatedAt": "2026-10-16T06:37:36.646911+00:00"
     },
     {
       "sku": "5A-3",
       "title": "Провод type-c",
-      "site": 0,
-      "wb": 0,
+      "site": 5,
+      "wb": 5,
       "oz": 0,
-      "inventoryAuthority": "marketplace",
+      "inventoryAuthority": "site",
       "source": "ozon",
-      "updatedAt": "2026-10-16T02:18:38.370058+00:00"
+      "updatedAt": "2026-10-16T06:37:36.646911+00:00"
     },
     {
       "sku": "RYBSmicroUSB22",
       "title": "Microusb",
-      "site": 0,
-      "wb": 0,
+      "site": 5,
+      "wb": 5,
       "oz": 0,
-      "inventoryAuthority": "marketplace",
+      "inventoryAuthority": "site",
       "source": "ozon",
-      "updatedAt": "2026-10-16T02:18:38.371161+00:00"
+      "updatedAt": "2026-10-16T06:37:36.646911+00:00"
     },
     {
       "sku": "6A-3",
       "title": "Кабель type-c 66W 6A",
-      "site": 0,
-      "wb": 0,
+      "site": 5,
+      "wb": 5,
       "oz": 0,
-      "inventoryAuthority": "marketplace",
+      "inventoryAuthority": "site",
       "source": "ozon",
-      "updatedAt": "2026-10-16T02:18:38.372236+00:00"
+      "updatedAt": "2026-10-16T06:37:36.646911+00:00"
     },
     {
       "sku": "RybsTypeCC60WW",
       "title": "Кабель Type-C Type C для Iphone 15 16 Android 60W PD",
-      "site": 0,
-      "wb": 0,
+      "site": 5,
+      "wb": 5,
       "oz": 0,
-      "inventoryAuthority": "marketplace",
+      "inventoryAuthority": "site",
       "source": "ozon",
-      "updatedAt": "2026-10-16T02:18:38.373378+00:00"
-    },
-    {
-      "sku": "MinecraftSkeletonBlue",
-      "title": "Брелок Синий скелетон из Minecraft",
-      "site": 0,
-      "wb": 0,
-      "oz": 0,
-      "inventoryAuthority": "marketplace",
-      "source": "ozon",
-      "updatedAt": "2026-10-16T02:18:38.377777+00:00"
-    },
-    {
-      "sku": "MinecraftSkeletonRed",
-      "title": "Брелок красный скелетон из Minecraft",
-      "site": 0,
-      "wb": 0,
-      "oz": 0,
-      "inventoryAuthority": "marketplace",
-      "source": "ozon",
-      "updatedAt": "2026-10-16T02:18:38.378836+00:00"
+      "updatedAt": "2026-10-16T06:37:36.646911+00:00"
     },
     {
       "sku": "MOTO46C",
       "title": "Дефлектор для мотошлема усиленный композитный термостойкий",
-      "site": 0,
-      "wb": 0,
+      "site": 5,
+      "wb": 5,
       "oz": 0,
-      "inventoryAuthority": "marketplace",
+      "inventoryAuthority": "site",
       "source": "ozon",
-      "updatedAt": "2026-10-16T02:18:38.37987+00:00"
-    },
-    {
-      "sku": "R8K0821653A",
-      "title": "Кожух порога (накладка) Audi A4 B8 2008-2015 8K0821653A",
-      "site": 0,
-      "wb": 0,
-      "oz": 0,
-      "inventoryAuthority": "marketplace",
-      "source": "ozon",
-      "updatedAt": "2026-10-16T02:18:38.381006+00:00"
-    },
-    {
-      "sku": "wb11pod",
-      "title": "Подставка для наушников и часов",
-      "site": 0,
-      "wb": 0,
-      "oz": 0,
-      "inventoryAuthority": "marketplace",
-      "source": "ozon",
-      "updatedAt": "2026-10-16T02:18:38.385086+00:00"
+      "updatedAt": "2026-10-16T06:37:36.646911+00:00"
     }
   ],
   "mismatches": [
     {
+      "sku": "RybsCarCharger33W",
+      "title": "Прикуриватель в машину зарядка",
+      "site": 5,
+      "wb": 5,
+      "oz": 0,
+      "inventoryAuthority": "site",
+      "source": "ozon",
+      "updatedAt": "2026-10-16T06:37:36.646911+00:00"
+    },
+    {
+      "sku": "RybsTypeCC60W",
+      "title": "Кабель Type-C Type C для Iphone 15 16 Android 60W PD",
+      "site": 5,
+      "wb": 5,
+      "oz": 0,
+      "inventoryAuthority": "site",
+      "source": "ozon",
+      "updatedAt": "2026-10-16T06:37:36.646911+00:00"
+    },
+    {
+      "sku": "RYBSlightningTypeC",
+      "title": "Провод lightning для Iphone",
+      "site": 5,
+      "wb": 5,
+      "oz": 0,
+      "inventoryAuthority": "site",
+      "source": "ozon",
+      "updatedAt": "2026-10-16T06:37:36.646911+00:00"
+    },
+    {
+      "sku": "6A120W",
+      "title": "Кабель type-c 120W 6A",
+      "site": 5,
+      "wb": 5,
+      "oz": 0,
+      "inventoryAuthority": "site",
+      "source": "ozon",
+      "updatedAt": "2026-10-16T06:37:36.646911+00:00"
+    },
+    {
+      "sku": "5A-3",
+      "title": "Провод type-c",
+      "site": 5,
+      "wb": 5,
+      "oz": 0,
+      "inventoryAuthority": "site",
+      "source": "ozon",
+      "updatedAt": "2026-10-16T06:37:36.646911+00:00"
+    },
+    {
+      "sku": "RYBSmicroUSB22",
+      "title": "Microusb",
+      "site": 5,
+      "wb": 5,
+      "oz": 0,
+      "inventoryAuthority": "site",
+      "source": "ozon",
+      "updatedAt": "2026-10-16T06:37:36.646911+00:00"
+    },
+    {
+      "sku": "6A-3",
+      "title": "Кабель type-c 66W 6A",
+      "site": 5,
+      "wb": 5,
+      "oz": 0,
+      "inventoryAuthority": "site",
+      "source": "ozon",
+      "updatedAt": "2026-10-16T06:37:36.646911+00:00"
+    },
+    {
+      "sku": "RybsTypeCC60WW",
+      "title": "Кабель Type-C Type C для Iphone 15 16 Android 60W PD",
+      "site": 5,
+      "wb": 5,
+      "oz": 0,
+      "inventoryAuthority": "site",
+      "source": "ozon",
+      "updatedAt": "2026-10-16T06:37:36.646911+00:00"
+    },
+    {
+      "sku": "MOTO46C",
+      "title": "Дефлектор для мотошлема усиленный композитный термостойкий",
+      "site": 5,
+      "wb": 5,
+      "oz": 0,
+      "inventoryAuthority": "site",
+      "source": "ozon",
+      "updatedAt": "2026-10-16T06:37:36.646911+00:00"
+    },
+    {
       "sku": "KLINT-HK-SKEL-01",
       "title": "Брелок-фигурка Hello Kitty Скелет, 3D, чёрно-белый",
-      "site": 80,
-      "wb": 80,
-      "oz": 85,
-      "inventoryAuthority": "marketplace",
+      "site": 5,
+      "wb": 5,
+      "oz": 10,
+      "inventoryAuthority": "site",
       "source": "ozon",
-      "updatedAt": "2026-10-16T02:18:38.390828+00:00"
+      "updatedAt": "2026-10-16T06:37:36.646911+00:00"
     }
   ],
   "transferErrors": [
