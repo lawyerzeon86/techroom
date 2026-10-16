@@ -1,14 +1,18 @@
 {
   "ok": true,
-  "checkedAt": "2026-10-16T15:29:45.803Z",
+  "checkedAt": "2026-10-16T15:30:44.739Z",
   "warehouseId": "604848",
-  "matchedProducts": 3,
-  "updatedBarcodes": 3,
+  "matchedProducts": 2,
+  "updatedBarcodes": 2,
   "archivedNmIDs": [
     167092772,
-    212941392,
-    214231714
+    212941392
   ],
+  "recoveredUnrelatedProduct": {
+    "nmID": 214231714,
+    "vendorCode": "RybsCarCharger33W",
+    "stock": 5
+  },
   "products": [
     {
       "nmID": "167092772",
@@ -31,17 +35,6 @@
       "chrtIds": [
         340359934
       ]
-    },
-    {
-      "nmID": "214231714",
-      "vendorCode": "RybsCarCharger33W",
-      "title": "Прикуриватель в машину зарядка",
-      "skus": [
-        "2039595425231"
-      ],
-      "chrtIds": [
-        342025181
-      ]
     }
   ],
   "verifiedStocks": [
@@ -54,11 +47,6 @@
       "sku": "2039569648154",
       "chrtId": 340359934,
       "amount": 0
-    },
-    {
-      "sku": "2039595425231",
-      "chrtId": 342025181,
-      "amount": 0
     }
   ],
   "cause": {
@@ -66,17 +54,56 @@
       {
         "sku": "6A120W",
         "title": "Кабель type-c 120W 6A",
-        "sync_wb": true,
-        "stock": 5
+        "sync_wb": false,
+        "stock": 0
       },
       {
         "sku": "6A-3",
         "title": "Кабель type-c 66W 6A",
-        "sync_wb": true,
-        "stock": 5
+        "sync_wb": false,
+        "stock": 0
       }
     ],
     "recentSync": [
+      {
+        "started_at": "2026-10-16T15:30:18.285495+00:00",
+        "finished_at": "2026-10-16T15:30:18.581173+00:00",
+        "ok": true,
+        "result": {
+          "ok": true,
+          "runId": 3969,
+          "forced": true,
+          "stages": {
+            "ozon": {
+              "reviews": {
+                "skipped": "requires_premium_plus"
+              },
+              "questions": {
+                "skipped": "requires_premium_plus"
+              }
+            },
+            "wildberries": {
+              "orders": {
+                "synced": 2,
+                "notified": 0
+              },
+              "reviews": 7,
+              "questions": {
+                "skipped": "next_communication_cycle"
+              }
+            }
+          },
+          "transfers": false,
+          "productHub": {
+            "site": null,
+            "facts": null,
+            "prune": null,
+            "imports": {},
+            "transfer": null
+          },
+          "communications": true
+        }
+      },
       {
         "started_at": "2026-10-16T15:14:36.763863+00:00",
         "finished_at": "2026-10-16T15:14:37.74158+00:00",
@@ -220,45 +247,6 @@
               "questions": {
                 "skipped": "next_communication_cycle"
               }
-            }
-          },
-          "transfers": false,
-          "productHub": {
-            "site": null,
-            "facts": null,
-            "prune": null,
-            "imports": {},
-            "transfer": null
-          },
-          "communications": true
-        }
-      },
-      {
-        "started_at": "2026-10-16T14:11:18.280281+00:00",
-        "finished_at": "2026-10-16T14:11:18.564855+00:00",
-        "ok": true,
-        "result": {
-          "ok": true,
-          "runId": 3964,
-          "forced": true,
-          "stages": {
-            "ozon": {
-              "reviews": {
-                "skipped": "requires_premium_plus"
-              },
-              "questions": {
-                "skipped": "requires_premium_plus"
-              }
-            },
-            "wildberries": {
-              "orders": {
-                "synced": 2,
-                "notified": 0
-              },
-              "reviews": {
-                "skipped": "next_communication_cycle"
-              },
-              "questions": 0
             }
           },
           "transfers": false,
