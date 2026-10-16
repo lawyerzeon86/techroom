@@ -1,0 +1,78 @@
+name: Duisun production final audit
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - 'ops/site-final-audit.trigger'
+
+permissions:
+  contents: write
+
+jobs:
+  audit:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - name: Prepare SSH
+        env:
+          HOST: ${{ secrets.SELECTEL_HOST }}
+          PORT: ${{ secrets.SELECTEL_PORT }}
+          USER: ${{ secrets.SELECTEL_USER }}
+          KEY: ${{ secrets.SELECTEL_SSH_KEY }}
+        run: |
+          set -euo pipefail
+          mkdir -p ~/.ssh
+          printf '%s\n' "$KEY" > ~/.ssh/id_ed25519
+          chmod 600 ~/.ssh/id_ed25519
+          ssh-keyscan -p "${PORT:-22}" "$HOST" >> ~/.ssh/known_hosts
+      - name: Audit production
+        env:
+          HOST: ${{ secrets.SELECTEL_HOST }}
+          PORT: ${{ secrets.SELECTEL_PORT }}
+          USER: ${{ secrets.SELECTEL_USER }}
+        run: |
+          set -euo pipefail
+          ssh -p "${PORT:-22}" "$USER@$HOST" 'bash -s' > /tmp/site-final-audit.json <<'REMOTE'
+          set -euo pipefail
+          cd /var/www/duisun
+          env_cleaned=false
+          if grep -q '^RENDER_' .env.production 2>/dev/null; then
+            sed -i '/^RENDER_/d' .env.production
+            pm2 restart duisun --update-env >/dev/null
+            env_cleaned=true
+          fi
+          ENV_CLEANED="$env_cleaned" node --env-file=.env.production --input-type=module <<'NODE'
+          import pg from 'pg';
+          import {execFileSync} from 'node:child_process';
+          const pool=new pg.Pool({connectionString:process.env.DATABASE_URL,ssl:process.env.DATABASE_URL?.includes('localhost')?false:{rejectUnauthorized:false}});
+          const scalar=async sql=>Number((await pool.query(sql)).rows[0]?.n||0);
+          const http=path=>{try{return JSON.parse(execFileSync('curl',['-fsS','--max-time','20',`https://duisun.ru${path}`],{encoding:'utf8'}))}catch(e){return {ok:false,error:String(e?.message||e)}}};
+          const out={
+            checkedAt:new Date().toISOString(),
+            health:http('/api/health'),
+            payments:http('/api/payments/config'),
+            catalog:{active:await scalar('SELECT count(*)::int n FROM products WHERE is_active=TRUE'),zero:await scalar('SELECT count(*)::int n FROM products WHERE is_active=TRUE AND stock<=0')},
+            crm:{orders:await scalar('SELECT count(*)::int n FROM orders'),newOrders:await scalar("SELECT count(*)::int n FROM orders WHERE status IN ('new','awaiting_payment')"),orderItems:await scalar('SELECT count(*)::int n FROM order_items')},
+            notifications:{telegram:Boolean(process.env.TELEGRAM_BOT_TOKEN&&process.env.TELEGRAM_ADMIN_CHAT_ID),email:Boolean(process.env.SMTP_HOST&&process.env.SMTP_USER&&(process.env.SMTP_PASSWORD||process.env.SMTP_PASS)&&(process.env.EMAIL_FROM||process.env.SMTP_FROM))},
+            paymentConfigured:Boolean(process.env.YOOKASSA_SHOP_ID&&process.env.YOOKASSA_SECRET_KEY),
+            legacyHosting:{environmentCleaned:process.env.ENV_CLEANED==='true',databaseReferences:await scalar("SELECT count(*)::int n FROM products WHERE coalesce(image_url,'') LIKE '%onrender.com%' OR image_urls::text LIKE '%onrender.com%'")},
+            timers:{sync:execFileSync('systemctl',['is-active','duisun-sync-core.timer'],{encoding:'utf8'}).trim(),email:execFileSync('systemctl',['is-active','duisun-email.timer'],{encoding:'utf8'}).trim(),publish:execFileSync('systemctl',['is-active','duisun-publish-products.timer'],{encoding:'utf8'}).trim()}
+          };
+          await pool.end();
+          process.stdout.write(JSON.stringify(out,null,2));
+          NODE
+          REMOTE
+      - name: Commit report
+        run: |
+          set -euo pipefail
+          git fetch origin main
+          git reset --hard origin/main
+          cp /tmp/site-final-audit.json ops/site-final-audit.json
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add ops/site-final-audit.json
+          git diff --cached --quiet || git commit -m 'Record Duisun production final audit [skip ci]'
+          git push origin HEAD:main
