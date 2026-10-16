@@ -1,0 +1,110 @@
+name: Inventory zero-stock audit
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'ops/inventory-audit.trigger'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  audit:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - name: Prepare SSH
+        env:
+          HOST: ${{ secrets.SELECTEL_HOST }}
+          PORT: ${{ secrets.SELECTEL_PORT }}
+          USER: ${{ secrets.SELECTEL_USER }}
+          SSH_KEY: ${{ secrets.SELECTEL_SSH_KEY }}
+        run: |
+          set -euo pipefail
+          mkdir -p ~/.ssh
+          chmod 700 ~/.ssh
+          printf '%s\n' "$SSH_KEY" > ~/.ssh/id_ed25519
+          chmod 600 ~/.ssh/id_ed25519
+          ssh-keyscan -p "${PORT:-22}" "$HOST" >> ~/.ssh/known_hosts
+          ssh -o ServerAliveInterval=20 -o ServerAliveCountMax=10 -p "${PORT:-22}" "${USER:-root}@$HOST" 'bash -s' > /tmp/inventory-audit.json <<'REMOTE'
+          set -euo pipefail
+          cd /var/www/duisun
+          set -a; source .env.production; set +a
+          node --input-type=module <<'NODE'
+          import pg from 'pg';
+          const pool=new pg.Pool({connectionString:process.env.DATABASE_URL,ssl:process.env.DATABASE_URL?.includes('localhost')?false:{rejectUnauthorized:false},max:1});
+          async function post(url,body,headers){
+            const r=await fetch(url,{method:'POST',headers,body:JSON.stringify(body),signal:AbortSignal.timeout(45000)});
+            const t=await r.text(); let j={};try{j=t?JSON.parse(t):{}}catch{j={raw:t}}
+            if(!r.ok)throw new Error('HTTP_'+r.status+': '+t.slice(0,300)); return j;
+          }
+          const report={checkedAt:new Date().toISOString(),summary:{},zeroStock:[],mismatches:[],transferErrors:[],recentOrders:[]};
+          try{
+            const q=await pool.query("SELECT to_jsonb(p) AS p FROM products p WHERE coalesce(is_active,true)=true ORDER BY id");
+            const site=q.rows.map(r=>r.p);
+            const bySku=new Map(site.map(p=>[String(p.sku||''),p]));
+            let wbCards=[]; let cursor={limit:100};
+            const wh=String(process.env.WB_WAREHOUSE_ID||'604848');
+            const wbHeaders={Authorization:process.env.WB_API_TOKEN||'','Content-Type':'application/json'};
+            for(let page=0;page<20;page++){
+              const d=await post('https://content-api.wildberries.ru/content/v2/get/cards/list',{settings:{cursor,filter:{withPhoto:-1},sort:{ascending:false}}},wbHeaders);
+              wbCards.push(...(d.cards||[]));
+              if(!d.cursor||Number(d.cursor.total)<100)break;
+              cursor={limit:100,updatedAt:d.cursor.updatedAt,nmID:d.cursor.nmID};
+            }
+            const chrtMeta=new Map();
+            for(const c of wbCards)for(const s of (c.sizes||[])){
+              const id=Number(s.chrtID||s.chrtId||0); if(id)chrtMeta.set(id,{sku:String(c.vendorCode||''),nmID:c.nmID});
+            }
+            const wbAmount=new Map();
+            const ids=[...chrtMeta.keys()];
+            for(let i=0;i<ids.length;i+=1000){
+              const d=await post('https://marketplace-api.wildberries.ru/api/v3/stocks/'+encodeURIComponent(wh),{chrtIds:ids.slice(i,i+1000)},wbHeaders);
+              for(const s of (d.stocks||[])){const m=chrtMeta.get(Number(s.chrtId||s.chrtID));if(m)wbAmount.set(m.sku,(wbAmount.get(m.sku)||0)+Number(s.amount||0))}
+            }
+            const ozHeaders={'Client-Id':process.env.OZON_CLIENT_ID||'','Api-Key':process.env.OZON_API_KEY||'','Content-Type':'application/json'};
+            const ozAmount=new Map(); let ozCursor='';
+            for(let page=0;page<30;page++){
+              const d=await post('https://api-seller.ozon.ru/v4/product/info/stocks',{filter:{visibility:'ALL'},cursor:ozCursor,limit:1000},ozHeaders);
+              const items=d.items||d.result?.items||[];
+              for(const x of items){
+                const key=String(x.offer_id||''); const amount=(x.stocks||[]).reduce((n,s)=>n+Number(s.present||0),0);
+                if(key)ozAmount.set(key,amount);
+              }
+              const next=String(d.cursor||d.result?.cursor||''); if(!next||next===ozCursor||items.length===0)break; ozCursor=next;
+            }
+            for(const p of site){
+              const sku=String(p.sku||''); if(!sku)continue;
+              const siteStock=Number(p.stock||0), wb=wbAmount.has(sku)?wbAmount.get(sku):null, oz=ozAmount.has(sku)?ozAmount.get(sku):null;
+              const row={sku,title:p.title||'',site:siteStock,wb,oz,inventoryAuthority:p.inventory_authority||null,source:p.marketplace_source||null,updatedAt:p.updated_at||null};
+              if(siteStock===0||wb===0||oz===0)report.zeroStock.push(row);
+              const values=[siteStock,wb,oz].filter(v=>v!==null);
+              if(new Set(values).size>1)report.mismatches.push(row);
+            }
+            try{
+              const q=await pool.query("SELECT source,external_id,status,total_amount,items,external_created_at FROM marketplace_orders WHERE external_created_at>=NOW()-INTERVAL '14 days' ORDER BY external_created_at DESC LIMIT 100");
+              report.recentOrders=q.rows;
+            }catch{}
+            try{
+              const q=await pool.query("SELECT sku,marketplace,status,error,created_at FROM marketplace_publish_attempts WHERE created_at>=NOW()-INTERVAL '7 days' AND (status='error' OR error IS NOT NULL) ORDER BY created_at DESC LIMIT 200");
+              report.transferErrors=q.rows;
+            }catch{}
+            report.summary={siteActive:site.length,wbCards:wbCards.length,ozonOffers:ozAmount.size,zeroRows:report.zeroStock.length,mismatches:report.mismatches.length,recentOrders:report.recentOrders.length,transferErrors:report.transferErrors.length};
+          }finally{await pool.end()}
+          process.stdout.write(JSON.stringify(report,null,2));
+          NODE
+          REMOTE
+      - name: Commit audit report
+        run: |
+          set -euo pipefail
+          git fetch origin main
+          git reset --hard origin/main
+          cp /tmp/inventory-audit.json ops/inventory-audit.json
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add ops/inventory-audit.json
+          git diff --cached --quiet || git commit -m "Record inventory zero-stock audit [skip ci]"
+          git push origin HEAD:main
