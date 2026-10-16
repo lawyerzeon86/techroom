@@ -1,0 +1,498 @@
+{
+  "checkedAt": "2026-10-16T05:51:08.787Z",
+  "summary": {
+    "siteActive": 42,
+    "wbCards": 39,
+    "ozonOffers": 42,
+    "zeroRows": 22,
+    "mismatches": 1,
+    "recentOrders": 6,
+    "transferErrors": 20
+  },
+  "zeroStock": [
+    {
+      "sku": "RYBSTypeCTypeC",
+      "title": "Кабель Type c Type-c",
+      "site": 0,
+      "wb": 0,
+      "oz": 0,
+      "inventoryAuthority": "marketplace",
+      "source": "ozon",
+      "updatedAt": "2026-10-16T02:18:38.3552+00:00"
+    },
+    {
+      "sku": "RybsCarCharger33W",
+      "title": "Прикуриватель в машину зарядка",
+      "site": 0,
+      "wb": 0,
+      "oz": 0,
+      "inventoryAuthority": "marketplace",
+      "source": "ozon",
+      "updatedAt": "2026-10-16T02:18:38.356227+00:00"
+    },
+    {
+      "sku": "RybsTypeCC60W",
+      "title": "Кабель Type-C Type C для Iphone 15 16 Android 60W PD",
+      "site": 0,
+      "wb": 0,
+      "oz": 0,
+      "inventoryAuthority": "marketplace",
+      "source": "ozon",
+      "updatedAt": "2026-10-16T02:18:38.357347+00:00"
+    },
+    {
+      "sku": "RYBSKosmSpoungeRose",
+      "title": "Спонж для макияжа",
+      "site": 0,
+      "wb": 0,
+      "oz": 0,
+      "inventoryAuthority": "marketplace",
+      "source": "ozon",
+      "updatedAt": "2026-10-16T02:18:38.359011+00:00"
+    },
+    {
+      "sku": "RYBSKosmSpoungeYellow",
+      "title": "Набор спонжей для макияжа 6шт",
+      "site": 0,
+      "wb": 0,
+      "oz": 0,
+      "inventoryAuthority": "marketplace",
+      "source": "ozon",
+      "updatedAt": "2026-10-16T02:18:38.360194+00:00"
+    },
+    {
+      "sku": "RYBSKosmSpoungeGreen",
+      "title": "Набор спонжей для макияжа 6шт",
+      "site": 0,
+      "wb": 0,
+      "oz": 0,
+      "inventoryAuthority": "marketplace",
+      "source": "ozon",
+      "updatedAt": "2026-10-16T02:18:38.361391+00:00"
+    },
+    {
+      "sku": "RYBSKosmSpoungePurple",
+      "title": "Набор спонжей для макияжа 6шт",
+      "site": 0,
+      "wb": 0,
+      "oz": 0,
+      "inventoryAuthority": "marketplace",
+      "source": "ozon",
+      "updatedAt": "2026-10-16T02:18:38.3625+00:00"
+    },
+    {
+      "sku": "RYBSKosmSpoungeLightRose",
+      "title": "Набор спонж для макияжа 6шт",
+      "site": 0,
+      "wb": 0,
+      "oz": 0,
+      "inventoryAuthority": "marketplace",
+      "source": "ozon",
+      "updatedAt": "2026-10-16T02:18:38.363542+00:00"
+    },
+    {
+      "sku": "RYBSlightningTypeC",
+      "title": "Провод lightning для Iphone",
+      "site": 0,
+      "wb": 0,
+      "oz": 0,
+      "inventoryAuthority": "marketplace",
+      "source": "ozon",
+      "updatedAt": "2026-10-16T02:18:38.364576+00:00"
+    },
+    {
+      "sku": "RYBSVentBlue",
+      "title": "Мини вентилятор",
+      "site": 0,
+      "wb": 0,
+      "oz": 0,
+      "inventoryAuthority": "marketplace",
+      "source": "ozon",
+      "updatedAt": "2026-10-16T02:18:38.365604+00:00"
+    },
+    {
+      "sku": "RYBSVentRose",
+      "title": "Мини вентилятор",
+      "site": 0,
+      "wb": 0,
+      "oz": 0,
+      "inventoryAuthority": "marketplace",
+      "source": "ozon",
+      "updatedAt": "2026-10-16T02:18:38.366688+00:00"
+    },
+    {
+      "sku": "RYBSVentGreen",
+      "title": "Мини вентилятор",
+      "site": 0,
+      "wb": 0,
+      "oz": 0,
+      "inventoryAuthority": "marketplace",
+      "source": "ozon",
+      "updatedAt": "2026-10-16T02:18:38.367746+00:00"
+    },
+    {
+      "sku": "6A120W",
+      "title": "Кабель type-c 120W 6A",
+      "site": 0,
+      "wb": 0,
+      "oz": 0,
+      "inventoryAuthority": "marketplace",
+      "source": "ozon",
+      "updatedAt": "2026-10-16T02:18:38.368835+00:00"
+    },
+    {
+      "sku": "5A-3",
+      "title": "Провод type-c",
+      "site": 0,
+      "wb": 0,
+      "oz": 0,
+      "inventoryAuthority": "marketplace",
+      "source": "ozon",
+      "updatedAt": "2026-10-16T02:18:38.370058+00:00"
+    },
+    {
+      "sku": "RYBSmicroUSB22",
+      "title": "Microusb",
+      "site": 0,
+      "wb": 0,
+      "oz": 0,
+      "inventoryAuthority": "marketplace",
+      "source": "ozon",
+      "updatedAt": "2026-10-16T02:18:38.371161+00:00"
+    },
+    {
+      "sku": "6A-3",
+      "title": "Кабель type-c 66W 6A",
+      "site": 0,
+      "wb": 0,
+      "oz": 0,
+      "inventoryAuthority": "marketplace",
+      "source": "ozon",
+      "updatedAt": "2026-10-16T02:18:38.372236+00:00"
+    },
+    {
+      "sku": "RybsTypeCC60WW",
+      "title": "Кабель Type-C Type C для Iphone 15 16 Android 60W PD",
+      "site": 0,
+      "wb": 0,
+      "oz": 0,
+      "inventoryAuthority": "marketplace",
+      "source": "ozon",
+      "updatedAt": "2026-10-16T02:18:38.373378+00:00"
+    },
+    {
+      "sku": "MinecraftSkeletonBlue",
+      "title": "Брелок Синий скелетон из Minecraft",
+      "site": 0,
+      "wb": 0,
+      "oz": 0,
+      "inventoryAuthority": "marketplace",
+      "source": "ozon",
+      "updatedAt": "2026-10-16T02:18:38.377777+00:00"
+    },
+    {
+      "sku": "MinecraftSkeletonRed",
+      "title": "Брелок красный скелетон из Minecraft",
+      "site": 0,
+      "wb": 0,
+      "oz": 0,
+      "inventoryAuthority": "marketplace",
+      "source": "ozon",
+      "updatedAt": "2026-10-16T02:18:38.378836+00:00"
+    },
+    {
+      "sku": "MOTO46C",
+      "title": "Дефлектор для мотошлема усиленный композитный термостойкий",
+      "site": 0,
+      "wb": 0,
+      "oz": 0,
+      "inventoryAuthority": "marketplace",
+      "source": "ozon",
+      "updatedAt": "2026-10-16T02:18:38.37987+00:00"
+    },
+    {
+      "sku": "R8K0821653A",
+      "title": "Кожух порога (накладка) Audi A4 B8 2008-2015 8K0821653A",
+      "site": 0,
+      "wb": 0,
+      "oz": 0,
+      "inventoryAuthority": "marketplace",
+      "source": "ozon",
+      "updatedAt": "2026-10-16T02:18:38.381006+00:00"
+    },
+    {
+      "sku": "wb11pod",
+      "title": "Подставка для наушников и часов",
+      "site": 0,
+      "wb": 0,
+      "oz": 0,
+      "inventoryAuthority": "marketplace",
+      "source": "ozon",
+      "updatedAt": "2026-10-16T02:18:38.385086+00:00"
+    }
+  ],
+  "mismatches": [
+    {
+      "sku": "KLINT-HK-SKEL-01",
+      "title": "Брелок-фигурка Hello Kitty Скелет, 3D, чёрно-белый",
+      "site": 80,
+      "wb": 80,
+      "oz": 85,
+      "inventoryAuthority": "marketplace",
+      "source": "ozon",
+      "updatedAt": "2026-10-16T02:18:38.390828+00:00"
+    }
+  ],
+  "transferErrors": [
+    {
+      "sku": "KLINT-DACHSHUND-TRAY-ASA-WH-001",
+      "marketplace": "wb",
+      "status": "error",
+      "error": "HTTP_429: {\"status\":429,\"statusText\":\"Too Many Requests\",\"title\":\"Too Many Requests\",\"detail\":\"rate limit exceeded, retry after the period specified in the X-RateLimit-Retry header\",\"requestId\":\"0e0904e0ed8ce0ecfab51bdcc019e8b9\",\"origin\":\"ag-content\",\"timestamp\":\"2026-10-15T13:14:57Z\"}",
+      "created_at": "2026-10-15T13:14:57.050Z"
+    },
+    {
+      "sku": "AUDI-A4B8-XENON-COVER-2PCS",
+      "marketplace": "wb",
+      "status": "error",
+      "error": "HTTP_429: {\"status\":429,\"statusText\":\"Too Many Requests\",\"title\":\"Too Many Requests\",\"detail\":\"rate limit exceeded, retry after the period specified in the X-RateLimit-Retry header\",\"requestId\":\"d4dde460420c7ec31be0db3e810862d4\",\"origin\":\"ag-content\",\"timestamp\":\"2026-10-15T13:14:56Z\"}",
+      "created_at": "2026-10-15T13:14:56.450Z"
+    },
+    {
+      "sku": "AUDI-ARCH-A4B8-A58T",
+      "marketplace": "wb",
+      "status": "error",
+      "error": "HTTP_429: {\"status\":429,\"statusText\":\"Too Many Requests\",\"title\":\"Too Many Requests\",\"detail\":\"rate limit exceeded, retry after the period specified in the X-RateLimit-Retry header\",\"requestId\":\"7f04e3787b479978f3e5101b8ab00140\",\"origin\":\"ag-content\",\"timestamp\":\"2026-10-15T13:14:55Z\"}",
+      "created_at": "2026-10-15T13:14:55.846Z"
+    },
+    {
+      "sku": "AUDI-ARCH-A4B8-A58T",
+      "marketplace": "wb",
+      "status": "error",
+      "error": "It is unacceptable to send duplicate requests!",
+      "created_at": "2026-10-15T13:14:54.054Z"
+    },
+    {
+      "sku": "KLINT-HK-SKEL-01",
+      "marketplace": "wb",
+      "status": "error",
+      "error": "HTTP_429: {\"status\":429,\"statusText\":\"Too Many Requests\",\"title\":\"Too Many Requests\",\"detail\":\"rate limit exceeded, retry after the period specified in the X-RateLimit-Retry header\",\"requestId\":\"ad16aee376c69c8624cf93f554f164a1\",\"origin\":\"ag-content\",\"timestamp\":\"2026-10-15T09:04:02Z\"}",
+      "created_at": "2026-10-15T09:04:02.078Z"
+    },
+    {
+      "sku": "AUDI-ARCH-A4B8-A58T",
+      "marketplace": "wb",
+      "status": "error",
+      "error": "It is unacceptable to send duplicate requests!",
+      "created_at": "2026-10-15T09:04:01.012Z"
+    },
+    {
+      "sku": "RYBSTypeCTypeC",
+      "marketplace": "wb",
+      "status": "error",
+      "error": "HTTP_429: {\"status\":429,\"statusText\":\"Too Many Requests\",\"title\":\"Too Many Requests\",\"detail\":\"rate limit exceeded, retry after the period specified in the X-RateLimit-Retry header\",\"requestId\":\"304ef7094b3d584d20f42ee26c67e0e1\",\"origin\":\"ag-content\",\"timestamp\":\"2026-10-14T11:14:17Z\"}",
+      "created_at": "2026-10-14T11:14:17.087Z"
+    },
+    {
+      "sku": "RybsTypeCC60WW",
+      "marketplace": "wb",
+      "status": "error",
+      "error": "HTTP_429: {\"status\":429,\"statusText\":\"Too Many Requests\",\"title\":\"Too Many Requests\",\"detail\":\"rate limit exceeded, retry after the period specified in the X-RateLimit-Retry header\",\"requestId\":\"115da16bf87dc32bec56a5e2e824bfe7\",\"origin\":\"ag-content\",\"timestamp\":\"2026-10-14T11:14:16Z\"}",
+      "created_at": "2026-10-14T11:14:16.501Z"
+    },
+    {
+      "sku": "DAK8T54A53A",
+      "marketplace": "wb",
+      "status": "error",
+      "error": "HTTP_429: {\"status\":429,\"statusText\":\"Too Many Requests\",\"title\":\"Too Many Requests\",\"detail\":\"rate limit exceeded, retry after the period specified in the X-RateLimit-Retry header\",\"requestId\":\"0e358e20edfbfae4f6f6cb8ac64f35e6\",\"origin\":\"ag-content\",\"timestamp\":\"2026-10-14T11:14:16Z\"}",
+      "created_at": "2026-10-14T11:14:16.488Z"
+    },
+    {
+      "sku": "MinecraftSkeletonW",
+      "marketplace": "wb",
+      "status": "error",
+      "error": "HTTP_429: {\"status\":429,\"statusText\":\"Too Many Requests\",\"title\":\"Too Many Requests\",\"detail\":\"rate limit exceeded, retry after the period specified in the X-RateLimit-Retry header\",\"requestId\":\"458f981362e7d65eac67f3b29e7e9fe1\",\"origin\":\"ag-content\",\"timestamp\":\"2026-10-14T11:14:15Z\"}",
+      "created_at": "2026-10-14T11:14:15.882Z"
+    },
+    {
+      "sku": "R8K0821653A",
+      "marketplace": "wb",
+      "status": "error",
+      "error": "HTTP_429: {\"status\":429,\"statusText\":\"Too Many Requests\",\"title\":\"Too Many Requests\",\"detail\":\"rate limit exceeded, retry after the period specified in the X-RateLimit-Retry header\",\"requestId\":\"97247638dc84d969a67edcdc8abbffab\",\"origin\":\"ag-content\",\"timestamp\":\"2026-10-14T11:13:59Z\"}",
+      "created_at": "2026-10-14T11:13:59.057Z"
+    },
+    {
+      "sku": "AUDI-ARCH-A4B8-A58T",
+      "marketplace": "wb",
+      "status": "error",
+      "error": "HTTP_429: {\"status\":429,\"statusText\":\"Too Many Requests\",\"title\":\"Too Many Requests\",\"detail\":\"rate limit exceeded, retry after the period specified in the X-RateLimit-Retry header\",\"requestId\":\"18152253ee14243ab78238536f73b395\",\"origin\":\"ag-content\",\"timestamp\":\"2026-10-14T11:13:56Z\"}",
+      "created_at": "2026-10-14T11:13:56.666Z"
+    },
+    {
+      "sku": "MOTO46C",
+      "marketplace": "wb",
+      "status": "error",
+      "error": "HTTP_429: {\"status\":429,\"statusText\":\"Too Many Requests\",\"title\":\"Too Many Requests\",\"detail\":\"rate limit exceeded, retry after the period specified in the X-RateLimit-Retry header\",\"requestId\":\"6c58b20b239553adb43353764e504f16\",\"origin\":\"ag-content\",\"timestamp\":\"2026-10-14T11:06:13Z\"}",
+      "created_at": "2026-10-14T11:06:13.891Z"
+    },
+    {
+      "sku": "R8T0821653A",
+      "marketplace": "wb",
+      "status": "error",
+      "error": "HTTP_429: {\"status\":429,\"statusText\":\"Too Many Requests\",\"title\":\"Too Many Requests\",\"detail\":\"rate limit exceeded, retry after the period specified in the X-RateLimit-Retry header\",\"requestId\":\"3cd10c1208e11c2acfc11c26dda32389\",\"origin\":\"ag-content\",\"timestamp\":\"2026-10-14T11:06:13Z\"}",
+      "created_at": "2026-10-14T11:06:13.285Z"
+    },
+    {
+      "sku": "wb11pod",
+      "marketplace": "wb",
+      "status": "error",
+      "error": "HTTP_429: {\"status\":429,\"statusText\":\"Too Many Requests\",\"title\":\"Too Many Requests\",\"detail\":\"rate limit exceeded, retry after the period specified in the X-RateLimit-Retry header\",\"requestId\":\"257b0af44b0bca12a4bdc5775f20eb8c\",\"origin\":\"ag-content\",\"timestamp\":\"2026-10-14T11:06:12Z\"}",
+      "created_at": "2026-10-14T11:06:12.682Z"
+    },
+    {
+      "sku": "AUDI-ARCH-A4B8-A58T",
+      "marketplace": "wb",
+      "status": "error",
+      "error": "HTTP_429: {\"status\":429,\"statusText\":\"Too Many Requests\",\"title\":\"Too Many Requests\",\"detail\":\"rate limit exceeded, retry after the period specified in the X-RateLimit-Retry header\",\"requestId\":\"365c1720152123d8c1790facb4e8f686\",\"origin\":\"ag-content\",\"timestamp\":\"2026-10-14T11:06:12Z\"}",
+      "created_at": "2026-10-14T11:06:12.083Z"
+    },
+    {
+      "sku": "RYBSTypeCTypeC",
+      "marketplace": "wb",
+      "status": "error",
+      "error": "HTTP_429: {\"status\":429,\"statusText\":\"Too Many Requests\",\"title\":\"Too Many Requests\",\"detail\":\"rate limit exceeded, retry after the period specified in the X-RateLimit-Retry header\",\"requestId\":\"055534905ab6558ab66e2a4cccc9bd40\",\"origin\":\"ag-content\",\"timestamp\":\"2026-10-14T11:03:59Z\"}",
+      "created_at": "2026-10-14T11:03:59.325Z"
+    },
+    {
+      "sku": "DAK8T54A53A",
+      "marketplace": "wb",
+      "status": "error",
+      "error": "HTTP_429: {\"status\":429,\"statusText\":\"Too Many Requests\",\"title\":\"Too Many Requests\",\"detail\":\"rate limit exceeded, retry after the period specified in the X-RateLimit-Retry header\",\"requestId\":\"5e784f3aa3db1272ba4cbb2677480b02\",\"origin\":\"ag-content\",\"timestamp\":\"2026-10-14T11:03:58Z\"}",
+      "created_at": "2026-10-14T11:03:58.726Z"
+    },
+    {
+      "sku": "DAK1",
+      "marketplace": "wb",
+      "status": "error",
+      "error": "HTTP_429: {\"status\":429,\"statusText\":\"Too Many Requests\",\"title\":\"Too Many Requests\",\"detail\":\"rate limit exceeded, retry after the period specified in the X-RateLimit-Retry header\",\"requestId\":\"5b22b40611a63e46a49bbd60433626c0\",\"origin\":\"ag-content\",\"timestamp\":\"2026-10-14T11:03:58Z\"}",
+      "created_at": "2026-10-14T11:03:58.125Z"
+    },
+    {
+      "sku": "r87878877778",
+      "marketplace": "wb",
+      "status": "error",
+      "error": "HTTP_429: {\"status\":429,\"statusText\":\"Too Many Requests\",\"title\":\"Too Many Requests\",\"detail\":\"rate limit exceeded, retry after the period specified in the X-RateLimit-Retry header\",\"requestId\":\"9724130d6af77c83360134afb4680143\",\"origin\":\"ag-content\",\"timestamp\":\"2026-10-14T11:03:57Z\"}",
+      "created_at": "2026-10-14T11:03:57.521Z"
+    }
+  ],
+  "recentOrders": [
+    {
+      "source": "wildberries",
+      "external_id": "6039187461",
+      "status": "sorted",
+      "total_amount": 408,
+      "items": [
+        {
+          "nmId": 283949123,
+          "skus": [
+            "2041846198863"
+          ],
+          "price": 408,
+          "chrtId": 435162798,
+          "article": "RybsTypeCC60W",
+          "quantity": 1
+        }
+      ],
+      "external_created_at": "2026-10-14T22:02:53.000Z"
+    },
+    {
+      "source": "wildberries",
+      "external_id": "6006959853",
+      "status": "declined_by_client",
+      "total_amount": 104200,
+      "items": [
+        {
+          "nmId": 843194324,
+          "skus": [
+            "2049231115884"
+          ],
+          "price": 104200,
+          "chrtId": 1266703234,
+          "article": "R8K0821653A",
+          "quantity": 1
+        }
+      ],
+      "external_created_at": "2026-10-11T10:13:39.000Z"
+    },
+    {
+      "source": "ozon",
+      "external_id": "32949062-0639-1",
+      "status": "delivered",
+      "total_amount": 299,
+      "items": [
+        {
+          "sku": 5330984963,
+          "name": "Подпорка (фиксатор) для пластикового окна ASA ограничитель открывания, защита от захлопывания, стопор окна",
+          "price": 299,
+          "offerId": "DAK1",
+          "quantity": 1
+        }
+      ],
+      "external_created_at": "2026-10-07T05:08:42.000Z"
+    },
+    {
+      "source": "wildberries",
+      "external_id": "5964627895",
+      "status": "ready_for_pickup",
+      "total_amount": 430000,
+      "items": [
+        {
+          "nmId": 1363287832,
+          "skus": [
+            "2054464529575"
+          ],
+          "price": 430000,
+          "chrtId": 2028341364,
+          "article": "8K0821653Along",
+          "quantity": 1
+        }
+      ],
+      "external_created_at": "2026-10-06T04:08:14.000Z"
+    },
+    {
+      "source": "ozon",
+      "external_id": "0158293460-0274-4",
+      "status": "cancelled",
+      "total_amount": 1964,
+      "items": [
+        {
+          "sku": 5279891677,
+          "name": "Декоративные универсальные накладки арки крыла Audi A4 B8 A5 8T",
+          "price": 1964,
+          "offerId": "FenderAudiA4B8front",
+          "quantity": 1
+        }
+      ],
+      "external_created_at": "2026-10-05T09:46:54.000Z"
+    },
+    {
+      "source": "wildberries",
+      "external_id": "5946103568",
+      "status": "canceled_by_client",
+      "total_amount": 434000,
+      "items": [
+        {
+          "nmId": 1363287832,
+          "skus": [
+            "2054464529575"
+          ],
+          "price": 434000,
+          "chrtId": 2028341364,
+          "article": "8K0821653Along",
+          "quantity": 1
+        }
+      ],
+      "external_created_at": "2026-10-03T19:17:29.000Z"
+    }
+  ]
+}
