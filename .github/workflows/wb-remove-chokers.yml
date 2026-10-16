@@ -47,7 +47,19 @@ jobs:
           if(!token) throw new Error('WB_API_TOKEN is not configured');
           const cached=JSON.parse(readFileSync('/tmp/wb-cards.json','utf8'));
           const cards=Array.isArray(cached)?cached:[];
-          const matched=cards.filter(card=>/choker|чокер/i.test(JSON.stringify(card)));
+          let cursor={limit:100};
+          for(let page=0;page<100;page++){
+            const res=await fetch('https://content-api.wildberries.ru/content/v2/get/cards/list',{method:'POST',headers:{Authorization:token,'Content-Type':'application/json'},body:JSON.stringify({settings:{cursor,filter:{withPhoto:-1},sort:{ascending:false}}}),signal:AbortSignal.timeout(20000)});
+            const text=await res.text();
+            let data={}; try{data=text?JSON.parse(text):{}}catch{}
+            if(!res.ok) throw new Error(`WB catalog read ${res.status}: ${text.slice(0,500)}`);
+            const part=Array.isArray(data?.cards)?data.cards:[];
+            cards.push(...part);
+            if(part.length<100||!data?.cursor?.updatedAt||!data?.cursor?.nmID) break;
+            cursor={limit:100,updatedAt:data.cursor.updatedAt,nmID:data.cursor.nmID};
+          }
+          const uniqueCards=[...new Map(cards.map(card=>[String(card?.nmID||card?.vendorCode||JSON.stringify(card)),card])).values()];
+          const matched=uniqueCards.filter(card=>/chok+er|чок+ер/i.test(JSON.stringify(card)));
           if(!matched.length) throw new Error('No Choker products found in WB catalog cache');
           const stocks=[];
           const products=[];
