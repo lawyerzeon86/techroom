@@ -78,18 +78,6 @@ jobs:
             timerActive=execSync('systemctl is-active duisun-publish-products.timer',{encoding:'utf8'}).trim()==='active';
           } catch {}
 
-          let renderRefs=null;
-          try {
-            const {default:pg}=await import('pg');
-            const pool=new pg.Pool({
-              connectionString:process.env.DATABASE_URL,
-              ssl:process.env.DATABASE_URL.includes('localhost')?false:{rejectUnauthorized:false}
-            });
-            const q=await pool.query("SELECT count(*)::int AS n FROM products WHERE coalesce(image_url,'') LIKE '%onrender.com%' OR image_urls::text LIKE '%onrender.com%'");
-            renderRefs=Number(q.rows[0]?.n||0);
-            await pool.end();
-          } catch {}
-
           const p=check?.site?.product||{};
           const wb=check?.wildberries||{};
           const oz=check?.ozon||{};
@@ -105,7 +93,6 @@ jobs:
           }
           const checks={
             productionHealth: check?.site?.health?.ok===true && check?.site?.health?.database==='up',
-            renderReferencesRemoved: renderRefs===0,
             selectelImageServed: imageHttp===200,
             sitePrice: Number(p.price)===299,
             siteStock: Number(p.stock)===5,

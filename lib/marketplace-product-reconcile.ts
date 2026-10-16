@@ -27,10 +27,7 @@ async function read(res:Response){
 function canonicalImage(url:string|null){
   if(!url)return null;
   try{
-    const u=new URL(url);
-    if(/(?:^|\.)onrender\.com$/i.test(u.hostname)||/techroom-main\.onrender\.com/i.test(u.hostname)){
-      return 'https://duisun.ru'+u.pathname;
-    }
+    new URL(url);
     return url;
   }catch{
     return 'https://duisun.ru'+(url.startsWith('/')?'':'/')+url;

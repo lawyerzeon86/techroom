@@ -6,7 +6,7 @@ const wantsAction=/\b(sync|repair|publish)\b/i.test(request);
 const sku=(request.match(/\bsku[:= ]([A-Za-z0-9._-]+)/i)?.[1]||request.match(/\b(dskgothtoy1)\b/i)?.[1]||'dskgothtoy1').trim();
 const pool=new pg.Pool({connectionString:process.env.DATABASE_URL,ssl:process.env.DATABASE_URL?.includes('localhost')?false:{rejectUnauthorized:false}});
 
-const out={checkedAt:new Date().toISOString(),request,sku,health:null,renderReferences:null,product:null,warehouses:{wb:false,ozon:false},marketplace:{ozon:null,wildberries:null},actions:[],sync:null};
+const out={checkedAt:new Date().toISOString(),request,sku,health:null,product:null,warehouses:{wb:false,ozon:false},marketplace:{ozon:null,wildberries:null},actions:[],sync:null};
 
 async function fetchJson(url,init={}){
   const r=await fetch(url,{...init,cache:'no-store'});
@@ -61,16 +61,6 @@ async function ozItem(){
 
 try{
   if(wantsAction){
-    const migrated=await pool.query(`
-      UPDATE products SET
-        image_url=CASE WHEN image_url LIKE 'https://techroom-main.onrender.com/%'
-          THEN replace(image_url,'https://techroom-main.onrender.com','https://duisun.ru') ELSE image_url END,
-        image_urls=(SELECT COALESCE(jsonb_agg(to_jsonb(replace(value,'https://techroom-main.onrender.com','https://duisun.ru'))),'[]'::jsonb) FROM jsonb_array_elements_text(image_urls)),
-        updated_at=NOW()
-      WHERE image_url LIKE 'https://techroom-main.onrender.com/%' OR image_urls::text LIKE '%techroom-main.onrender.com%'
-    `);
-    out.actions.push({action:'migrate_render_urls',rows:migrated.rowCount});
-
     await pool.query(`
       INSERT INTO price_sheet(sku,product_id,title,price,min_price,sync_ozon,sync_wb,updated_at)
       SELECT sku,id,title,price,0,TRUE,TRUE,NOW() FROM products WHERE sku=$1
@@ -80,7 +70,7 @@ try{
     const wh=await discoverWarehouses();
     const p=await getProduct();
     if(p){
-      const image=String(p.image_url||'').replace('https://techroom-main.onrender.com','https://duisun.ru');
+      const image=String(p.image_url||'');
 
       if(process.env.OZON_CLIENT_ID&&process.env.OZON_API_KEY){
         const pricePayload={prices:[{offer_id:sku,price:String(p.price),old_price:'0',premium_price:'0',auto_action_enabled:'DISABLED'}]};
@@ -127,8 +117,6 @@ try{
 
   try{const r=await fetch('http://127.0.0.1:3000/api/health');out.health=await r.json()}catch(e){out.health={ok:false,error:String(e?.message||e)}}
   out.product=await getProduct();
-  out.renderReferences=Number((await pool.query("SELECT count(*)::int AS n FROM products WHERE image_url LIKE '%onrender.com%' OR image_urls::text LIKE '%onrender.com%'")).rows[0]?.n||0);
-
   if(process.env.OZON_CLIENT_ID&&process.env.OZON_API_KEY){
     const {r,x}=await ozItem();
     out.marketplace.ozon={ok:r.ok,status:r.status,item:x?{id:x.id||x.product_id||null,offer_id:x.offer_id||null,name:x.name||null,price:x.price||null,images:Array.isArray(x.images)?x.images.length:null,stocks:x.stocks||null,visible:x.visible??null,status:x.status||null}:null};

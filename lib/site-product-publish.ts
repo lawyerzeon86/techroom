@@ -32,10 +32,6 @@ function absImage(url:string|null){
   if(!url)return null;
   const base=(process.env.PUBLIC_STORE_URL||'https://duisun.ru').replace(/\/$/,'');
   if(/^https?:\/\//i.test(url)){
-    try{
-      const u=new URL(url);
-      if(/(?:^|\\.)onrender\\.com$/i.test(u.hostname)||/techroom-main\\.onrender\\.com/i.test(u.hostname))return base+u.pathname;
-    }catch{}
     return url;
   }
   return base+(url.startsWith('/')?'':'/')+url;
