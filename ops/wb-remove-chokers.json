@@ -1,0 +1,27 @@
+{
+  "ok": true,
+  "checkedAt": "2026-10-16T11:38:01.817Z",
+  "warehouseId": "604848",
+  "matchedProducts": 1,
+  "updatedBarcodes": 1,
+  "products": [
+    {
+      "nmID": "166016501",
+      "vendorCode": "RYBSChoker2",
+      "title": "Чокер из бисера",
+      "skus": [
+        "2038062385344"
+      ],
+      "chrtIds": [
+        276355152
+      ]
+    }
+  ],
+  "verifiedStocks": [
+    {
+      "sku": "2038062385344",
+      "chrtId": 276355152,
+      "amount": 0
+    }
+  ]
+}
