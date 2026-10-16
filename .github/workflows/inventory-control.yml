@@ -1,0 +1,97 @@
+name: Take inventory control
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'ops/inventory-control.trigger'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  control:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set Duisun inventory authority and publish stock
+        env:
+          HOST: ${{ secrets.SELECTEL_HOST }}
+          PORT: ${{ secrets.SELECTEL_PORT }}
+          USER: ${{ secrets.SELECTEL_USER }}
+          SSH_KEY: ${{ secrets.SELECTEL_SSH_KEY }}
+        run: |
+          set -euo pipefail
+          mkdir -p ~/.ssh; chmod 700 ~/.ssh
+          printf '%s\n' "$SSH_KEY" > ~/.ssh/id_ed25519; chmod 600 ~/.ssh/id_ed25519
+          ssh-keyscan -p "${PORT:-22}" "$HOST" >> ~/.ssh/known_hosts
+          ssh -o ServerAliveInterval=20 -o ServerAliveCountMax=10 -p "${PORT:-22}" "${USER:-root}@$HOST" 'bash -s' > /tmp/inventory-control.json <<'REMOTE'
+          set -euo pipefail
+          cd /var/www/duisun
+          set -a; source .env.production; set +a
+          node --input-type=module <<'NODE'
+          import pg from 'pg';
+          const amount=5;
+          const pool=new pg.Pool({connectionString:process.env.DATABASE_URL,ssl:process.env.DATABASE_URL?.includes('localhost')?false:{rejectUnauthorized:false},max:1});
+          async function json(url,init){
+            const r=await fetch(url,{...init,signal:AbortSignal.timeout(45000)});const t=await r.text();let j={};try{j=t?JSON.parse(t):{}}catch{j={raw:t}}
+            if(!r.ok)throw new Error('HTTP_'+r.status+': '+t.slice(0,500));return j;
+          }
+          const out={at:new Date().toISOString(),amount,database:null,ozon:null,wildberries:null};
+          try{
+            await pool.query("ALTER TABLE products ADD COLUMN IF NOT EXISTS inventory_authority TEXT NOT NULL DEFAULT 'marketplace'");
+            const u=await pool.query("UPDATE products SET stock=$1,inventory_authority='site',updated_at=NOW() WHERE is_active=TRUE RETURNING sku",[amount]);
+            await pool.query("UPDATE price_sheet SET sync_ozon=TRUE,sync_wb=TRUE,updated_at=NOW() WHERE sku=ANY($1::text[])",[u.rows.map(x=>x.sku)]).catch(()=>{});
+            out.database={updated:u.rowCount,authority:'site',stock:amount};
+
+            const ozHeaders={'Client-Id':process.env.OZON_CLIENT_ID||'','Api-Key':process.env.OZON_API_KEY||'','Content-Type':'application/json'};
+            const ozWh=Number(process.env.OZON_WAREHOUSE_ID||0);
+            let ozItems=[],cursor='';
+            for(let page=0;page<20;page++){
+              const d=await json('https://api-seller.ozon.ru/v4/product/info/stocks',{method:'POST',headers:ozHeaders,body:JSON.stringify({filter:{visibility:'ALL'},cursor,limit:1000})});
+              const items=d.items||d.result?.items||[];ozItems.push(...items);
+              const next=String(d.cursor||d.result?.cursor||'');if(!next||next===cursor||!items.length)break;cursor=next;
+            }
+            const active=new Set(u.rows.map(x=>String(x.sku)));
+            const ozStocks=ozItems.map(x=>String(x.offer_id||'')).filter(s=>active.has(s)).map(offer_id=>({offer_id,stock:amount,warehouse_id:ozWh}));
+            if(!ozWh)throw new Error('OZON_WAREHOUSE_ID_NOT_CONFIGURED');
+            const ozResult=ozStocks.length?await json('https://api-seller.ozon.ru/v2/products/stocks',{method:'POST',headers:ozHeaders,body:JSON.stringify({stocks:ozStocks})}):{};
+            const ozErrors=(ozResult.result||[]).flatMap(x=>(x.errors||[]).map(e=>({offerId:x.offer_id||x.product_id,code:e.code,message:e.message})));
+            out.ozon={requested:ozStocks.length,errors:ozErrors};
+
+            const wbHeaders={Authorization:process.env.WB_API_TOKEN||'','Content-Type':'application/json'};
+            let cards=[],wbCursor={limit:100};
+            for(let page=0;page<20;page++){
+              const d=await json('https://content-api.wildberries.ru/content/v2/get/cards/list',{method:'POST',headers:wbHeaders,body:JSON.stringify({settings:{cursor:wbCursor,filter:{withPhoto:-1},sort:{ascending:false}})});
+              cards.push(...(d.cards||[]));if(!d.cursor||Number(d.cursor.total)<100)break;
+              wbCursor={limit:100,updatedAt:d.cursor.updatedAt,nmID:d.cursor.nmID};
+            }
+            const wbStocks=[];
+            for(const c of cards)if(active.has(String(c.vendorCode||'')))for(const s of (c.sizes||[]))for(const barcode of (s.skus||[]))wbStocks.push({sku:String(barcode),amount});
+            const wbWh=String(process.env.WB_WAREHOUSE_ID||'604848');
+            let response=null;
+            for(let attempt=0;attempt<5;attempt++){
+              const r=await fetch('https://marketplace-api.wildberries.ru/api/v3/stocks/'+encodeURIComponent(wbWh),{method:'PUT',headers:wbHeaders,body:JSON.stringify({stocks:wbStocks})});
+              const t=await r.text();if(r.ok){response={ok:true,status:r.status};break}
+              if(r.status!==429)throw new Error('WB_'+r.status+': '+t.slice(0,500));
+              await new Promise(resolve=>setTimeout(resolve,Math.min(30000,3000*Math.pow(2,attempt))));
+            }
+            if(!response)throw new Error('WB_RATE_LIMIT_RETRIES_EXHAUSTED');
+            out.wildberries={requested:wbStocks.length,warehouse:wbWh,...response};
+          }finally{await pool.end()}
+          process.stdout.write(JSON.stringify(out,null,2));
+          NODE
+          REMOTE
+      - name: Commit result
+        run: |
+          set -euo pipefail
+          git fetch origin main
+          git reset --hard origin/main
+          cp /tmp/inventory-control.json ops/inventory-control.json
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add ops/inventory-control.json
+          git diff --cached --quiet || git commit -m "Record Duisun inventory control result [skip ci]"
+          git push origin HEAD:main
