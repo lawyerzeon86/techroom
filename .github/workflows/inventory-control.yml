@@ -64,7 +64,7 @@ jobs:
             const wbHeaders={Authorization:process.env.WB_API_TOKEN||'','Content-Type':'application/json'};
             let cards=[],wbCursor={limit:100};
             for(let page=0;page<20;page++){
-              const d=await json('https://content-api.wildberries.ru/content/v2/get/cards/list',{method:'POST',headers:wbHeaders,body:JSON.stringify({settings:{cursor:wbCursor,filter:{withPhoto:-1},sort:{ascending:false}})});
+              const d=await json('https://content-api.wildberries.ru/content/v2/get/cards/list',{method:'POST',headers:wbHeaders,body:JSON.stringify({settings:{cursor:wbCursor,filter:{withPhoto:-1},sort:{ascending:false}}})});
               cards.push(...(d.cards||[]));if(!d.cursor||Number(d.cursor.total)<100)break;
               wbCursor={limit:100,updatedAt:d.cursor.updatedAt,nmID:d.cursor.nmID};
             }
