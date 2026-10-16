@@ -1,0 +1,65 @@
+{
+  "at": "2026-10-16T06:22:33.199Z",
+  "amount": 5,
+  "database": {
+    "updated": 42,
+    "authority": "site",
+    "stock": 5
+  },
+  "ozon": {
+    "requested": 42,
+    "errors": [
+      {
+        "offerId": "MOTO46C",
+        "code": "NOT_PASS_MODERATION",
+        "message": "Product is not moderated"
+      },
+      {
+        "offerId": "RybsTypeCC60WW",
+        "code": "NOT_PASS_MODERATION",
+        "message": "Product is not moderated"
+      },
+      {
+        "offerId": "6A-3",
+        "code": "NOT_PASS_MODERATION",
+        "message": "Product is not moderated"
+      },
+      {
+        "offerId": "RYBSmicroUSB22",
+        "code": "NOT_PASS_MODERATION",
+        "message": "Product is not moderated"
+      },
+      {
+        "offerId": "5A-3",
+        "code": "NOT_PASS_MODERATION",
+        "message": "Product is not moderated"
+      },
+      {
+        "offerId": "6A120W",
+        "code": "NOT_PASS_MODERATION",
+        "message": "Product is not moderated"
+      },
+      {
+        "offerId": "RYBSlightningTypeC",
+        "code": "NOT_PASS_MODERATION",
+        "message": "Product is not moderated"
+      },
+      {
+        "offerId": "RybsTypeCC60W",
+        "code": "NOT_PASS_MODERATION",
+        "message": "Product is not moderated"
+      },
+      {
+        "offerId": "RybsCarCharger33W",
+        "code": "NOT_PASS_MODERATION",
+        "message": "Product is not moderated"
+      }
+    ]
+  },
+  "wildberries": {
+    "requested": 41,
+    "warehouse": "604848",
+    "ok": true,
+    "status": 204
+  }
+}
