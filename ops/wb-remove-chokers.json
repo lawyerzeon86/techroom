@@ -1,97 +1,89 @@
 {
   "ok": true,
-  "checkedAt": "2026-10-16T11:57:40.988Z",
+  "checkedAt": "2026-10-16T15:29:45.803Z",
   "warehouseId": "604848",
-  "matchedProducts": 1,
-  "updatedBarcodes": 1,
+  "matchedProducts": 3,
+  "updatedBarcodes": 3,
   "archivedNmIDs": [
-    166016501
+    167092772,
+    212941392,
+    214231714
   ],
   "products": [
     {
-      "nmID": "166016501",
-      "vendorCode": "RYBSChoker2",
-      "title": "Чокер из бисера",
+      "nmID": "167092772",
+      "vendorCode": "6A-3",
+      "title": "Кабель type-c 66W 6A",
       "skus": [
-        "2038062385344"
+        "2038099115150"
       ],
       "chrtIds": [
-        276355152
+        277933567
+      ]
+    },
+    {
+      "nmID": "212941392",
+      "vendorCode": "6A120W",
+      "title": "Кабель type-c 120W 6A",
+      "skus": [
+        "2039569648154"
+      ],
+      "chrtIds": [
+        340359934
+      ]
+    },
+    {
+      "nmID": "214231714",
+      "vendorCode": "RybsCarCharger33W",
+      "title": "Прикуриватель в машину зарядка",
+      "skus": [
+        "2039595425231"
+      ],
+      "chrtIds": [
+        342025181
       ]
     }
   ],
   "verifiedStocks": [
     {
-      "sku": "2038062385344",
-      "chrtId": 276355152,
+      "sku": "2038099115150",
+      "chrtId": 277933567,
+      "amount": 0
+    },
+    {
+      "sku": "2039569648154",
+      "chrtId": 340359934,
+      "amount": 0
+    },
+    {
+      "sku": "2039595425231",
+      "chrtId": 342025181,
       "amount": 0
     }
   ],
   "cause": {
     "priceSheet": [
       {
-        "sku": "RYBSChoker1",
-        "title": "Чокер из бисера",
-        "sync_wb": true,
-        "stock": 0
-      },
-      {
-        "sku": "RYBSChoker6",
-        "title": "Чокер из бисера",
-        "sync_wb": true,
-        "stock": 0
-      },
-      {
-        "sku": "RYBSChoker7",
-        "title": "Чокер из бисера",
-        "sync_wb": true,
-        "stock": 0
-      },
-      {
-        "sku": "RYBSChoker8",
-        "title": "Чокер из бисера",
-        "sync_wb": true,
-        "stock": 0
-      },
-      {
-        "sku": "RYBSChoker2",
-        "title": "Чокер из бисера",
+        "sku": "6A120W",
+        "title": "Кабель type-c 120W 6A",
         "sync_wb": true,
         "stock": 5
       },
       {
-        "sku": "RYBSChoker9",
-        "title": "Чокер из бисера",
+        "sku": "6A-3",
+        "title": "Кабель type-c 66W 6A",
         "sync_wb": true,
-        "stock": 0
-      },
-      {
-        "sku": "RYBSChoker3",
-        "title": "Чокер из бисера",
-        "sync_wb": true,
-        "stock": 0
-      },
-      {
-        "sku": "RYBSChoker4",
-        "title": "Чокер из бисера",
-        "sync_wb": true,
-        "stock": 0
-      },
-      {
-        "sku": "RYBSChoker5",
-        "title": "Чокер из бисера",
-        "sync_wb": true,
-        "stock": 0
+        "stock": 5
       }
     ],
     "recentSync": [
       {
-        "started_at": "2026-10-16T11:49:54.624342+00:00",
-        "finished_at": "2026-10-16T11:49:54.933503+00:00",
+        "started_at": "2026-10-16T15:14:36.763863+00:00",
+        "finished_at": "2026-10-16T15:14:37.74158+00:00",
         "ok": true,
         "result": {
           "ok": true,
-          "runId": 3954,
+          "runId": 3968,
           "forced": true,
           "stages": {
             "ozon": {
@@ -104,46 +96,7 @@
             },
             "wildberries": {
               "orders": {
-                "synced": 1,
-                "notified": 0
-              },
-              "reviews": 7,
-              "questions": {
-                "skipped": "next_communication_cycle"
-              }
-            }
-          },
-          "transfers": false,
-          "productHub": {
-            "site": null,
-            "facts": null,
-            "prune": null,
-            "imports": {},
-            "transfer": null
-          },
-          "communications": true
-        }
-      },
-      {
-        "started_at": "2026-10-16T11:34:08.05241+00:00",
-        "finished_at": "2026-10-16T11:34:08.425363+00:00",
-        "ok": true,
-        "result": {
-          "ok": true,
-          "runId": 3953,
-          "forced": true,
-          "stages": {
-            "ozon": {
-              "reviews": {
-                "skipped": "requires_premium_plus"
-              },
-              "questions": {
-                "skipped": "requires_premium_plus"
-              }
-            },
-            "wildberries": {
-              "orders": {
-                "synced": 1,
+                "synced": 2,
                 "notified": 0
               },
               "reviews": {
@@ -164,12 +117,12 @@
         }
       },
       {
-        "started_at": "2026-10-16T11:18:42.450701+00:00",
-        "finished_at": "2026-10-16T11:18:42.696329+00:00",
+        "started_at": "2026-10-16T14:58:58.737939+00:00",
+        "finished_at": "2026-10-16T14:58:59.040089+00:00",
         "ok": true,
         "result": {
           "ok": true,
-          "runId": 3952,
+          "runId": 3967,
           "forced": true,
           "stages": {
             "ozon": {
@@ -182,7 +135,7 @@
             },
             "wildberries": {
               "orders": {
-                "synced": 1,
+                "synced": 2,
                 "notified": 0
               },
               "reviews": 7,
@@ -203,12 +156,12 @@
         }
       },
       {
-        "started_at": "2026-10-16T11:02:59.0818+00:00",
-        "finished_at": "2026-10-16T11:02:59.379203+00:00",
+        "started_at": "2026-10-16T14:42:59.510802+00:00",
+        "finished_at": "2026-10-16T14:42:59.754227+00:00",
         "ok": true,
         "result": {
           "ok": true,
-          "runId": 3951,
+          "runId": 3966,
           "forced": true,
           "stages": {
             "ozon": {
@@ -221,7 +174,7 @@
             },
             "wildberries": {
               "orders": {
-                "synced": 1,
+                "synced": 2,
                 "notified": 0
               },
               "reviews": {
@@ -242,12 +195,12 @@
         }
       },
       {
-        "started_at": "2026-10-16T10:46:54.542666+00:00",
-        "finished_at": "2026-10-16T10:46:54.812306+00:00",
+        "started_at": "2026-10-16T14:27:17.092319+00:00",
+        "finished_at": "2026-10-16T14:27:18.196087+00:00",
         "ok": true,
         "result": {
           "ok": true,
-          "runId": 3950,
+          "runId": 3965,
           "forced": true,
           "stages": {
             "ozon": {
@@ -260,13 +213,52 @@
             },
             "wildberries": {
               "orders": {
-                "synced": 1,
+                "synced": 2,
                 "notified": 0
               },
               "reviews": 7,
               "questions": {
                 "skipped": "next_communication_cycle"
               }
+            }
+          },
+          "transfers": false,
+          "productHub": {
+            "site": null,
+            "facts": null,
+            "prune": null,
+            "imports": {},
+            "transfer": null
+          },
+          "communications": true
+        }
+      },
+      {
+        "started_at": "2026-10-16T14:11:18.280281+00:00",
+        "finished_at": "2026-10-16T14:11:18.564855+00:00",
+        "ok": true,
+        "result": {
+          "ok": true,
+          "runId": 3964,
+          "forced": true,
+          "stages": {
+            "ozon": {
+              "reviews": {
+                "skipped": "requires_premium_plus"
+              },
+              "questions": {
+                "skipped": "requires_premium_plus"
+              }
+            },
+            "wildberries": {
+              "orders": {
+                "synced": 2,
+                "notified": 0
+              },
+              "reviews": {
+                "skipped": "next_communication_cycle"
+              },
+              "questions": 0
             }
           },
           "transfers": false,
