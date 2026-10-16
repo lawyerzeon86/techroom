@@ -1,0 +1,34 @@
+{
+  "checkedAt": "2026-10-16T08:15:00.797Z",
+  "health": {
+    "ok": true,
+    "database": "up",
+    "responseMs": 1
+  },
+  "payments": {
+    "sbpAvailable": false
+  },
+  "catalog": {
+    "active": 42,
+    "zero": 0
+  },
+  "crm": {
+    "orders": 0,
+    "newOrders": 0,
+    "orderItems": 0
+  },
+  "notifications": {
+    "telegram": true,
+    "email": false
+  },
+  "paymentConfigured": false,
+  "legacyHosting": {
+    "environmentCleaned": false,
+    "databaseReferences": 0
+  },
+  "timers": {
+    "sync": "active",
+    "email": "active",
+    "publish": "active"
+  }
+}
